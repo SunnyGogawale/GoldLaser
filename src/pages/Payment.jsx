@@ -1,0 +1,1212 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info } from 'lucide-react'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
+const API_URL = `${API_BASE_URL}/api/payments`
+const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
+
+function Payment() {
+  const [paymentForm, setPaymentForm] = useState({
+    paymentNumber: '',
+    customerId: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    amount: 0,
+    description: ''
+  })
+
+  const [errors, setErrors] = useState({})
+  const [formSubmitted, setFormSubmitted] = useState(false)
+  const [editingPaymentId, setEditingPaymentId] = useState(null)
+
+  const [customers, setCustomers] = useState([])
+  const [customerSearchText, setCustomerSearchText] = useState('')
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
+
+  const [pendingInvoices, setPendingInvoices] = useState([])
+  const [totalPending, setTotalPending] = useState(0)
+  const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
+  const [dragInvoiceId, setDragInvoiceId] = useState(null)
+
+  const [payments, setPayments] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [listLoading, setListLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const isAdmin = (localStorage.getItem('userRole') || '').toLowerCase() === 'admin'
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [infoPayment, setInfoPayment] = useState(null)
+  const [infoLoading, setInfoLoading] = useState(false)
+  const [infoNowMs, setInfoNowMs] = useState(0)
+
+  const formatTimeAgo = (dateValue) => {
+    const d = dateValue ? new Date(dateValue) : null
+    if (!d || Number.isNaN(d.getTime())) return ''
+    if (!infoNowMs) return ''
+    const diffMs = infoNowMs - d.getTime()
+    const diffSec = Math.floor(diffMs / 1000)
+    if (diffSec < 10) return 'just now'
+    if (diffSec < 60) return `${diffSec} seconds ago`
+    const diffMin = Math.floor(diffSec / 60)
+    if (diffMin < 60) return `${diffMin} minutes ago`
+    const diffHr = Math.floor(diffMin / 60)
+    if (diffHr < 24) return `${diffHr} hours ago`
+    const diffDay = Math.floor(diffHr / 24)
+    return `${diffDay} days ago`
+  }
+
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearchText.trim().toLowerCase()
+    if (!q) return []
+    return customers.filter(c =>
+      c.customerName?.toLowerCase().includes(q) || c.id?.toLowerCase().includes(q)
+    )
+  }, [customers, customerSearchText])
+
+  useEffect(() => {
+    if (!paymentForm.customerId) {
+      setPendingInvoiceOrder([])
+      return
+    }
+    setPendingInvoiceOrder((prev) => {
+      const ids = pendingInvoices.map((i) => String(i._id))
+      if (!Array.isArray(prev) || prev.length === 0) return ids
+      const idSet = new Set(ids)
+      const next = prev.filter((id) => idSet.has(String(id)))
+      for (const id of ids) {
+        if (!next.includes(id)) next.push(id)
+      }
+      return next
+    })
+  }, [pendingInvoices, paymentForm.customerId])
+
+  const orderedPendingInvoices = useMemo(() => {
+    if (!Array.isArray(pendingInvoiceOrder) || pendingInvoiceOrder.length === 0) {
+      return [...pendingInvoices].sort((a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime())
+    }
+    const map = new Map(pendingInvoices.map((i) => [String(i._id), i]))
+    const ordered = pendingInvoiceOrder.map((id) => map.get(String(id))).filter(Boolean)
+    for (const inv of pendingInvoices) {
+      const key = String(inv._id)
+      if (!pendingInvoiceOrder.includes(key)) ordered.push(inv)
+    }
+    return ordered
+  }, [pendingInvoices, pendingInvoiceOrder])
+
+  const moveInvoiceBefore = (dragId, hoverId) => {
+    const fromId = String(dragId || '')
+    const toId = String(hoverId || '')
+    if (!fromId || !toId || fromId === toId) return
+    setPendingInvoiceOrder((prev) => {
+      const list = Array.isArray(prev) ? [...prev] : []
+      const fromIndex = list.indexOf(fromId)
+      const toIndex = list.indexOf(toId)
+      if (fromIndex === -1 || toIndex === -1) return list
+      list.splice(fromIndex, 1)
+      const nextIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
+      list.splice(nextIndex, 0, fromId)
+      return list
+    })
+  }
+
+  const allocationPreview = useMemo(() => {
+    const inputAmount = Math.max(0, Number(paymentForm.amount) || 0)
+    const amount = Math.min(inputAmount, Math.max(0, Number(totalPending) || 0))
+    let remaining = amount
+    const allocationMap = new Map()
+    for (const inv of orderedPendingInvoices) {
+      if (remaining <= 0) break
+      const pending = Math.max(0, Number(inv.pendingAmount) || 0)
+      const payNow = Math.min(pending, remaining)
+      allocationMap.set(String(inv._id), payNow)
+      remaining -= payNow
+    }
+    const allocatedTotal = amount - Math.max(0, remaining)
+    return { allocationMap, allocatedTotal, remaining: 0 }
+  }, [orderedPendingInvoices, paymentForm.amount, totalPending])
+
+  const fetchNextPaymentNumber = async () => {
+    try {
+      const response = await fetch(`${API_URL}/next-number`)
+      const data = await response.json()
+      setPaymentForm(prev => ({ ...prev, paymentNumber: data.nextNumber }))
+    } catch (err) {
+      console.error('Error fetching next payment number:', err)
+    }
+  }
+
+  const fetchCustomersList = async () => {
+    try {
+      const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`)
+      const data = await response.json()
+      setCustomers(data.customers || [])
+    } catch (err) {
+      console.error('Error fetching customers:', err)
+    }
+  }
+
+  const fetchPayments = async (page = 1, search = searchQuery) => {
+    setListLoading(true)
+    try {
+      const response = await fetch(`${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`)
+      const data = await response.json()
+      setPayments(data.payments || [])
+      setTotalPages(data.totalPages || 0)
+      setCurrentPage(page)
+    } catch (err) {
+      console.error('Error fetching payments:', err)
+    } finally {
+      setListLoading(false)
+    }
+  }
+
+  const fetchPendingInvoices = async (customerId, excludePaymentId) => {
+    if (!customerId) {
+      setPendingInvoices([])
+      setTotalPending(0)
+      return
+    }
+
+    try {
+      const url = new URL(`${API_URL}/pending`)
+      url.searchParams.set('customerId', customerId)
+      if (excludePaymentId) url.searchParams.set('excludePaymentId', excludePaymentId)
+      const response = await fetch(url.toString())
+      const data = await response.json()
+      setPendingInvoices(data.invoices || [])
+      setTotalPending(Number(data.totalPending) || 0)
+    } catch (err) {
+      console.error('Error fetching pending invoices:', err)
+      setPendingInvoices([])
+      setTotalPending(0)
+    }
+  }
+
+  useEffect(() => {
+    fetchCustomersList()
+    fetchNextPaymentNumber()
+  }, [])
+
+  useEffect(() => {
+    fetchPayments(1, searchQuery)
+  }, [searchQuery])
+
+  useEffect(() => {
+    if (!paymentForm.customerId) {
+      setPendingInvoices([])
+      setTotalPending(0)
+      return
+    }
+    fetchPendingInvoices(paymentForm.customerId, editingPaymentId)
+  }, [paymentForm.customerId, editingPaymentId])
+
+  const validateForm = () => {
+    const newErrors = {}
+
+    if (!paymentForm.customerId) newErrors.customerId = 'Please select a customer'
+    if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
+    const amount = Number(paymentForm.amount) || 0
+    if (!(amount > 0)) newErrors.amount = 'Payment amount must be greater than 0'
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault()
+    setFormSubmitted(true)
+    if (!validateForm()) return
+
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const payload = {
+        paymentNumber: paymentForm.paymentNumber,
+        customerId: paymentForm.customerId,
+        paymentDate: paymentForm.paymentDate,
+        amount: Math.min(Math.max(0, Number(paymentForm.amount) || 0), Math.max(0, Number(totalPending) || 0)),
+        description: paymentForm.description || '',
+        invoiceOrder: orderedPendingInvoices.map((inv) => String(inv._id))
+      }
+
+      const url = editingPaymentId ? `${API_URL}/${editingPaymentId}` : API_URL
+      const method = editingPaymentId ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(payload)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Error saving payment')
+      }
+
+      alert(editingPaymentId ? 'Payment updated successfully!' : 'Payment created successfully!')
+
+      setEditingPaymentId(null)
+      setPaymentForm({
+        paymentNumber: '',
+        customerId: '',
+        paymentDate: new Date().toISOString().split('T')[0],
+        amount: 0,
+        description: ''
+      })
+      setPendingInvoiceOrder([])
+      setDragInvoiceId(null)
+      setCustomerSearchText('')
+      setErrors({})
+      setFormSubmitted(false)
+      await fetchNextPaymentNumber()
+      await fetchPayments(1, searchQuery)
+    } catch (err) {
+      console.error('Error saving payment:', err)
+      alert(err.message || 'Error saving payment!')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const openInfo = async (payment) => {
+    setInfoOpen(true)
+    setInfoPayment(payment || null)
+    const id = payment?._id
+    if (!id) return
+    setInfoLoading(true)
+    setInfoNowMs(Date.now())
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/detail/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      const data = await response.json()
+      setInfoPayment(data || null)
+    } catch (err) {
+      console.error('Error fetching payment info:', err)
+    } finally {
+      setInfoLoading(false)
+    }
+  }
+
+  const refreshInfo = async () => {
+    const id = infoPayment?._id
+    if (!id) return
+    setInfoLoading(true)
+    setInfoNowMs(Date.now())
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_URL}/detail/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      const data = await response.json()
+      setInfoPayment(data || null)
+    } catch (err) {
+      console.error('Error refreshing payment info:', err)
+    } finally {
+      setInfoLoading(false)
+    }
+  }
+
+  const closeInfo = () => {
+    setInfoOpen(false)
+    setInfoPayment(null)
+  }
+
+  const handleCancelEdit = async () => {
+    setEditingPaymentId(null)
+    setPaymentForm({
+      paymentNumber: '',
+      customerId: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      amount: 0,
+      description: ''
+    })
+    setPendingInvoiceOrder([])
+    setDragInvoiceId(null)
+    setCustomerSearchText('')
+    setErrors({})
+    setFormSubmitted(false)
+    await fetchNextPaymentNumber()
+  }
+
+  const handleEditPayment = async (payment) => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_URL}/${payment._id}`)
+      const data = await response.json()
+      setPaymentForm({
+        paymentNumber: data.paymentNumber,
+        customerId: data.customerId?._id || data.customerId,
+        paymentDate: new Date(data.paymentDate).toISOString().split('T')[0],
+        amount: data.amount || 0,
+        description: data.description || ''
+      })
+      const custName = data.customerId?.customerName || ''
+      const custId = data.customerId?.id || ''
+      setCustomerSearchText(custName ? `${custName} (${custId})` : '')
+      setEditingPaymentId(data._id)
+      setErrors({})
+      setFormSubmitted(false)
+    } catch (err) {
+      console.error('Error loading payment:', err)
+      alert('Error loading payment!')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeletePayment = async (id) => {
+    if (!isAdmin) {
+      alert('Only admin can delete.')
+      return
+    }
+    if (!window.confirm('Are you sure you want to delete this payment?')) return
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        alert('Please login again.')
+        return
+      }
+      const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('userRole')
+          localStorage.removeItem('userFullName')
+          localStorage.removeItem('userEmail')
+          alert('Session expired. Please login again.')
+          window.location.href = '/login'
+          return
+        }
+        let message = 'Error deleting payment!'
+        try {
+          const errorData = await response.json()
+          if (errorData?.message) message = errorData.message
+        } catch {
+          // ignore
+        }
+        throw new Error(message)
+      }
+      if (editingPaymentId === id) {
+        await handleCancelEdit()
+      }
+      if (infoPayment?._id === id) {
+        closeInfo()
+      }
+
+      const nextPage = payments.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage
+      await fetchPayments(nextPage, searchQuery)
+      if (paymentForm.customerId) {
+        await fetchPendingInvoices(paymentForm.customerId, editingPaymentId)
+      }
+      alert('Payment deleted successfully!')
+    } catch (err) {
+      console.error('Error deleting payment:', err)
+      alert(err.message || 'Error deleting payment!')
+    }
+  }
+
+  const formatMoney = (value) =>
+    Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  const statusStyles = (status) => {
+    if (status === 'Paid') return { background: 'rgba(34,197,94,0.12)', color: 'rgb(34,197,94)' }
+    if (status === 'Partial') return { background: 'rgba(59,130,246,0.12)', color: 'rgb(59,130,246)' }
+    return { background: 'rgba(249,115,22,0.12)', color: 'rgb(249,115,22)' }
+  }
+
+  return (
+    <div className="dashboard-content" style={{ padding: '1rem' }}>
+      <div className="card" style={{ margin: '0 auto', width: '100%', padding: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
+            {editingPaymentId ? 'Edit Payment' : 'New Payment'}
+          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
+            <div
+              style={{
+                padding: '0.4rem 0.75rem',
+                border: '1px solid var(--border)',
+                borderRadius: 999,
+                background: 'var(--bg-main)',
+                color: 'var(--text-muted)',
+                fontSize: '0.875rem',
+                fontWeight: 800,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Payment No : {paymentForm.paymentNumber || 'xxxx'}
+            </div>
+            {editingPaymentId && (
+              <button
+                onClick={handleCancelEdit}
+                disabled={loading}
+                className="btn btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                <X size={16} />
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+
+        <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 280px', position: 'relative' }}>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                Select Customer <span style={{ color: 'var(--danger)' }}>*</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Search customer..."
+                  value={customerSearchText}
+                  onChange={(e) => {
+                    setCustomerSearchText(e.target.value)
+                    setIsCustomerDropdownOpen(e.target.value.length > 0)
+                    if (paymentForm.customerId) {
+                      setPaymentForm(prev => ({ ...prev, customerId: '' }))
+                    }
+                    if (formSubmitted && errors.customerId) {
+                      setErrors(prev => {
+                        const newE = { ...prev }
+                        delete newE.customerId
+                        return newE
+                      })
+                    }
+                  }}
+                  onFocus={(e) => {
+                    if (e.target.value.length > 0) setIsCustomerDropdownOpen(true)
+                  }}
+                  onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    border: `1px solid ${errors.customerId ? 'var(--danger)' : 'var(--border)'}`,
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-header)',
+                    outline: 'none'
+                  }}
+                />
+                {isCustomerDropdownOpen && filteredCustomers.length > 0 && (
+                  <ul style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    marginTop: '4px',
+                    padding: 0,
+                    listStyle: 'none',
+                    zIndex: 10,
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}>
+                    {filteredCustomers.map(customer => (
+                      <li
+                        key={customer._id}
+                        onClick={() => {
+                          setPaymentForm(prev => ({ ...prev, customerId: customer._id }))
+                          setCustomerSearchText(`${customer.customerName} (${customer.id})`)
+                          setIsCustomerDropdownOpen(false)
+                        }}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem',
+                          color: 'var(--text-header)',
+                          borderBottom: '1px solid var(--border)',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        {customer.customerName} ({customer.id})
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {formSubmitted && errors.customerId && (
+                <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.customerId}</p>
+              )}
+            </div>
+
+            <div style={{ flex: '1 1 280px' }}>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                Payment Date <span style={{ color: 'var(--danger)' }}>*</span>
+              </label>
+              <input
+                type="date"
+                name="paymentDate"
+                value={paymentForm.paymentDate}
+                onChange={(e) => {
+                  setPaymentForm(prev => ({ ...prev, paymentDate: e.target.value }))
+                  if (formSubmitted && errors.paymentDate) {
+                    setErrors(prev => {
+                      const ne = { ...prev }
+                      delete ne.paymentDate
+                      return ne
+                    })
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: `1px solid ${errors.paymentDate ? 'var(--danger)' : 'var(--border)'}`,
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-header)'
+                }}
+              />
+              {formSubmitted && errors.paymentDate && (
+                <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.paymentDate}</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem 0', color: 'var(--text-header)' }}>Pending Invoices</h3>
+            <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead style={{ background: 'var(--bg-main)' }}>
+                  <tr>
+                    <th style={{ padding: '0.5rem', textAlign: 'center', width: 70 }}>Priority</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Number</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Date</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'right' }}>Invoice Amount</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'right' }}>Paid Amount</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'right' }}>Pending Amount</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'right' }}>Will Pay</th>
+                    <th style={{ padding: '0.5rem', textAlign: 'center' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderedPendingInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        {paymentForm.customerId ? 'No pending invoices for this customer.' : 'Select a customer to view pending invoices.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    orderedPendingInvoices.map((inv, idx) => (
+                      <tr
+                        key={inv._id}
+                        style={{
+                          borderTop: '1px solid var(--border)',
+                          background: dragInvoiceId && String(inv._id) === String(dragInvoiceId) ? 'rgba(59,130,246,0.10)' : 'transparent'
+                        }}
+                        onDragOver={(e) => {
+                          if (!dragInvoiceId) return
+                          e.preventDefault()
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          if (!dragInvoiceId) return
+                          moveInvoiceBefore(dragInvoiceId, inv._id)
+                          setDragInvoiceId(null)
+                        }}
+                      >
+                        <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                          <div
+                            draggable
+                            onDragStart={(e) => {
+                              setDragInvoiceId(String(inv._id))
+                              e.dataTransfer.effectAllowed = 'move'
+                            }}
+                            onDragEnd={() => setDragInvoiceId(null)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 34,
+                              height: 30,
+                              border: '1px solid var(--border)',
+                              borderRadius: 10,
+                              background: 'var(--bg-card)',
+                              cursor: 'grab',
+                              userSelect: 'none',
+                              fontWeight: 900,
+                              color: 'var(--text-muted)'
+                            }}
+                            title="Drag to change priority"
+                          >
+                            {idx + 1}
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>{inv.invoiceNumber}</td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>{new Date(inv.invoiceDate).toLocaleDateString()}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(inv.invoiceAmount)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
+                          ₹{formatMoney((Number(inv.paidAmount) || 0) + (allocationPreview.allocationMap.get(String(inv._id)) || 0))}
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'rgb(249, 115, 22)', fontWeight: 700 }}>
+                          ₹{formatMoney(Math.max(0, (Number(inv.pendingAmount) || 0) - (allocationPreview.allocationMap.get(String(inv._id)) || 0)))}
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--text-header)' }}>
+                          ₹{formatMoney(allocationPreview.allocationMap.get(String(inv._id)) || 0)}
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '0.2rem 0.5rem',
+                            borderRadius: '999px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            ...statusStyles(inv.status)
+                          }}>
+                            {inv.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.08)' }}>
+                    <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                      Total Pending:
+                    </td>
+                    <td colSpan={3} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
+                      ₹{formatMoney(totalPending)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div style={{
+              marginTop: '0.75rem',
+              border: '1px solid rgba(59,130,246,0.25)',
+              background: 'rgba(59,130,246,0.08)',
+              padding: '0.75rem',
+              borderRadius: '6px',
+              fontSize: '0.875rem',
+              color: 'var(--text-header)'
+            }}>
+              <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Payment Logic:</span> Money will deduct by priority (Priority 1 first). If payment amount is more, remaining will go to Priority 2, Priority 3, etc. Allocated now ₹{formatMoney(allocationPreview.allocatedTotal)}.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 280px' }}>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                Payment Amount (₹) <span style={{ color: 'var(--danger)' }}>*</span>
+              </label>
+              <input
+                type="number"
+                value={paymentForm.amount}
+                onChange={(e) => {
+                  setPaymentForm(prev => ({ ...prev, amount: e.target.value }))
+                  if (formSubmitted && errors.amount) {
+                    setErrors(prev => {
+                      const ne = { ...prev }
+                      delete ne.amount
+                      return ne
+                    })
+                  }
+                }}
+                min="0"
+                step="0.01"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: `1px solid ${errors.amount ? 'var(--danger)' : 'var(--border)'}`,
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-header)'
+                }}
+              />
+              {formSubmitted && errors.amount && (
+                <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.amount}</p>
+              )}
+            </div>
+            <div style={{ flex: '1 1 280px' }}>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                Description
+              </label>
+              <input
+                type="text"
+                value={paymentForm.description}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, description: e.target.value }))}
+                disabled={loading}
+                placeholder="Enter payment description or notes"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-header)'
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+            {!editingPaymentId && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setPaymentForm({
+                    paymentNumber: '',
+                    customerId: '',
+                    paymentDate: new Date().toISOString().split('T')[0],
+                    amount: 0,
+                    description: ''
+                  })
+                  setPendingInvoiceOrder([])
+                  setDragInvoiceId(null)
+                  setCustomerSearchText('')
+                  setErrors({})
+                  setFormSubmitted(false)
+                  await fetchNextPaymentNumber()
+                }}
+                disabled={loading}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: 'var(--bg-main)',
+                  color: 'var(--text-header)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem'
+                }}
+              >
+                <RotateCcw size={14} /> Reset
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                padding: '0.5rem 1rem',
+                background: 'var(--primary)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem'
+              }}
+            >
+              <Save size={14} />
+              {loading ? 'Saving...' : editingPaymentId ? 'Update Payment' : 'Save Payment'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {(payments.length > 0 || listLoading || searchQuery) && (
+        <div className="card" style={{ margin: '1.5rem auto 0', width: '100%', padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Payment List</h2>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'var(--bg-main)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              padding: '0.35rem 0.6rem',
+              width: 'min(220px, 100%)',
+              flex: '0 0 auto',
+              marginLeft: 'auto'
+            }}>
+              <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
+              <input
+                type="text"
+                placeholder="Search by payment no or customer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  width: '100%',
+                  fontSize: '0.8125rem',
+                  color: 'var(--text-header)'
+                }}
+              />
+            </div>
+          </div>
+
+          {listLoading ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading payments...</div>
+          ) : payments.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+              No payments found matching &quot;{searchQuery}&quot;.
+            </div>
+          ) : (
+            <div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Payment No</th>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Customer</th>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Date</th>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Amount</th>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((payment) => (
+                      <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>{payment.paymentNumber}</td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          {(payment.customerId?.customerName || `${payment.customerId?.firstName || ''} ${payment.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() || 'Unknown')}{payment.customerId?.id ? ` (${payment.customerId.id})` : ''}
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>{new Date(payment.paymentDate).toLocaleDateString()}</td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>₹{formatMoney(payment.amount)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleEditPayment(payment)}
+                              style={{
+                                padding: '0.25rem',
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted)'
+                              }}
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => openInfo(payment)}
+                                style={{
+                                  padding: '0.25rem',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: 'var(--text-muted)'
+                                }}
+                                title="Info"
+                              >
+                                <Info size={14} />
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePayment(payment._id)}
+                                style={{
+                                  padding: '0.25rem',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: 'var(--danger)'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {totalPages > 1 && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  marginTop: '1.5rem'
+                }}>
+                  <button
+                    onClick={() => fetchPayments(currentPage - 1, searchQuery)}
+                    disabled={currentPage === 1}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: 'var(--bg-main)',
+                      color: 'var(--text-header)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                      opacity: currentPage === 1 ? 0.5 : 1,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Previous
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => fetchPayments(page, searchQuery)}
+                      disabled={page === currentPage}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: page === currentPage ? 'var(--primary)' : 'var(--bg-main)',
+                        color: page === currentPage ? 'white' : 'var(--text-header)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        cursor: page === currentPage ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        fontWeight: page === currentPage ? 700 : 400
+                      }}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => fetchPayments(currentPage + 1, searchQuery)}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: 'var(--bg-main)',
+                      color: 'var(--text-header)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                      opacity: currentPage === totalPages ? 0.5 : 1,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {infoOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeInfo()
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: 'min(520px, 96vw)',
+              maxHeight: '88vh',
+              overflow: 'auto',
+              padding: '1.25rem'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Recent Activity</div>
+                <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {infoPayment?.paymentNumber ? `Payment • ${infoPayment.paymentNumber}` : 'Payment'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={refreshInfo}
+                  disabled={infoLoading}
+                  style={{
+                    border: '1px solid var(--border)',
+                    background: 'transparent',
+                    borderRadius: 10,
+                    padding: '0.45rem',
+                    cursor: infoLoading ? 'not-allowed' : 'pointer',
+                    color: 'var(--text-muted)',
+                    opacity: infoLoading ? 0.6 : 1
+                  }}
+                  title="Refresh"
+                >
+                  <RotateCcw size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={closeInfo}
+                  style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                  title="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {(() => {
+              const record = infoPayment?.paymentNumber ? `Payment • ${infoPayment.paymentNumber}` : 'Payment'
+              const createdByName = infoPayment?.createdBy?.fullName || infoPayment?.createdByName || '-'
+              const createdByEmail = infoPayment?.createdBy?.email || infoPayment?.createdByEmail || '-'
+              const updatedByName = infoPayment?.updatedBy?.fullName || infoPayment?.updatedByName || '-'
+              const updatedByEmail = infoPayment?.updatedBy?.email || infoPayment?.updatedByEmail || '-'
+
+              const raw = Array.isArray(infoPayment?.activity) ? infoPayment.activity : []
+              let activities = raw
+                .filter((a) => a && a.action && a.at)
+                .slice()
+                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+
+              if (activities.length === 0) {
+                const fallback = []
+                if (infoPayment?.createdAt) {
+                  fallback.push({
+                    action: 'create',
+                    at: infoPayment.createdAt,
+                    userName: createdByName,
+                    userEmail: createdByEmail,
+                    changes: []
+                  })
+                }
+                if (infoPayment?.updatedAt && infoPayment?.createdAt && new Date(infoPayment.updatedAt).getTime() !== new Date(infoPayment.createdAt).getTime()) {
+                  fallback.unshift({
+                    action: 'update',
+                    at: infoPayment.updatedAt,
+                    userName: updatedByName,
+                    userEmail: updatedByEmail,
+                    changes: []
+                  })
+                }
+                activities = fallback
+              }
+
+              const items = activities.map((a, idx) => {
+                const isUpdate = a.action === 'update'
+                return {
+                  key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
+                  chip: isUpdate ? 'Update Payment' : 'Create Payment',
+                  method: isUpdate ? 'PUT' : 'POST',
+                  path: isUpdate ? '/api/payments/:id' : '/api/payments',
+                  at: a.at,
+                  icon: isUpdate ? '✎' : '+',
+                  iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
+                  iconColor: isUpdate ? '#1d4ed8' : '#065f46',
+                  userName: a.userName || (isUpdate ? updatedByName : createdByName) || '-',
+                  userEmail: a.userEmail || (isUpdate ? updatedByEmail : createdByEmail) || '-',
+                  record,
+                  changes: Array.isArray(a.changes) ? a.changes : []
+                }
+              })
+
+              return (
+                <div style={{ marginTop: '1rem' }}>
+                  {items.map((a, idx) => (
+                    <div key={a.key} style={{ display: 'flex', gap: '0.9rem', padding: '0.75rem 0' }}>
+                      <div style={{ width: 34, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 10,
+                            background: a.iconBg,
+                            color: a.iconColor,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
+                            border: '1px solid rgba(0,0,0,0.04)'
+                          }}
+                        >
+                          {a.icon}
+                        </div>
+                        {idx !== items.length - 1 && (
+                          <div style={{ flex: 1, width: 2, background: 'var(--border)', opacity: 0.6, marginTop: 8 }} />
+                        )}
+                      </div>
+
+                      <div
+                        style={{
+                          flex: 1,
+                          background: 'transparent',
+                          border: '1px solid var(--border)',
+                          borderRadius: 14,
+                          padding: '0.85rem 0.95rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: 999,
+                              background: 'transparent',
+                              border: '1px solid var(--border)',
+                              color: 'var(--text-header)',
+                              fontWeight: 800,
+                              fontSize: '0.85rem'
+                            }}
+                          >
+                            {a.chip}
+                          </div>
+                          <div
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: 999,
+                              border: '1px solid var(--border)',
+                              background: 'transparent',
+                              color: 'var(--text-muted)',
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            {infoLoading ? 'Loading...' : formatTimeAgo(a.at)}
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 10, color: 'var(--text-header)', fontWeight: 800, fontSize: '0.93rem' }}>
+                          {infoLoading ? 'Loading...' : a.userName}
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginLeft: 8 }}>
+                            {infoLoading ? '' : a.userEmail && a.userEmail !== '-' ? `• ${a.userEmail}` : ''}
+                          </span>
+                        </div>
+                        {Array.isArray(a.changes) && a.changes.length > 0 && (
+                          <div style={{ marginTop: 10 }}>
+                            <div style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '0.85rem' }}>Recent Changes</div>
+                            <div style={{ marginTop: 6, display: 'grid', gap: 4, color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>
+                              {a.changes.map((c, i) => (
+                                <div key={`${c.field}-${i}`}>
+                                  {c.field}: {String(c.from || '-').replace(/^"+|"+$/g, '')} → {String(c.to || '-').replace(/^"+|"+$/g, '')}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default Payment
