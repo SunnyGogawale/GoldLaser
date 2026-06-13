@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Edit2, Trash2, X } from 'lucide-react'
+import EmptyDataCard from '../components/EmptyDataCard'
+import { getAuthToken, getAuthValue } from '../utils/authStorage'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -14,8 +16,8 @@ function User() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  const token = useMemo(() => localStorage.getItem('token'), [])
-  const isAdmin = useMemo(() => (localStorage.getItem('userRole') || '').toLowerCase() === 'admin', [])
+  const token = useMemo(() => getAuthToken(), [])
+  const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])
 
   const fetchUsers = async () => {
     if (!isAdmin) return
@@ -165,6 +167,8 @@ function User() {
         <div style={{ marginTop: '1rem' }}>
           {loading ? (
             <div style={{ padding: '1rem', color: 'var(--text-muted)' }}>Loading...</div>
+          ) : users.length === 0 ? (
+            <EmptyDataCard />
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
@@ -178,12 +182,7 @@ function User() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '1rem', color: 'var(--text-muted)' }}>No users found.</td>
-                    </tr>
-                  ) : (
-                    users.map((u) => (
+                  {users.map((u) => (
                       <tr key={String(u._id)} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>{u.fullName || '-'}</td>
                         <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>{u.email || '-'}</td>
@@ -228,8 +227,7 @@ function User() {
                           </div>
                         </td>
                       </tr>
-                    ))
-                  )}
+                    ))}
                 </tbody>
               </table>
             </div>

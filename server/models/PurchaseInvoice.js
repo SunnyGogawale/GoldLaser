@@ -61,9 +61,9 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  customerId: {
+  vendorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer',
+    ref: 'Vendor',
     required: true
   },
   createdBy: {
@@ -111,4 +111,4 @@ const invoiceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('Invoice', invoiceSchema);
+module.exports = mongoose.model('PurchaseInvoice', invoiceSchema);

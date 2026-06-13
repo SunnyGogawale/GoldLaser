@@ -11,8 +11,12 @@ import {
   Sun,
   Menu,
   X,
-  Settings
+  Settings,
+  Truck,
+  CreditCard,
+  ClipboardCheck
 } from 'lucide-react'
+import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue } from '../utils/authStorage'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -30,9 +34,9 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordSaving, setPasswordSaving] = useState(false)
 
-  const isAdmin = (localStorage.getItem('userRole') || '').toLowerCase() === 'admin'
-  const userFullName = (localStorage.getItem('userFullName') || '').trim()
-  const userEmail = (localStorage.getItem('userEmail') || '').trim()
+  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
+  const userFullName = (getAuthValue('userFullName') || '').trim()
+  const userEmail = (getAuthValue('userEmail') || '').trim()
   const userRoleLabel = isAdmin ? 'Admin' : 'User'
   const userAvatarLetter = (userFullName || userEmail || userRoleLabel).trim().charAt(0).toUpperCase() || 'U'
 
@@ -60,14 +64,43 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     transition: 'all 0.2s'
   }
 
-  const navItems = [
-    { id: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-    { id: '/customer', icon: <Users size={20} />, label: 'Customer' },
-    { id: '/invoice', icon: <FileText size={20} />, label: 'Invoice' },
-    { id: '/payment', icon: <HandCoins size={20} />, label: 'Payment' },
-    { id: '/reports', icon: <FileText size={20} />, label: 'Reports' },
-    ...(isAdmin ? [{ id: '/user', icon: <User size={20} />, label: 'USER' }] : [])
+  const navSections = [
+    {
+      label: null,
+      items: [
+        { id: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' }
+      ]
+    },
+    {
+      label: 'Masters',
+      items: [
+        { id: '/customer', icon: <Users size={20} />, label: 'Customer Masters' },
+        { id: '/vendor', icon: <Truck size={20} />, label: 'Vender Masters' }
+      ]
+    },
+    {
+      label: 'Transactions',
+      items: [
+        { id: '/invoice', icon: <FileText size={20} />, label: 'Sales Invoice' },
+        { id: '/payment', icon: <CreditCard size={20} />, label: 'Sales Payment' },
+        { id: '/purchase-invoice', icon: <FileText size={20} />, label: 'Purchase Invoice' },
+        { id: '/purchase-payment', icon: <CreditCard size={20} />, label: 'Purchase Payment' }
+      ]
+    },
+    {
+      label: 'Reports',
+      items: [
+        { id: '/reports', icon: <ClipboardCheck size={20} />, label: 'Reports' }
+      ]
+    },
+    ...(isAdmin
+      ? [{
+          label: 'Admin',
+          items: [{ id: '/user', icon: <User size={20} />, label: 'User' }]
+        }]
+      : [])
   ]
+  const navItems = navSections.flatMap((section) => section.items)
 
   const activeItem = navItems.find(item => item.id === location.pathname)
 
@@ -110,7 +143,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     setProfileForm({ fullName: userFullName || '', email: userEmail || '' })
 
-    const token = localStorage.getItem('token')
+    const token = getAuthToken()
     if (!token) return
 
     setSettingsLoading(true)
@@ -125,11 +158,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
       }
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token')
-          localStorage.removeItem('userRole')
-          localStorage.removeItem('userFullName')
-          localStorage.removeItem('userEmail')
-          localStorage.removeItem('lastActivityAt')
+          clearAuthSession()
           setIsLoggedIn(false)
           navigate('/login', { replace: true })
           return
@@ -170,14 +199,10 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     if (!fullName) return alert('Full name is required')
     if (!email || !email.includes('@')) return alert('Valid email is required')
 
-    const token = localStorage.getItem('token')
+    const token = getAuthToken()
     if (!token) {
       alert('Please login again.')
-      localStorage.removeItem('token')
-      localStorage.removeItem('userRole')
-      localStorage.removeItem('userFullName')
-      localStorage.removeItem('userEmail')
-      localStorage.removeItem('lastActivityAt')
+          clearAuthSession()
       setIsLoggedIn(false)
       navigate('/login', { replace: true })
       return
@@ -204,11 +229,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         })
       }
       if (response.status === 401) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('userRole')
-        localStorage.removeItem('userFullName')
-        localStorage.removeItem('userEmail')
-        localStorage.removeItem('lastActivityAt')
+          clearAuthSession()
         setIsLoggedIn(false)
         navigate('/login', { replace: true })
         return
@@ -227,8 +248,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
       }
       const u = data?.user || null
       setSettingsUser(u)
-      localStorage.setItem('userFullName', String(u?.fullName || fullName))
-      localStorage.setItem('userEmail', String(u?.email || email))
+      setAuthValue('userFullName', String(u?.fullName || fullName))
+      setAuthValue('userEmail', String(u?.email || email))
       setProfileForm({
         fullName: String(u?.fullName || fullName).trim(),
         email: String(u?.email || email).trim()
@@ -252,14 +273,10 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     if (!newPassword || newPassword.length < 6) return alert('New password must be at least 6 characters')
     if (newPassword !== confirmPassword) return alert('New password and confirm password must match')
 
-    const token = localStorage.getItem('token')
+    const token = getAuthToken()
     if (!token) {
       alert('Please login again.')
-      localStorage.removeItem('token')
-      localStorage.removeItem('userRole')
-      localStorage.removeItem('userFullName')
-      localStorage.removeItem('userEmail')
-      localStorage.removeItem('lastActivityAt')
+          clearAuthSession()
       setIsLoggedIn(false)
       navigate('/login', { replace: true })
       return
@@ -286,11 +303,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         })
       }
       if (response.status === 401) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('userRole')
-        localStorage.removeItem('userFullName')
-        localStorage.removeItem('userEmail')
-        localStorage.removeItem('lastActivityAt')
+          clearAuthSession()
         setIsLoggedIn(false)
         navigate('/login', { replace: true })
         return
@@ -339,23 +352,28 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         </div>
 
         <nav className="sidebar-nav" aria-label="Primary">
-          <div className="nav-section">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`nav-item ${location.pathname === item.id ? 'active' : ''}`}
-                onClick={() => {
-                  navigate(item.id)
-                  setIsMobileMenuOpen(false)
-                }}
-                title={item.label}
-              >
-                {item.icon}
-                {!isSidebarCollapsed && <span>{item.label}</span>}
-              </button>
-            ))}
-          </div>
+          {navSections.map((section, sectionIndex) => (
+            <div className="nav-section" key={section.label || `nav-section-${sectionIndex}`}>
+              {section.label && !isSidebarCollapsed && (
+                <div className="nav-section-label">{section.label}</div>
+              )}
+              {section.items.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`nav-item ${location.pathname === item.id ? 'active' : ''}`}
+                  onClick={() => {
+                    navigate(item.id)
+                    setIsMobileMenuOpen(false)
+                  }}
+                  title={item.label}
+                >
+                  {item.icon}
+                  {!isSidebarCollapsed && <span>{item.label}</span>}
+                </button>
+              ))}
+            </div>
+          ))}
         </nav>
 
         <div className="sidebar-footer">
@@ -363,11 +381,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
             type="button"
             className="nav-item logout-btn"
             onClick={() => {
-              localStorage.removeItem('token')
-              localStorage.removeItem('userRole')
-              localStorage.removeItem('userFullName')
-              localStorage.removeItem('userEmail')
-              localStorage.removeItem('lastActivityAt')
+          clearAuthSession()
               setIsLoggedIn(false)
               navigate('/login', { replace: true })
             }}
@@ -499,11 +513,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                   <button
                     type="button"
                     onClick={() => {
-                      localStorage.removeItem('token')
-                      localStorage.removeItem('userRole')
-                      localStorage.removeItem('userFullName')
-                      localStorage.removeItem('userEmail')
-                      localStorage.removeItem('lastActivityAt')
+          clearAuthSession()
                       setIsLoggedIn(false)
                       setIsProfileMenuOpen(false)
                       navigate('/login', { replace: true })

@@ -2,16 +2,29 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../utils/authStorage'
-import { readJsonResponse } from '../utils/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-const API_URL = `${API_BASE_URL}/api/payments`
-const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
+const API_URL = `${API_BASE_URL}/api/purchase-payments`
+const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`
 
-function Payment() {
+const readJsonResponse = async (response, fallbackMessage) => {
+  const raw = await response.text()
+  let data = null
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    data = null
+  }
+  if (!response.ok) {
+    throw new Error(data?.message || raw || fallbackMessage || `Request failed (${response.status})`)
+  }
+  return data || {}
+}
+
+function PurchasePayment() {
   const [paymentForm, setPaymentForm] = useState({
     paymentNumber: '',
-    customerId: '',
+    vendorId: '',
     paymentDate: new Date().toISOString().split('T')[0],
     amount: 0,
     description: ''
@@ -22,9 +35,9 @@ function Payment() {
   const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
 
-  const [customers, setCustomers] = useState([])
-  const [customerSearchText, setCustomerSearchText] = useState('')
-  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
+  const [vendors, setVendors] = useState([])
+  const [vendorSearchText, setVendorSearchText] = useState('')
+  const [isVendorDropdownOpen, setIsVendorDropdownOpen] = useState(false)
 
   const [pendingInvoices, setPendingInvoices] = useState([])
   const [totalPending, setTotalPending] = useState(0)
@@ -65,16 +78,16 @@ function Payment() {
     return s.slice(0, max) + '...'
   }
 
-  const filteredCustomers = useMemo(() => {
-    const q = customerSearchText.trim().toLowerCase()
+  const filteredVendors = useMemo(() => {
+    const q = vendorSearchText.trim().toLowerCase()
     if (!q) return []
-    return customers.filter(c =>
-      c.customerName?.toLowerCase().includes(q) || c.id?.toLowerCase().includes(q)
+    return vendors.filter(c =>
+      c.vendorName?.toLowerCase().includes(q) || c.id?.toLowerCase().includes(q)
     )
-  }, [customers, customerSearchText])
+  }, [vendors, vendorSearchText])
 
   useEffect(() => {
-    if (!paymentForm.customerId) {
+    if (!paymentForm.vendorId) {
       setPendingInvoiceOrder([])
       return
     }
@@ -88,7 +101,7 @@ function Payment() {
       }
       return next
     })
-  }, [pendingInvoices, paymentForm.customerId])
+  }, [pendingInvoices, paymentForm.vendorId])
 
   const orderedPendingInvoices = useMemo(() => {
     if (!Array.isArray(pendingInvoiceOrder) || pendingInvoiceOrder.length === 0) {
@@ -145,13 +158,13 @@ function Payment() {
     }
   }
 
-  const fetchCustomersList = async () => {
+  const fetchVendorsList = async () => {
     try {
-      const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`)
-      const data = await readJsonResponse(response, 'Error fetching customers')
-      setCustomers(data.customers || [])
+      const response = await fetch(`${VENDORS_API_URL}?limit=1000`)
+      const data = await readJsonResponse(response, 'Error fetching vendors')
+      setVendors(data.vendors || [])
     } catch (err) {
-      console.error('Error fetching customers:', err)
+      console.error('Error fetching vendors:', err)
     }
   }
 
@@ -170,8 +183,8 @@ function Payment() {
     }
   }
 
-  const fetchPendingInvoices = async (customerId, excludePaymentId) => {
-    if (!customerId) {
+  const fetchPendingInvoices = async (vendorId, excludePaymentId) => {
+    if (!vendorId) {
       setPendingInvoices([])
       setTotalPending(0)
       return
@@ -179,7 +192,7 @@ function Payment() {
 
     try {
       const url = new URL(`${API_URL}/pending`)
-      url.searchParams.set('customerId', customerId)
+      url.searchParams.set('vendorId', vendorId)
       if (excludePaymentId) url.searchParams.set('excludePaymentId', excludePaymentId)
       const response = await fetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching pending invoices')
@@ -193,7 +206,7 @@ function Payment() {
   }
 
   useEffect(() => {
-    fetchCustomersList()
+    fetchVendorsList()
     fetchNextPaymentNumber()
   }, [])
 
@@ -202,18 +215,18 @@ function Payment() {
   }, [searchQuery])
 
   useEffect(() => {
-    if (!paymentForm.customerId) {
+    if (!paymentForm.vendorId) {
       setPendingInvoices([])
       setTotalPending(0)
       return
     }
-    fetchPendingInvoices(paymentForm.customerId, editingPaymentId)
-  }, [paymentForm.customerId, editingPaymentId])
+    fetchPendingInvoices(paymentForm.vendorId, editingPaymentId)
+  }, [paymentForm.vendorId, editingPaymentId])
 
   const validateForm = () => {
     const newErrors = {}
 
-    if (!paymentForm.customerId) newErrors.customerId = 'Please select a customer'
+    if (!paymentForm.vendorId) newErrors.vendorId = 'Please select a vendor'
     if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
     const amount = Number(paymentForm.amount) || 0
     if (!(amount > 0)) newErrors.amount = 'Payment amount must be greater than 0'
@@ -232,7 +245,7 @@ function Payment() {
       const token = getAuthToken()
       const payload = {
         paymentNumber: paymentForm.paymentNumber,
-        customerId: paymentForm.customerId,
+        vendorId: paymentForm.vendorId,
         paymentDate: paymentForm.paymentDate,
         amount: Math.min(Math.max(0, Number(paymentForm.amount) || 0), Math.max(0, Number(totalPending) || 0)),
         description: paymentForm.description || '',
@@ -258,14 +271,14 @@ function Payment() {
       setEditingPaymentId(null)
       setPaymentForm({
         paymentNumber: '',
-        customerId: '',
+        vendorId: '',
         paymentDate: new Date().toISOString().split('T')[0],
         amount: 0,
         description: ''
       })
       setPendingInvoiceOrder([])
       setDragInvoiceId(null)
-      setCustomerSearchText('')
+      setVendorSearchText('')
       setErrors({})
       setFormSubmitted(false)
       setFormOpen(false)
@@ -324,14 +337,14 @@ function Payment() {
     setEditingPaymentId(null)
     setPaymentForm({
       paymentNumber: '',
-      customerId: '',
+      vendorId: '',
       paymentDate: new Date().toISOString().split('T')[0],
       amount: 0,
       description: ''
     })
     setPendingInvoiceOrder([])
     setDragInvoiceId(null)
-    setCustomerSearchText('')
+    setVendorSearchText('')
     setErrors({})
     setFormSubmitted(false)
     await fetchNextPaymentNumber()
@@ -345,14 +358,14 @@ function Payment() {
       const data = await readJsonResponse(response, 'Error loading payment')
       setPaymentForm({
         paymentNumber: data.paymentNumber,
-        customerId: data.customerId?._id || data.customerId,
+        vendorId: data.vendorId?._id || data.vendorId,
         paymentDate: new Date(data.paymentDate).toISOString().split('T')[0],
         amount: data.amount || 0,
         description: data.description || ''
       })
-      const custName = data.customerId?.customerName || ''
-      const custId = data.customerId?.id || ''
-      setCustomerSearchText(custName ? `${custName} (${custId})` : '')
+      const custName = data.vendorId?.vendorName || ''
+      const custId = data.vendorId?.id || ''
+      setVendorSearchText(custName ? `${custName} (${custId})` : '')
       setEditingPaymentId(data._id)
       setErrors({})
       setFormSubmitted(false)
@@ -370,15 +383,15 @@ function Payment() {
     setEditingPaymentId(null)
     setPaymentForm({
       paymentNumber: '',
-      customerId: '',
+      vendorId: '',
       paymentDate: new Date().toISOString().split('T')[0],
       amount: 0,
       description: ''
     })
     setPendingInvoiceOrder([])
     setDragInvoiceId(null)
-    setCustomerSearchText('')
-    setIsCustomerDropdownOpen(false)
+    setVendorSearchText('')
+    setIsVendorDropdownOpen(false)
     setErrors({})
     setFormSubmitted(false)
     await fetchNextPaymentNumber()
@@ -428,8 +441,8 @@ function Payment() {
 
       const nextPage = payments.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage
       await fetchPayments(nextPage, searchQuery)
-      if (paymentForm.customerId) {
-        await fetchPendingInvoices(paymentForm.customerId, editingPaymentId)
+      if (paymentForm.vendorId) {
+        await fetchPendingInvoices(paymentForm.vendorId, editingPaymentId)
       }
       alert('Payment deleted successfully!')
     } catch (err) {
@@ -549,36 +562,36 @@ function Payment() {
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px', position: 'relative' }}>
                   <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Customer <span style={{ color: 'var(--danger)' }}>*</span>
+                    Select Vendor <span style={{ color: 'var(--danger)' }}>*</span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="text"
-                      placeholder="Search customer..."
-                      value={customerSearchText}
+                      placeholder="Search vendor..."
+                      value={vendorSearchText}
                       onChange={(e) => {
-                        setCustomerSearchText(e.target.value)
-                        setIsCustomerDropdownOpen(e.target.value.length > 0)
-                        if (paymentForm.customerId) {
-                          setPaymentForm(prev => ({ ...prev, customerId: '' }))
+                        setVendorSearchText(e.target.value)
+                        setIsVendorDropdownOpen(e.target.value.length > 0)
+                        if (paymentForm.vendorId) {
+                          setPaymentForm(prev => ({ ...prev, vendorId: '' }))
                         }
-                        if (formSubmitted && errors.customerId) {
+                        if (formSubmitted && errors.vendorId) {
                           setErrors(prev => {
                             const newE = { ...prev }
-                            delete newE.customerId
+                            delete newE.vendorId
                             return newE
                           })
                         }
                       }}
                       onFocus={(e) => {
-                        if (e.target.value.length > 0) setIsCustomerDropdownOpen(true)
+                        if (e.target.value.length > 0) setIsVendorDropdownOpen(true)
                       }}
-                      onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                      onBlur={() => setTimeout(() => setIsVendorDropdownOpen(false), 200)}
                       disabled={loading}
                       style={{
                         width: '100%',
                         padding: '0.5rem 0.75rem',
-                        border: `1px solid ${errors.customerId ? 'var(--danger)' : 'var(--border)'}`,
+                        border: `1px solid ${errors.vendorId ? 'var(--danger)' : 'var(--border)'}`,
                         borderRadius: '6px',
                         fontSize: '0.875rem',
                         background: 'var(--bg-card)',
@@ -586,7 +599,7 @@ function Payment() {
                         outline: 'none'
                       }}
                     />
-                    {isCustomerDropdownOpen && filteredCustomers.length > 0 && (
+                    {isVendorDropdownOpen && filteredVendors.length > 0 && (
                       <ul style={{
                         position: 'absolute',
                         top: '100%',
@@ -603,13 +616,13 @@ function Payment() {
                         zIndex: 10,
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}>
-                        {filteredCustomers.map(customer => (
+                        {filteredVendors.map(vendor => (
                           <li
-                            key={customer._id}
+                            key={vendor._id}
                             onClick={() => {
-                              setPaymentForm(prev => ({ ...prev, customerId: customer._id }))
-                              setCustomerSearchText(`${customer.customerName} (${customer.id})`)
-                              setIsCustomerDropdownOpen(false)
+                              setPaymentForm(prev => ({ ...prev, vendorId: vendor._id }))
+                              setVendorSearchText(`${vendor.vendorName} (${vendor.id})`)
+                              setIsVendorDropdownOpen(false)
                             }}
                             style={{
                               padding: '0.5rem 0.75rem',
@@ -622,14 +635,14 @@ function Payment() {
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                           >
-                            {customer.customerName} ({customer.id})
+                            {vendor.vendorName} ({vendor.id})
                           </li>
                         ))}
                       </ul>
                     )}
                   </div>
-                  {formSubmitted && errors.customerId && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.customerId}</p>
+                  {formSubmitted && errors.vendorId && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.vendorId}</p>
                   )}
                 </div>
 
@@ -746,7 +759,7 @@ function Payment() {
                       {orderedPendingInvoices.length === 0 ? (
                         <tr>
                           <td colSpan={8} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                            {paymentForm.customerId ? 'No pending invoices for this customer.' : 'Select a customer to view pending invoices.'}
+                            {paymentForm.vendorId ? 'No pending invoices for this vendor.' : 'Select a vendor to view pending invoices.'}
                           </td>
                         </tr>
                       ) : (
@@ -856,14 +869,14 @@ function Payment() {
                     onClick={async () => {
                       setPaymentForm({
                         paymentNumber: '',
-                        customerId: '',
+                        vendorId: '',
                         paymentDate: new Date().toISOString().split('T')[0],
                         amount: 0,
                         description: ''
                       })
                       setPendingInvoiceOrder([])
                       setDragInvoiceId(null)
-                      setCustomerSearchText('')
+                      setVendorSearchText('')
                       setErrors({})
                       setFormSubmitted(false)
                       await fetchNextPaymentNumber()
@@ -930,7 +943,7 @@ function Payment() {
               <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
               <input
                 type="text"
-                placeholder="Search by payment no or customer..."
+                placeholder="Search by payment no or vendor..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -956,7 +969,7 @@ function Payment() {
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Payment No</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Customer</th>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Vendor</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Date</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Description</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Amount</th>
@@ -966,10 +979,10 @@ function Payment() {
                   <tbody>
                     {payments.map((payment) => {
                       const name =
-                        payment.customerId?.customerName ||
-                        `${payment.customerId?.firstName || ''} ${payment.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                        payment.vendorId?.vendorName ||
+                        `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                         'Unknown'
-                      const customerLabel = payment.customerId?.id ? `${name} (${payment.customerId.id})` : name
+                      const vendorLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
                       const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
                       const amountLabel = `₹${formatMoney(payment.amount)}`
                       const descriptionLabel = payment.description ? String(payment.description) : '-'
@@ -978,8 +991,8 @@ function Payment() {
                         <td style={{ padding: '0.75rem 0.5rem' }} title={String(payment.paymentNumber || '')}>
                           {truncateText(payment.paymentNumber || '')}
                         </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }} title={String(customerLabel)}>
-                          {truncateText(customerLabel)}
+                        <td style={{ padding: '0.75rem 0.5rem' }} title={String(vendorLabel)}>
+                          {truncateText(vendorLabel)}
                         </td>
                         <td style={{ padding: '0.75rem 0.5rem' }} title={String(dateLabel)}>
                           {truncateText(dateLabel)}
@@ -1225,7 +1238,7 @@ function Payment() {
                   key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
                   chip: isUpdate ? 'Update Payment' : 'Create Payment',
                   method: isUpdate ? 'PUT' : 'POST',
-                  path: isUpdate ? '/api/payments/:id' : '/api/payments',
+                  path: isUpdate ? '/api/purchase-payments/:id' : '/api/purchase-payments',
                   at: a.at,
                   icon: isUpdate ? '✎' : '+',
                   iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
@@ -1335,4 +1348,4 @@ function Payment() {
   )
 }
 
-export default Payment
+export default PurchasePayment

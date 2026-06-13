@@ -27,6 +27,9 @@ import {
   AreaChart,
   Area
 } from 'recharts'
+import EmptyDataCard from '../components/EmptyDataCard'
+import { getAuthToken, getAuthValue } from '../utils/authStorage'
+import { readJsonResponse } from '../utils/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -223,13 +226,13 @@ function Dashboard() {
   })
   const [customerModalSalesPage, setCustomerModalSalesPage] = useState(1)
   const [customerModalSalesTotalPages, setCustomerModalSalesTotalPages] = useState(1)
-  const isAdmin = (localStorage.getItem('userRole') || '').toLowerCase() === 'admin'
+  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
 
   const fetchDashboardSummary = async () => {
     setSummaryLoading(true)
     try {
       const response = await fetch(`${API_BASE_URL}/api/dashboard/summary`)
-      const data = await response.json()
+      const data = await readJsonResponse(response, 'Error fetching dashboard summary')
       setTotalCustomers(Number(data.totalCustomers) || 0)
       setTotalPendingAmount(Number(data.totalPendingAmount) || 0)
     } catch (err) {
@@ -248,7 +251,7 @@ function Dashboard() {
       url.searchParams.set('limit', '10')
       if (search.trim()) url.searchParams.set('search', search.trim())
       const response = await fetch(url.toString())
-      const data = await response.json()
+      const data = await readJsonResponse(response, 'Error fetching customer overview')
       setCustomerOverview(data.customers || [])
     } catch (err) {
       console.error('Error fetching customer overview:', err)
@@ -303,7 +306,7 @@ function Dashboard() {
       url.searchParams.set('page', String(page))
       url.searchParams.set('limit', '25')
       const response = await fetch(url.toString())
-      const data = await response.json()
+      const data = await readJsonResponse(response, 'Error fetching customer sales report')
       setCustomerModalSalesRows(data.rows || [])
       setCustomerModalSalesTotals(data.totals || { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 })
       setCustomerModalSalesPage(Number(data.page) || 1)
@@ -336,7 +339,7 @@ function Dashboard() {
       if (customerRow?.id) url.searchParams.set('search', customerRow.id)
       else if (customerRow?.customerName) url.searchParams.set('search', customerRow.customerName)
       const response = await fetch(url.toString())
-      const data = await response.json()
+      const data = await readJsonResponse(response, 'Error fetching customer profile')
       setCustomerModalProfile((data.customers && data.customers[0]) || null)
     } catch (err) {
       console.error('Error fetching customer profile:', err)
@@ -364,8 +367,12 @@ function Dashboard() {
     }
     if (!window.confirm('Are you sure you want to delete this customer?')) return
     try {
-      const token = localStorage.getItem('token')
-      await fetch(`${API_BASE_URL}/api/customers/${mongoId}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      const token = getAuthToken()
+      const response = await fetch(`${API_BASE_URL}/api/customers/${mongoId}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.message || 'Error deleting customer')
+      }
       await fetchDashboardSummary()
       await fetchCustomerOverview(customerOverviewSearch)
       alert('Customer deleted successfully!')
@@ -663,7 +670,9 @@ function Dashboard() {
                 </tr>
               ) : customerOverview.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: '1rem', color: 'var(--text-muted)' }}>No customers found.</td>
+                  <td colSpan={4} style={{ padding: '1rem' }}>
+                    <EmptyDataCard />
+                  </td>
                 </tr>
               ) : (
                 customerOverview.map((c) => (
@@ -816,7 +825,9 @@ function Dashboard() {
                       </tr>
                     ) : customerModalSalesRows.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ padding: '1rem', color: 'var(--text-muted)' }}>No invoices found.</td>
+                        <td colSpan={6} style={{ padding: '1rem' }}>
+                          <EmptyDataCard />
+                        </td>
                       </tr>
                     ) : (
                       customerModalSalesRows.map((row) => (

@@ -13,11 +13,27 @@ app.use(cors());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/customers', require('./routes/customers'));
+app.use('/api/vendors', require('./routes/vendors'));
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api/purchase-invoices', require('./routes/purchaseInvoices'));
+app.use('/api/purchase-payments', require('./routes/purchasePayments'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
+
+app.use('/api', (req, res) => {
+  res.status(404).json({ message: `API route not found: ${req.method} ${req.originalUrl}` });
+});
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error', err);
+  if (res.headersSent) return next(err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    message: status >= 500 ? 'Internal server error' : err.message || 'Request failed'
+  });
+});
 
 // MongoDB Connection
 const PORT = process.env.PORT || 5000;

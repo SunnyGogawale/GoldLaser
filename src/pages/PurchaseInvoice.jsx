@@ -2,17 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Plus, Search, Info } from 'lucide-react';
 import EmptyDataCard from '../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../utils/authStorage';
-import { readJsonResponse } from '../utils/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
-const API_URL = `${API_BASE_URL}/api/invoices`;
-const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`;
+const API_URL = `${API_BASE_URL}/api/purchase-invoices`;
+const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`;
 
-function Invoice() {
+const readJsonResponse = async (response, fallbackMessage) => {
+  const raw = await response.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new Error(data?.message || raw || fallbackMessage || `Request failed (${response.status})`);
+  }
+  return data || {};
+};
+
+function PurchaseInvoice() {
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
     invoiceNumber: '',
-    customerId: '',
+    vendorId: '',
     invoiceDate: new Date().toISOString().split('T')[0],
     transactionDescription: '',
     items: [
@@ -31,7 +44,7 @@ function Invoice() {
 
   // Invoices list state
   const [invoices, setInvoices] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -64,13 +77,13 @@ function Invoice() {
     return s.slice(0, max) + '...'
   }
 
-  // Customer dropdown autocomplete state
-  const [customerSearchText, setCustomerSearchText] = useState('');
-  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  // Vendor dropdown autocomplete state
+  const [vendorSearchText, setVendorSearchText] = useState('');
+  const [isVendorDropdownOpen, setIsVendorDropdownOpen] = useState(false);
 
-  const filteredCustomers = customers.filter(c => 
-    c.customerName?.toLowerCase().includes(customerSearchText.toLowerCase()) || 
-    c.id?.toLowerCase().includes(customerSearchText.toLowerCase())
+  const filteredVendors = vendors.filter(c => 
+    c.vendorName?.toLowerCase().includes(vendorSearchText.toLowerCase()) || 
+    c.id?.toLowerCase().includes(vendorSearchText.toLowerCase())
   );
 
   // Fetch next invoice number
@@ -84,14 +97,14 @@ function Invoice() {
     }
   };
 
-  // Fetch customers for dropdown
-  const fetchCustomersList = async () => {
+  // Fetch vendors for dropdown
+  const fetchVendorsList = async () => {
     try {
-      const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`); // Get all for dropdown
-      const data = await readJsonResponse(response, 'Error fetching customers');
-      setCustomers(data.customers || []);
+      const response = await fetch(`${VENDORS_API_URL}?limit=1000`); // Get all for dropdown
+      const data = await readJsonResponse(response, 'Error fetching vendors');
+      setVendors(data.vendors || []);
     } catch (err) {
-      console.error('Error fetching customers:', err);
+      console.error('Error fetching vendors:', err);
     }
   };
 
@@ -117,7 +130,7 @@ function Invoice() {
   }, [searchQuery]);
 
   useEffect(() => {
-    fetchCustomersList();
+    fetchVendorsList();
     fetchNextInvoiceNumber();
   }, []);
 
@@ -135,8 +148,8 @@ function Invoice() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!invoiceForm.customerId) {
-      newErrors.customerId = 'Please select a customer';
+    if (!invoiceForm.vendorId) {
+      newErrors.vendorId = 'Please select a vendor';
     }
 
     if (!invoiceForm.invoiceDate) {
@@ -266,13 +279,13 @@ function Invoice() {
       await fetchInvoices(1);
       setInvoiceForm({
         invoiceNumber: '',
-        customerId: '',
+        vendorId: '',
         invoiceDate: new Date().toISOString().split('T')[0],
         transactionDescription: '',
         items: [{ product: '', description: '', amount: 0 }],
         totalAmount: 0
       });
-      setCustomerSearchText('');
+      setVendorSearchText('');
       await fetchNextInvoiceNumber();
       setErrors({});
       setFormSubmitted(false);
@@ -333,7 +346,7 @@ function Invoice() {
   const handleEditInvoice = (invoice) => {
     setInvoiceForm({
       invoiceNumber: invoice.invoiceNumber,
-      customerId: invoice.customerId._id || invoice.customerId,
+      vendorId: invoice.vendorId._id || invoice.vendorId,
       invoiceDate: new Date(invoice.invoiceDate).toISOString().split('T')[0],
       transactionDescription: invoice.transactionDescription || '',
       items: invoice.items.map(item => ({
@@ -343,9 +356,9 @@ function Invoice() {
       })),
       totalAmount: invoice.totalAmount
     });
-    const custName = invoice.customerId?.customerName || '';
-    const custId = invoice.customerId?.id || '';
-    setCustomerSearchText(custName ? `${custName} (${custId})` : '');
+    const custName = invoice.vendorId?.vendorName || '';
+    const custId = invoice.vendorId?.id || '';
+    setVendorSearchText(custName ? `${custName} (${custId})` : '');
     setEditingInvoiceId(invoice._id);
     setErrors({});
     setFormSubmitted(false);
@@ -356,13 +369,13 @@ function Invoice() {
     setEditingInvoiceId(null);
     setInvoiceForm({
       invoiceNumber: '',
-      customerId: '',
+      vendorId: '',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
       items: [{ product: '', description: '', amount: 0 }],
       totalAmount: 0
     });
-    setCustomerSearchText('');
+    setVendorSearchText('');
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -374,14 +387,14 @@ function Invoice() {
     setEditingInvoiceId(null);
     setInvoiceForm({
       invoiceNumber: '',
-      customerId: '',
+      vendorId: '',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
       items: [{ product: '', description: '', amount: 0 }],
       totalAmount: 0
     });
-    setCustomerSearchText('');
-    setIsCustomerDropdownOpen(false);
+    setVendorSearchText('');
+    setIsVendorDropdownOpen(false);
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -401,14 +414,10 @@ function Invoice() {
     if (window.confirm('Are you sure you want to delete this invoice?')) {
       try {
         const token = getAuthToken();
-        const response = await fetch(`${API_URL}/${id}`, {
+        await fetch(`${API_URL}/${id}`, {
           method: 'DELETE',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.message || 'Error deleting invoice');
-        }
         await fetchInvoices(currentPage);
         alert('Invoice deleted successfully!');
       } catch (err) {
@@ -532,36 +541,36 @@ function Invoice() {
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px', position: 'relative' }}>
                   <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Customer <span style={{ color: 'var(--danger)' }}>*</span>
+                    Select Vendor <span style={{ color: 'var(--danger)' }}>*</span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="text"
-                      placeholder="Search customer..."
-                      value={customerSearchText}
+                      placeholder="Search vendor..."
+                      value={vendorSearchText}
                       onChange={(e) => {
-                        setCustomerSearchText(e.target.value);
-                        setIsCustomerDropdownOpen(e.target.value.length > 0);
-                        if (invoiceForm.customerId) {
-                          setInvoiceForm(prev => ({ ...prev, customerId: '' }));
+                        setVendorSearchText(e.target.value);
+                        setIsVendorDropdownOpen(e.target.value.length > 0);
+                        if (invoiceForm.vendorId) {
+                          setInvoiceForm(prev => ({ ...prev, vendorId: '' }));
                         }
-                        if (formSubmitted && errors.customerId) {
+                        if (formSubmitted && errors.vendorId) {
                           setErrors(prev => {
                             const newE = { ...prev };
-                            delete newE.customerId;
+                            delete newE.vendorId;
                             return newE;
                           });
                         }
                       }}
                       onFocus={(e) => {
-                        if (e.target.value.length > 0) setIsCustomerDropdownOpen(true);
+                        if (e.target.value.length > 0) setIsVendorDropdownOpen(true);
                       }}
-                      onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                      onBlur={() => setTimeout(() => setIsVendorDropdownOpen(false), 200)}
                       disabled={loading}
                       style={{
                         width: '100%',
                         padding: '0.5rem 0.75rem',
-                        border: `1px solid ${errors.customerId ? 'var(--danger)' : 'var(--border)'}`,
+                        border: `1px solid ${errors.vendorId ? 'var(--danger)' : 'var(--border)'}`,
                         borderRadius: '6px',
                         fontSize: '0.875rem',
                         background: 'var(--bg-card)',
@@ -569,7 +578,7 @@ function Invoice() {
                         outline: 'none'
                       }}
                     />
-                    {isCustomerDropdownOpen && filteredCustomers.length > 0 && (
+                    {isVendorDropdownOpen && filteredVendors.length > 0 && (
                       <ul style={{
                         position: 'absolute',
                         top: '100%',
@@ -586,13 +595,13 @@ function Invoice() {
                         zIndex: 10,
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}>
-                        {filteredCustomers.map(customer => (
+                        {filteredVendors.map(vendor => (
                           <li
-                            key={customer._id}
+                            key={vendor._id}
                             onClick={() => {
-                              setInvoiceForm(prev => ({ ...prev, customerId: customer._id }));
-                              setCustomerSearchText(`${customer.customerName} (${customer.id})`);
-                              setIsCustomerDropdownOpen(false);
+                              setInvoiceForm(prev => ({ ...prev, vendorId: vendor._id }));
+                              setVendorSearchText(`${vendor.vendorName} (${vendor.id})`);
+                              setIsVendorDropdownOpen(false);
                             }}
                             style={{
                               padding: '0.5rem 0.75rem',
@@ -605,14 +614,14 @@ function Invoice() {
                             onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
                             onMouseLeave={(e) => e.target.style.background = 'transparent'}
                           >
-                            {customer.customerName} ({customer.id})
+                            {vendor.vendorName} ({vendor.id})
                           </li>
                         ))}
                       </ul>
                     )}
                   </div>
-                  {formSubmitted && errors.customerId && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.customerId}</p>
+                  {formSubmitted && errors.vendorId && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.vendorId}</p>
                   )}
                 </div>
 
@@ -871,7 +880,7 @@ function Invoice() {
               <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
               <input
                 type="text"
-                placeholder="Search by invoice no or customer..."
+                placeholder="Search by invoice no or vendor..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -897,7 +906,7 @@ function Invoice() {
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Invoice No</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Customer</th>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Vendor</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Date</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Txn Description</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Total Amount</th>
@@ -913,10 +922,10 @@ function Invoice() {
                         <td style={{ padding: '0.75rem 0.5rem' }}>
                           {(() => {
                             const name =
-                              invoice.customerId?.customerName ||
-                              `${invoice.customerId?.firstName || ''} ${invoice.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                              invoice.vendorId?.vendorName ||
+                              `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                               'Unknown'
-                            const label = invoice.customerId?.id ? `${name} (${invoice.customerId.id})` : name
+                            const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name
                             return (
                               <span title={String(label)}>
                                 {truncateText(label)}
@@ -1160,7 +1169,7 @@ function Invoice() {
                   key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
                   chip: isUpdate ? 'Update Invoice' : 'Create Invoice',
                   method: isUpdate ? 'PUT' : 'POST',
-                  path: isUpdate ? '/api/invoices/:id' : '/api/invoices',
+                  path: isUpdate ? '/api/purchase-invoices/:id' : '/api/purchase-invoices',
                   at: a.at,
                   icon: isUpdate ? '✎' : '+',
                   iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
@@ -1272,4 +1281,4 @@ function Invoice() {
   );
 }
 
-export default Invoice;
+export default PurchaseInvoice;

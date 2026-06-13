@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { FileText, TrendingUp } from 'lucide-react'
+import EmptyDataCard from '../components/EmptyDataCard'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORTS_API_URL = `${API_BASE_URL}/api/reports`
@@ -382,7 +383,7 @@ function Reports() {
           <div style={{ textAlign: 'center', padding: '2rem' }}>Loading report...</div>
         ) : activeTab === 'invoiceSummary' ? (
           invoiceRows.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No invoices found for selected filters.</div>
+            <EmptyDataCard />
           ) : (
             <div>
               <div style={{ overflowX: 'auto' }}>
@@ -489,7 +490,7 @@ function Reports() {
           )
         ) : (
           salesRows.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No sales data for selected filters.</div>
+            <EmptyDataCard />
           ) : (
             <div>
               <div style={{ overflowX: 'auto' }}>

@@ -11,6 +11,10 @@ import Invoice from './pages/Invoice'
 import Payment from './pages/Payment'
 import Reports from './pages/Reports'
 import User from './pages/User'
+import Vendor from './pages/Vendor'
+import PurchaseInvoice from './pages/PurchaseInvoice'
+import PurchasePayment from './pages/PurchasePayment'
+import { clearAuthSession, getAuthToken, getLastActivityAt, markSessionActivity } from './utils/authStorage'
 import './App.css'
 
 function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
@@ -20,7 +24,7 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
     if (!isLoggedIn) return
 
     const markActivity = () => {
-      localStorage.setItem('lastActivityAt', String(Date.now()))
+      markSessionActivity()
     }
 
     markActivity()
@@ -36,27 +40,19 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
     document.addEventListener('visibilitychange', onVisibilityChange)
 
     const intervalId = window.setInterval(() => {
-      const token = localStorage.getItem('token')
+      const token = getAuthToken()
       if (!token) {
         onLogout()
         navigate('/login', { replace: true })
         return
       }
 
-      const lastActivityAt = Number(localStorage.getItem('lastActivityAt') || 0)
+      const lastActivityAt = getLastActivityAt()
       if (lastActivityAt && Date.now() - lastActivityAt >= timeoutMs) {
         onLogout()
         navigate('/login', { replace: true })
       }
     }, 1000)
-
-    const onStorage = (e) => {
-      if (e.key === 'token' && !e.newValue) {
-        onLogout()
-        navigate('/login', { replace: true })
-      }
-    }
-    window.addEventListener('storage', onStorage)
 
     return () => {
       window.clearInterval(intervalId)
@@ -64,7 +60,6 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
         window.removeEventListener(eventName, markActivity)
       }
       document.removeEventListener('visibilitychange', onVisibilityChange)
-      window.removeEventListener('storage', onStorage)
     }
   }, [isLoggedIn, navigate, onLogout, timeoutMs])
 
@@ -73,18 +68,13 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [theme, setTheme] = useState('dark')
-
-  // Initialize theme from localStorage or default dark
-  useEffect(() => {
+  const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme')
-    if (savedTheme) {
-      setTheme(savedTheme)
-    }
-  }, [])
+    return savedTheme === 'dark' ? 'dark' : 'light'
+  })
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = getAuthToken()
     setIsLoggedIn(Boolean(token))
   }, [])
 
@@ -103,11 +93,7 @@ function App() {
   }
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('userRole')
-    localStorage.removeItem('userFullName')
-    localStorage.removeItem('userEmail')
-    localStorage.removeItem('lastActivityAt')
+    clearAuthSession()
     setIsLoggedIn(false)
   }, [])
 
@@ -136,8 +122,11 @@ function App() {
           <Route index element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
           <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" replace />} />
           <Route path="/customer" element={isLoggedIn ? <Customer /> : <Navigate to="/login" replace />} />
+          <Route path="/vendor" element={isLoggedIn ? <Vendor /> : <Navigate to="/login" replace />} />
           <Route path="/invoice" element={isLoggedIn ? <Invoice /> : <Navigate to="/login" replace />} />
           <Route path="/payment" element={isLoggedIn ? <Payment /> : <Navigate to="/login" replace />} />
+          <Route path="/purchase-invoice" element={isLoggedIn ? <PurchaseInvoice /> : <Navigate to="/login" replace />} />
+          <Route path="/purchase-payment" element={isLoggedIn ? <PurchasePayment /> : <Navigate to="/login" replace />} />
           <Route path="/reports" element={isLoggedIn ? <Reports /> : <Navigate to="/login" replace />} />
           <Route path="/user" element={isLoggedIn ? <User /> : <Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

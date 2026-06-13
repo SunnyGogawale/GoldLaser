@@ -11,6 +11,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+import { setAuthSession } from '../utils/authStorage';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
@@ -37,10 +38,12 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
 
       console.log('Login successful:', response.data);
       
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userRole', response.data?.user?.roll || response.data?.user?.role || 'user');
-      localStorage.setItem('userFullName', response.data?.user?.fullName || '');
-      localStorage.setItem('userEmail', response.data?.user?.email || '');
+      setAuthSession({
+        token: response.data.token,
+        role: response.data?.user?.roll || response.data?.user?.role || 'user',
+        fullName: response.data?.user?.fullName || '',
+        email: response.data?.user?.email || ''
+      });
       setIsLoggedIn(true);
       navigate('/dashboard', { replace: true });
     } catch (err) {

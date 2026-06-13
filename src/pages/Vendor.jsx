@@ -2,14 +2,27 @@ import React, { useState, useEffect } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
-import { readJsonResponse } from '../utils/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-const API_URL = `${API_BASE_URL}/api/customers`
+const API_URL = `${API_BASE_URL}/api/vendors`
 
-function Customer() {
-  // Customer form state
-  const [customerForm, setCustomerForm] = useState({
+const readJsonResponse = async (response, fallbackMessage) => {
+  const raw = await response.text()
+  let data = null
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    data = null
+  }
+  if (!response.ok) {
+    throw new Error(data?.message || raw || fallbackMessage || `Request failed (${response.status})`)
+  }
+  return data || {}
+}
+
+function Vendor() {
+  // Vendor form state
+  const [vendorForm, setVendorForm] = useState({
     id: '',
     firstName: '',
     lastName: '',
@@ -24,18 +37,18 @@ function Customer() {
   const [formSubmitted, setFormSubmitted] = useState(false);
 
   // Edit mode state
-  const [editingCustomerId, setEditingCustomerId] = useState(null)
+  const [editingVendorId, setEditingVendorId] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
 
-  // Customers list state
-  const [customers, setCustomers] = useState([])
+  // Vendors list state
+  const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
   const [infoOpen, setInfoOpen] = useState(false)
-  const [infoCustomer, setInfoCustomer] = useState(null)
+  const [infoVendor, setInfoVendor] = useState(null)
   const [infoLoading, setInfoLoading] = useState(false)
   const [infoNowMs, setInfoNowMs] = useState(0)
 
@@ -61,62 +74,62 @@ function Customer() {
     return s.slice(0, max) + '...'
   }
 
-  // Function to fetch next customer id
-  const fetchNextCustomerId = async () => {
+  // Function to fetch next vendor id
+  const fetchNextVendorId = async () => {
     try {
       const response = await fetch(`${API_URL}/next-id`);
-      const data = await readJsonResponse(response, 'Error fetching next customer id');
-      setCustomerForm(prev => ({ ...prev, id: data.nextId }));
+      const data = await readJsonResponse(response, 'Error fetching next vendor id');
+      setVendorForm(prev => ({ ...prev, id: data.nextId }));
     } catch (err) {
-      console.error('Error fetching next customer id:', err);
+      console.error('Error fetching next vendor id:', err);
     }
   };
 
-  async function fetchCustomers(page = 1, search = searchQuery) {
+  async function fetchVendors(page = 1, search = searchQuery) {
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`);
-      const data = await readJsonResponse(response, 'Error fetching customers');
-      setCustomers(data.customers || []);
+      const data = await readJsonResponse(response, 'Error fetching vendors');
+      setVendors(data.vendors || []);
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
     } catch (err) {
-      console.error('Error fetching customers:', err);
+      console.error('Error fetching vendors:', err);
     } finally {
       setLoading(false);
     }
   }
 
-  // Fetch customers on component mount
+  // Fetch vendors on component mount
   useEffect(() => {
-    fetchCustomers();
-    fetchNextCustomerId();
+    fetchVendors();
+    fetchNextVendorId();
   }, []);
 
   // Validation function
   const validateForm = () => {
     const newErrors = {};
 
-    if (!customerForm.firstName.trim()) {
+    if (!vendorForm.firstName.trim()) {
       newErrors.firstName = 'First name is required';
     }
 
-    if (!customerForm.lastName.trim()) {
+    if (!vendorForm.lastName.trim()) {
       newErrors.lastName = 'Last name is required';
     }
 
-    if (!customerForm.contactNumber.trim()) {
+    if (!vendorForm.contactNumber.trim()) {
       newErrors.contactNumber = 'Contact number is required';
     }
 
-    if (customerForm.email) {
+    if (vendorForm.email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(customerForm.email)) {
+      if (!emailRegex.test(vendorForm.email)) {
         newErrors.email = 'Please enter a valid email';
       }
     }
 
-    if (!customerForm.address.trim()) {
+    if (!vendorForm.address.trim()) {
       newErrors.address = 'Address is required';
     }
 
@@ -124,19 +137,19 @@ function Customer() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Fetch customers on component mount
+  // Fetch vendors on component mount
   useEffect(() => {
-    fetchCustomers(1, searchQuery);
+    fetchVendors(1, searchQuery);
   }, [searchQuery]);
 
-  // Customer form handlers
-  const handleCustomerInputChange = (e) => {
+  // Vendor form handlers
+  const handleVendorInputChange = (e) => {
     const { name, value } = e.target;
     const updatedForm = {
-      ...customerForm,
+      ...vendorForm,
       [name]: value
     };
-    setCustomerForm(updatedForm);
+    setVendorForm(updatedForm);
     
     // Clear error for this field when user starts typing
     if (formSubmitted && errors[name]) {
@@ -148,7 +161,7 @@ function Customer() {
     }
   };
 
-  const handleCustomerSubmit = async (e) => {
+  const handleVendorSubmit = async (e) => {
     e.preventDefault();
     setFormSubmitted(true);
     
@@ -159,29 +172,29 @@ function Customer() {
     try {
       const token = getAuthToken()
       const payload = {
-        ...customerForm,
-        id: String(customerForm.id || '').trim(),
-        firstName: String(customerForm.firstName || '').trim(),
-        lastName: String(customerForm.lastName || '').trim(),
-        contactNumber: String(customerForm.contactNumber || '').trim(),
-        email: String(customerForm.email || '').trim(),
-        address: String(customerForm.address || '').trim(),
-        note: String(customerForm.note || '').trim()
+        ...vendorForm,
+        id: String(vendorForm.id || '').trim(),
+        firstName: String(vendorForm.firstName || '').trim(),
+        lastName: String(vendorForm.lastName || '').trim(),
+        contactNumber: String(vendorForm.contactNumber || '').trim(),
+        email: String(vendorForm.email || '').trim(),
+        address: String(vendorForm.address || '').trim(),
+        note: String(vendorForm.note || '').trim()
       }
 
-      if (!editingCustomerId && !payload.id) {
+      if (!editingVendorId && !payload.id) {
         const idResponse = await fetch(`${API_URL}/next-id`)
-        const idData = await readJsonResponse(idResponse, 'Error fetching next customer id')
+        const idData = await readJsonResponse(idResponse, 'Error fetching next vendor id')
         const nextId = String(idData?.nextId || '').trim()
         if (nextId) {
           payload.id = nextId
-          setCustomerForm(prev => ({ ...prev, id: nextId }))
+          setVendorForm(prev => ({ ...prev, id: nextId }))
         }
       }
 
-      if (editingCustomerId) {
-        // Update existing customer
-        const response = await fetch(`${API_URL}/${editingCustomerId}`, {
+      if (editingVendorId) {
+        // Update existing vendor
+        const response = await fetch(`${API_URL}/${editingVendorId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -192,13 +205,13 @@ function Customer() {
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.message || 'Error updating customer');
+          throw new Error(errorData?.message || 'Error updating vendor');
         }
         
-        setEditingCustomerId(null);
-        alert('Customer updated successfully!');
+        setEditingVendorId(null);
+        alert('Vendor updated successfully!');
       } else {
-        // Add new customer to list
+        // Add new vendor to list
         const response = await fetch(API_URL, {
           method: 'POST',
           headers: {
@@ -210,15 +223,15 @@ function Customer() {
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.message || 'Error saving customer');
+          throw new Error(errorData?.message || 'Error saving vendor');
         }
         
-        alert('Customer added successfully!');
+        alert('Vendor added successfully!');
       }
-      // Refresh customer list (go to first page after adding/updating)
-      await fetchCustomers(1);
+      // Refresh vendor list (go to first page after adding/updating)
+      await fetchVendors(1);
       // Reset form
-      setCustomerForm({
+      setVendorForm({
         id: '',
         firstName: '',
         lastName: '',
@@ -227,22 +240,22 @@ function Customer() {
         address: '',
         note: ''
       });
-      await fetchNextCustomerId();
+      await fetchNextVendorId();
       setErrors({});
       setFormSubmitted(false);
       setFormOpen(false)
     } catch (err) {
-      console.error('Error saving customer:', err);
-      alert(err.message || 'Error saving customer!');
+      console.error('Error saving vendor:', err);
+      alert(err.message || 'Error saving vendor!');
     } finally {
       setLoading(false);
     }
   };
 
-  const openCreateCustomer = async () => {
+  const openCreateVendor = async () => {
     if (loading) return
-    setEditingCustomerId(null)
-    setCustomerForm({
+    setEditingVendorId(null)
+    setVendorForm({
       id: '',
       firstName: '',
       lastName: '',
@@ -251,33 +264,33 @@ function Customer() {
       address: '',
       note: ''
     })
-    await fetchNextCustomerId()
+    await fetchNextVendorId()
     setErrors({})
     setFormSubmitted(false)
     setFormOpen(true)
   }
 
-  const handleEditCustomer = (customer) => {
-    const firstName = customer.firstName || (customer.customerName ? customer.customerName.split(' ')[0] : '');
-    const lastName = customer.lastName || (customer.customerName ? customer.customerName.split(' ').slice(1).join(' ') : '');
-    setCustomerForm({
-      id: customer.id,
+  const handleEditVendor = (vendor) => {
+    const firstName = vendor.firstName || (vendor.vendorName ? vendor.vendorName.split(' ')[0] : '');
+    const lastName = vendor.lastName || (vendor.vendorName ? vendor.vendorName.split(' ').slice(1).join(' ') : '');
+    setVendorForm({
+      id: vendor.id,
       firstName,
       lastName,
-      contactNumber: customer.contactNumber,
-      email: customer.email,
-      address: customer.address,
-      note: customer.note
+      contactNumber: vendor.contactNumber,
+      email: vendor.email,
+      address: vendor.address,
+      note: vendor.note
     });
-    setEditingCustomerId(customer._id);
+    setEditingVendorId(vendor._id);
     setErrors({});
     setFormSubmitted(false);
     setFormOpen(true)
   };
 
   const handleCancelEdit = async () => {
-    setEditingCustomerId(null);
-    setCustomerForm({
+    setEditingVendorId(null);
+    setVendorForm({
       id: '',
       firstName: '',
       lastName: '',
@@ -286,23 +299,23 @@ function Customer() {
       address: '',
       note: ''
     });
-    await fetchNextCustomerId();
+    await fetchNextVendorId();
     setErrors({});
     setFormSubmitted(false);
     setFormOpen(false)
   };
 
-  const closeCustomerForm = () => {
+  const closeVendorForm = () => {
     if (loading) return
     setFormOpen(false)
   }
 
-  const handleDeleteCustomer = async (id) => {
+  const handleDeleteVendor = async (id) => {
     if (!isAdmin) {
       alert('Only admin can delete.')
       return
     }
-    if (window.confirm('Are you sure you want to delete this customer?')) {
+    if (window.confirm('Are you sure you want to delete this vendor?')) {
       try {
         const token = getAuthToken()
         const response = await fetch(`${API_URL}/${id}`, {
@@ -311,21 +324,21 @@ function Customer() {
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.message || 'Error deleting customer');
+          throw new Error(errorData?.message || 'Error deleting vendor');
         }
-        await fetchCustomers(currentPage);
-        alert('Customer deleted successfully!');
+        await fetchVendors(currentPage);
+        alert('Vendor deleted successfully!');
       } catch (err) {
-        console.error('Error deleting customer:', err);
-        alert('Error deleting customer!');
+        console.error('Error deleting vendor:', err);
+        alert('Error deleting vendor!');
       }
     }
   };
 
-  const openInfo = async (customer) => {
+  const openInfo = async (vendor) => {
     setInfoOpen(true)
-    setInfoCustomer(customer || null)
-    const id = customer?._id
+    setInfoVendor(vendor || null)
+    const id = vendor?._id
     if (!id) return
     setInfoLoading(true)
     setInfoNowMs(Date.now())
@@ -334,17 +347,17 @@ function Customer() {
       const response = await fetch(`${API_URL}/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
-      const data = await readJsonResponse(response, 'Error fetching customer info')
-      setInfoCustomer(data || null)
+      const data = await readJsonResponse(response, 'Error fetching vendor info')
+      setInfoVendor(data || null)
     } catch (err) {
-      console.error('Error fetching customer info:', err)
+      console.error('Error fetching vendor info:', err)
     } finally {
       setInfoLoading(false)
     }
   }
 
   const refreshInfo = async () => {
-    const id = infoCustomer?._id
+    const id = infoVendor?._id
     if (!id) return
     setInfoLoading(true)
     setInfoNowMs(Date.now())
@@ -353,10 +366,10 @@ function Customer() {
       const response = await fetch(`${API_URL}/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
-      const data = await readJsonResponse(response, 'Error refreshing customer info')
-      setInfoCustomer(data || null)
+      const data = await readJsonResponse(response, 'Error refreshing vendor info')
+      setInfoVendor(data || null)
     } catch (err) {
-      console.error('Error refreshing customer info:', err)
+      console.error('Error refreshing vendor info:', err)
     } finally {
       setInfoLoading(false)
     }
@@ -364,7 +377,7 @@ function Customer() {
 
   const closeInfo = () => {
     setInfoOpen(false)
-    setInfoCustomer(null)
+    setInfoVendor(null)
   }
 
   return (
@@ -372,7 +385,7 @@ function Customer() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
         <button
           type="button"
-          onClick={openCreateCustomer}
+          onClick={openCreateVendor}
           disabled={loading}
           style={{
             padding: '0.5rem 1rem',
@@ -387,7 +400,7 @@ function Customer() {
             opacity: loading ? 0.7 : 1
           }}
         >
-          Add Customer
+          Add Vendor
         </button>
       </div>
 
@@ -404,7 +417,7 @@ function Customer() {
             padding: '1rem'
           }}
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeCustomerForm()
+            if (e.target === e.currentTarget) closeVendorForm()
           }}
         >
           <div
@@ -418,7 +431,7 @@ function Customer() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, color: 'var(--text-header)' }}>
-                {editingCustomerId ? 'Edit Customer' : 'Add New Customer'}
+                {editingVendorId ? 'Edit Vendor' : 'Add New Vendor'}
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
                 <div
@@ -433,9 +446,9 @@ function Customer() {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  Customer ID : {customerForm.id || 'xxxx'}
+                  Vendor ID : {vendorForm.id || 'xxxx'}
                 </div>
-                {editingCustomerId && (
+                {editingVendorId && (
                   <button
                     onClick={handleCancelEdit}
                     disabled={loading}
@@ -461,7 +474,7 @@ function Customer() {
                 )}
                 <button
                   type="button"
-                  onClick={closeCustomerForm}
+                  onClick={closeVendorForm}
                   disabled={loading}
                   style={{
                     padding: '0.5rem 1rem',
@@ -484,7 +497,7 @@ function Customer() {
                 </button>
               </div>
             </div>
-            <form onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <form onSubmit={handleVendorSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
@@ -493,8 +506,8 @@ function Customer() {
                   <input
                     type="text"
                     name="firstName"
-                    value={customerForm.firstName}
-                    onChange={handleCustomerInputChange}
+                    value={vendorForm.firstName}
+                    onChange={handleVendorInputChange}
                     required
                     disabled={loading}
                     autoComplete="given-name"
@@ -525,8 +538,8 @@ function Customer() {
                   <input
                     type="text"
                     name="lastName"
-                    value={customerForm.lastName}
-                    onChange={handleCustomerInputChange}
+                    value={vendorForm.lastName}
+                    onChange={handleVendorInputChange}
                     required
                     disabled={loading}
                     autoComplete="family-name"
@@ -559,8 +572,8 @@ function Customer() {
                   <input
                     type="tel"
                     name="contactNumber"
-                    value={customerForm.contactNumber}
-                    onChange={handleCustomerInputChange}
+                    value={vendorForm.contactNumber}
+                    onChange={handleVendorInputChange}
                     required
                     disabled={loading}
                     inputMode="tel"
@@ -592,8 +605,8 @@ function Customer() {
                   <input
                     type="email"
                     name="email"
-                    value={customerForm.email}
-                    onChange={handleCustomerInputChange}
+                    value={vendorForm.email}
+                    onChange={handleVendorInputChange}
                     disabled={loading}
                     autoComplete="email"
                     style={{
@@ -624,8 +637,8 @@ function Customer() {
                   </label>
                   <textarea
                     name="address"
-                    value={customerForm.address}
-                    onChange={handleCustomerInputChange}
+                    value={vendorForm.address}
+                    onChange={handleVendorInputChange}
                     rows={3}
                     required
                     disabled={loading}
@@ -642,7 +655,7 @@ function Customer() {
                       resize: 'vertical',
                       opacity: loading ? 0.7 : 1
                     }}
-                    placeholder="Enter customer address"
+                    placeholder="Enter vendor address"
                   ></textarea>
                   {formSubmitted && errors.address && (
                     <p style={{ color: 'var(--danger)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
@@ -657,8 +670,8 @@ function Customer() {
                   </label>
                   <textarea
                     name="note"
-                    value={customerForm.note}
-                    onChange={handleCustomerInputChange}
+                    value={vendorForm.note}
+                    onChange={handleVendorInputChange}
                     rows={3}
                     disabled={loading}
                     style={{
@@ -699,13 +712,13 @@ function Customer() {
                   }}
                 >
                   <Save size={16} />
-                  {loading ? 'Saving...' : editingCustomerId ? 'Update Customer' : 'Save Customer'}
+                  {loading ? 'Saving...' : editingVendorId ? 'Update Vendor' : 'Save Vendor'}
                 </button>
-                {!editingCustomerId && (
+                {!editingVendorId && (
                   <button
                     type="button"
                     onClick={async () => {
-                      setCustomerForm({
+                      setVendorForm({
                         id: '',
                         firstName: '',
                         lastName: '',
@@ -714,7 +727,7 @@ function Customer() {
                         address: '',
                         note: ''
                       });
-                      await fetchNextCustomerId();
+                      await fetchNextVendorId();
                       setErrors({});
                       setFormSubmitted(false);
                     }}
@@ -745,11 +758,11 @@ function Customer() {
         </div>
       )}
 
-      {/* Customer List */}
+      {/* Vendor List */}
       {(
         <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Customer List</h2>
+            <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Vendor List</h2>
             
             {/* Search Bar */}
             <div style={{
@@ -766,7 +779,7 @@ function Customer() {
               <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
               <input
                 type="text"
-                placeholder="Search by customer no or name..."
+                placeholder="Search by vendor no or name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -782,8 +795,8 @@ function Customer() {
           </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading customers...</div>
-          ) : customers.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading vendors...</div>
+          ) : vendors.length === 0 ? (
             <EmptyDataCard />
           ) : (
             <div>
@@ -791,7 +804,7 @@ function Customer() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Customer ID</th>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Vendor ID</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Name</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Contact Number</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Email</th>
@@ -800,16 +813,16 @@ function Customer() {
                     </tr>
                   </thead>
                   <tbody>
-                    {customers.map((customer) => {
+                    {vendors.map((vendor) => {
                       const name =
-                        customer.customerName ||
-                        `${customer.firstName || ''} ${customer.lastName || ''}`.replace(/\s+/g, ' ').trim()
-                      const id = customer.id || ''
-                      const contactNumber = customer.contactNumber || ''
-                      const email = customer.email || ''
-                      const address = customer.address || ''
+                        vendor.vendorName ||
+                        `${vendor.firstName || ''} ${vendor.lastName || ''}`.replace(/\s+/g, ' ').trim()
+                      const id = vendor.id || ''
+                      const contactNumber = vendor.contactNumber || ''
+                      const email = vendor.email || ''
+                      const address = vendor.address || ''
                       return (
-                      <tr key={customer._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <tr key={vendor._id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }} title={String(id)}>
                           {truncateText(id)}
                         </td>
@@ -828,7 +841,7 @@ function Customer() {
                         <td style={{ padding: '0.75rem 0.5rem' }}>
                           <div style={{ display: 'flex', gap: '0.25rem' }}>
                             <button
-                              onClick={() => handleEditCustomer(customer)}
+                              onClick={() => handleEditVendor(vendor)}
                               style={{
                                 padding: '0.25rem',
                                 background: 'transparent',
@@ -845,7 +858,7 @@ function Customer() {
                             {isAdmin && (
                               <button
                                 type="button"
-                                onClick={() => openInfo(customer)}
+                                onClick={() => openInfo(vendor)}
                                 style={{
                                   padding: '0.25rem',
                                   background: 'transparent',
@@ -862,7 +875,7 @@ function Customer() {
                             )}
                             {isAdmin && (
                               <button
-                                onClick={() => handleDeleteCustomer(customer._id)}
+                                onClick={() => handleDeleteVendor(vendor._id)}
                                 style={{
                                   padding: '0.25rem',
                                   background: 'transparent',
@@ -896,7 +909,7 @@ function Customer() {
                   marginTop: '1.5rem'
                 }}>
                   <button
-                    onClick={() => fetchCustomers(currentPage - 1, searchQuery)}
+                    onClick={() => fetchVendors(currentPage - 1, searchQuery)}
                     disabled={currentPage === 1}
                     style={{
                       padding: '0.5rem 1rem',
@@ -915,7 +928,7 @@ function Customer() {
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                     <button
                       key={page}
-                      onClick={() => fetchCustomers(page, searchQuery)}
+                      onClick={() => fetchVendors(page, searchQuery)}
                       disabled={page === currentPage}
                       style={{
                         padding: '0.5rem 1rem',
@@ -933,7 +946,7 @@ function Customer() {
                   ))}
                   
                   <button
-                    onClick={() => fetchCustomers(currentPage + 1, searchQuery)}
+                    onClick={() => fetchVendors(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
                     style={{
                       padding: '0.5rem 1rem',
@@ -984,7 +997,7 @@ function Customer() {
               <div>
                 <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Recent Activity</div>
                 <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {infoCustomer?.customerName ? `${infoCustomer.customerName}` : 'Customer'}
+                  {infoVendor?.vendorName ? `${infoVendor.vendorName}` : 'Vendor'}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1017,13 +1030,13 @@ function Customer() {
             </div>
 
             {(() => {
-              const record = infoCustomer?.id ? `Customer • ${infoCustomer.id}` : 'Customer'
-              const createdByName = infoCustomer?.createdBy?.fullName || '-'
-              const createdByEmail = infoCustomer?.createdBy?.email || '-'
-              const updatedByName = infoCustomer?.updatedBy?.fullName || infoCustomer?.updatedByName || '-'
-              const updatedByEmail = infoCustomer?.updatedBy?.email || infoCustomer?.updatedByEmail || '-'
+              const record = infoVendor?.id ? `Vendor • ${infoVendor.id}` : 'Vendor'
+              const createdByName = infoVendor?.createdBy?.fullName || '-'
+              const createdByEmail = infoVendor?.createdBy?.email || '-'
+              const updatedByName = infoVendor?.updatedBy?.fullName || infoVendor?.updatedByName || '-'
+              const updatedByEmail = infoVendor?.updatedBy?.email || infoVendor?.updatedByEmail || '-'
 
-              const raw = Array.isArray(infoCustomer?.activity) ? infoCustomer.activity : []
+              const raw = Array.isArray(infoVendor?.activity) ? infoVendor.activity : []
               let activities = raw
                 .filter((a) => a && a.action && a.at)
                 .slice()
@@ -1031,19 +1044,19 @@ function Customer() {
 
               if (activities.length === 0) {
                 const fallback = []
-                if (infoCustomer?.createdAt) {
+                if (infoVendor?.createdAt) {
                   fallback.push({
                     action: 'create',
-                    at: infoCustomer.createdAt,
+                    at: infoVendor.createdAt,
                     userName: createdByName,
                     userEmail: createdByEmail,
                     changes: []
                   })
                 }
-                if (infoCustomer?.updatedAt && infoCustomer?.createdAt && new Date(infoCustomer.updatedAt).getTime() !== new Date(infoCustomer.createdAt).getTime()) {
+                if (infoVendor?.updatedAt && infoVendor?.createdAt && new Date(infoVendor.updatedAt).getTime() !== new Date(infoVendor.createdAt).getTime()) {
                   fallback.unshift({
                     action: 'update',
-                    at: infoCustomer.updatedAt,
+                    at: infoVendor.updatedAt,
                     userName: updatedByName,
                     userEmail: updatedByEmail,
                     changes: []
@@ -1056,9 +1069,9 @@ function Customer() {
                 const isUpdate = a.action === 'update'
                 return {
                   key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
-                  chip: isUpdate ? 'Update Customer' : 'Create Customer',
+                  chip: isUpdate ? 'Update Vendor' : 'Create Vendor',
                   method: isUpdate ? 'PUT' : 'POST',
-                  path: isUpdate ? '/api/customers/:id' : '/api/customers',
+                  path: isUpdate ? '/api/vendors/:id' : '/api/vendors',
                   at: a.at,
                   icon: isUpdate ? '✎' : '+',
                   iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
@@ -1169,4 +1182,4 @@ function Customer() {
   );
 }
 
-export default Customer
+export default Vendor

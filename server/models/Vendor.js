@@ -35,49 +35,44 @@ const activitySchema = new mongoose.Schema({
   }
 }, { _id: false });
 
-const invoiceItemSchema = new mongoose.Schema({
-  product: {
-    type: String,
-    required: true
-  },
-  description: {
-    type: String,
-    default: ''
-  },
-  amount: {
-    type: Number,
-    required: true,
-    min: 0
-  }
-});
-
-const invoiceSchema = new mongoose.Schema({
-  invoiceNumber: {
+const vendorSchema = new mongoose.Schema({
+  id: {
     type: String,
     required: true,
     unique: true
   },
-  transactionDescription: {
+  firstName: {
+    type: String,
+    required: true
+  },
+  lastName: {
+    type: String,
+    required: true
+  },
+  vendorName: {
+    type: String,
+    required: true
+  },
+  contactNumber: {
+    type: String,
+    required: true
+  },
+  email: {
     type: String,
     default: ''
   },
-  customerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer',
-    required: true
+  address: {
+    type: String,
+    default: ''
+  },
+  note: {
+    type: String,
+    default: ''
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null
-  },
-  createdByName: {
-    type: String,
-    default: ''
-  },
-  createdByEmail: {
-    type: String,
-    default: ''
   },
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -95,20 +90,9 @@ const invoiceSchema = new mongoose.Schema({
   activity: {
     type: [activitySchema],
     default: []
-  },
-  invoiceDate: {
-    type: Date,
-    required: true,
-    default: Date.now
-  },
-  items: [invoiceItemSchema],
-  totalAmount: {
-    type: Number,
-    required: true,
-    default: 0
   }
 }, {
   timestamps: true
 });
 
-module.exports = mongoose.model('Invoice', invoiceSchema);
+module.exports = mongoose.model('Vendor', vendorSchema);

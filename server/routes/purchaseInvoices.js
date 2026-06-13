@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const Invoice = require('../models/Invoice');
+const Invoice = require('../models/PurchaseInvoice');
 const User = require('../models/User');
+
+const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -85,7 +88,7 @@ const truncate = (s, max = 140) => {
 const normalizeInvoiceValue = (field, value) => {
   if (value === null || value === undefined) return value;
 
-  if (field === 'customerId') {
+  if (field === 'vendorId') {
     return String(value?._id || value);
   }
 
@@ -118,17 +121,17 @@ async function getNextInvoiceNumber() {
   let maxId = 0;
   
   for (const invoice of invoices) {
-    if (invoice.invoiceNumber && invoice.invoiceNumber.startsWith('INV')) {
-      const idNumber = parseInt(invoice.invoiceNumber.replace('INV', ''), 10);
+    if (invoice.invoiceNumber && invoice.invoiceNumber.startsWith('PINV')) {
+      const idNumber = parseInt(invoice.invoiceNumber.replace('PINV', ''), 10);
       if (!isNaN(idNumber) && idNumber > maxId) {
         maxId = idNumber;
       }
     }
   }
   
-  // Format without padding, e.g., INV1, INV2
+  // Format without padding, e.g., PINV1, PINV2
   const nextId = maxId + 1;
-  return `INV${nextId}`;
+  return `PINV${nextId}`;
 }
 
 // Get next invoice number
@@ -152,15 +155,15 @@ router.get('/', async (req, res) => {
     let pipeline = [
       {
         $lookup: {
-          from: 'customers',
-          localField: 'customerId',
+          from: 'vendors',
+          localField: 'vendorId',
           foreignField: '_id',
-          as: 'customerId'
+          as: 'vendorId'
         }
       },
       {
         $unwind: {
-          path: "$customerId",
+          path: "$vendorId",
           preserveNullAndEmptyArrays: true
         }
       }
@@ -171,7 +174,7 @@ router.get('/', async (req, res) => {
         $match: {
           $or: [
             { invoiceNumber: { $regex: search, $options: 'i' } },
-            { 'customerId.customerName': { $regex: search, $options: 'i' } }
+            { 'vendorId.vendorName': { $regex: search, $options: 'i' } }
           ]
         }
       });
@@ -192,7 +195,7 @@ router.get('/', async (req, res) => {
       $addFields: {
         numericId: {
           $toInt: {
-            $replaceAll: { input: "$invoiceNumber", find: "INV", replacement: "" }
+            $replaceAll: { input: "$invoiceNumber", find: "PINV", replacement: "" }
           }
         }
       }
@@ -258,8 +261,9 @@ router.get('/', async (req, res) => {
 
 router.get('/detail/:id', async (req, res) => {
   try {
+    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid invoice id' });
     const invoice = await Invoice.findById(req.params.id)
-      .populate('customerId')
+      .populate('vendorId')
       .populate('createdBy', 'fullName email roll')
       .populate('updatedBy', 'fullName email roll');
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
@@ -307,8 +311,9 @@ router.get('/detail/:id', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid invoice id' });
     const invoice = await Invoice.findById(req.params.id)
-      .populate('customerId')
+      .populate('vendorId')
       .populate('createdBy', 'fullName email roll')
       .populate('updatedBy', 'fullName email roll');
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
@@ -338,11 +343,20 @@ router.post('/', async (req, res) => {
     }
 
     const authUser = await getAuthUserInfo(req);
+    if (!req.body.vendorId || !isObjectId(req.body.vendorId)) {
+      return res.status(400).json({ message: 'Valid vendor is required' });
+    }
+    if (!req.body.invoiceDate) {
+      return res.status(400).json({ message: 'Invoice date is required' });
+    }
+    if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
+      return res.status(400).json({ message: 'At least one item is required' });
+    }
 
     const invoice = new Invoice({
       invoiceNumber: generatedId,
       transactionDescription: String(req.body.transactionDescription || '').trim(),
-      customerId: req.body.customerId,
+      vendorId: req.body.vendorId,
       invoiceDate: req.body.invoiceDate,
       items: req.body.items,
       totalAmount: req.body.totalAmount,
@@ -373,6 +387,7 @@ router.post('/', async (req, res) => {
 // Update an invoice
 router.put('/:id', async (req, res) => {
   try {
+    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid invoice id' });
     const existing = await Invoice.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Invoice not found' });
 
@@ -442,6 +457,7 @@ router.put('/:id', async (req, res) => {
 // Delete an invoice
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
+    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid invoice id' });
     await Invoice.findByIdAndDelete(req.params.id);
     res.json({ message: 'Invoice deleted' });
   } catch (err) {

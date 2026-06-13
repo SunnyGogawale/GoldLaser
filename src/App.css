@@ -1051,6 +1051,25 @@ input[type="date"].table-input::-webkit-calendar-picker-indicator {
   background: var(--bg-card);
 }
 
+.empty-data-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: 1.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg-main);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.empty-data-card__title {
+  color: var(--text-header);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
 .add-row-btn {
   display: flex;
   align-items: center;

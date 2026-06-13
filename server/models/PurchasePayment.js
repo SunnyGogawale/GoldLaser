@@ -35,35 +35,28 @@ const activitySchema = new mongoose.Schema({
   }
 }, { _id: false });
 
-const invoiceItemSchema = new mongoose.Schema({
-  product: {
-    type: String,
+const paymentAllocationSchema = new mongoose.Schema({
+  invoiceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PurchaseInvoice',
     required: true
-  },
-  description: {
-    type: String,
-    default: ''
   },
   amount: {
     type: Number,
     required: true,
     min: 0
   }
-});
+}, { _id: false });
 
-const invoiceSchema = new mongoose.Schema({
-  invoiceNumber: {
+const paymentSchema = new mongoose.Schema({
+  paymentNumber: {
     type: String,
     required: true,
     unique: true
   },
-  transactionDescription: {
-    type: String,
-    default: ''
-  },
-  customerId: {
+  vendorId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer',
+    ref: 'Vendor',
     required: true
   },
   createdBy: {
@@ -96,19 +89,26 @@ const invoiceSchema = new mongoose.Schema({
     type: [activitySchema],
     default: []
   },
-  invoiceDate: {
+  paymentDate: {
     type: Date,
     required: true,
     default: Date.now
   },
-  items: [invoiceItemSchema],
-  totalAmount: {
+  amount: {
     type: Number,
     required: true,
-    default: 0
+    min: 0
+  },
+  description: {
+    type: String,
+    default: ''
+  },
+  allocations: {
+    type: [paymentAllocationSchema],
+    default: []
   }
 }, {
   timestamps: true
 });
 
-module.exports = mongoose.model('Invoice', invoiceSchema);
+module.exports = mongoose.model('PurchasePayment', paymentSchema);

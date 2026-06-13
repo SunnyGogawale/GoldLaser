@@ -1,0 +1,611 @@
+const express = require('express');
+const router = express.Router();
+const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const Payment = require('../models/PurchasePayment');
+const Invoice = require('../models/PurchaseInvoice');
+const User = require('../models/User');
+
+const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
+
+const getBearerToken = (req) => {
+  const header = req.headers.authorization || '';
+  const [type, token] = header.split(' ');
+  if (type !== 'Bearer' || !token) return null;
+  return token;
+};
+
+const requireAdmin = async (req, res, next) => {
+  try {
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded?.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const user = await User.findById(userId);
+    const roll = String(user?.roll || user?.role || 'user').toLowerCase();
+    if (roll !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+
+    return next();
+  } catch (err) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+};
+
+const getAuthUserId = (req) => {
+  try {
+    const token = getBearerToken(req);
+    if (!token) return null;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded?.user?.id || decoded?.id || decoded?.userId || decoded?._id;
+    return userId ? String(userId) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getAuthUserInfo = async (req) => {
+  try {
+    const userId = getAuthUserId(req);
+    if (!userId) return null;
+    const user = await User.findById(userId).select('fullName email');
+    return {
+      id: userId,
+      fullName: user?.fullName || '',
+      email: user?.email || ''
+    };
+  } catch {
+    return null;
+  }
+};
+
+const toShortString = (value) => {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      if (typeof value.toString === 'function' && value.toString !== Object.prototype.toString) {
+        const s = value.toString();
+        if (typeof s === 'string' && s !== '[object Object]') return s;
+      }
+      return String(value);
+    }
+  }
+  return String(value);
+};
+
+const truncate = (s, max = 140) => {
+  const str = String(s || '');
+  if (str.length <= max) return str;
+  return str.slice(0, max) + '…';
+};
+
+const normalizePaymentValue = (field, value) => {
+  if (value === null || value === undefined) return value;
+
+  if (field === 'vendorId') {
+    return String(value?._id || value);
+  }
+
+  if (field === 'paymentDate') {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toISOString().slice(0, 10);
+  }
+
+  if (field === 'amount') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : value;
+  }
+
+  return value;
+};
+
+async function getNextPaymentNumber() {
+  const payments = await Payment.find({}, 'paymentNumber');
+  let maxId = 0;
+
+  for (const payment of payments) {
+    if (payment.paymentNumber && payment.paymentNumber.startsWith('PPAY')) {
+      const idNumber = parseInt(payment.paymentNumber.replace('PPAY', ''), 10);
+      if (!isNaN(idNumber) && idNumber > maxId) {
+        maxId = idNumber;
+      }
+    }
+  }
+
+  const nextId = maxId + 1;
+  return `PPAY${nextId}`;
+}
+
+async function getPaidAmountMapByInvoiceIds(invoiceIds, excludePaymentId) {
+  const match = { 'allocations.invoiceId': { $in: invoiceIds } };
+  if (excludePaymentId) {
+    if (!isObjectId(excludePaymentId)) throw new Error('Invalid payment id');
+    match._id = { $ne: new mongoose.Types.ObjectId(excludePaymentId) };
+  }
+
+  const rows = await Payment.aggregate([
+    { $unwind: '$allocations' },
+    { $match: match },
+    {
+      $group: {
+        _id: '$allocations.invoiceId',
+        paidAmount: { $sum: '$allocations.amount' }
+      }
+    }
+  ]);
+
+  const map = new Map();
+  for (const row of rows) {
+    map.set(String(row._id), row.paidAmount);
+  }
+  return map;
+}
+
+async function buildPendingInvoices(vendorId, excludePaymentId) {
+  const invoices = await Invoice.find({ vendorId }).sort({ invoiceDate: 1, createdAt: 1 });
+  if (invoices.length === 0) {
+    return { invoices: [], totalPending: 0 };
+  }
+
+  const invoiceIds = invoices.map(i => i._id);
+  const paidMap = await getPaidAmountMapByInvoiceIds(invoiceIds, excludePaymentId);
+
+  const result = [];
+  let totalPending = 0;
+
+  for (const inv of invoices) {
+    const paidAmount = paidMap.get(String(inv._id)) || 0;
+    const pendingAmount = Math.max(0, (inv.totalAmount || 0) - paidAmount);
+    if (pendingAmount <= 0) continue;
+
+    let status = 'Pending';
+    if (paidAmount > 0 && pendingAmount > 0) status = 'Partial';
+    if (pendingAmount === 0) status = 'Paid';
+
+    totalPending += pendingAmount;
+    result.push({
+      _id: inv._id,
+      invoiceNumber: inv.invoiceNumber,
+      invoiceDate: inv.invoiceDate,
+      invoiceAmount: inv.totalAmount || 0,
+      paidAmount,
+      pendingAmount,
+      status
+    });
+  }
+
+  return { invoices: result, totalPending };
+}
+
+async function allocatePaymentToInvoices({ vendorId, amount, excludePaymentId, invoiceOrder }) {
+  const { invoices: pendingInvoices, totalPending } = await buildPendingInvoices(vendorId, excludePaymentId);
+
+  let orderedInvoices = pendingInvoices;
+  if (Array.isArray(invoiceOrder) && invoiceOrder.length > 0) {
+    const orderMap = new Map(invoiceOrder.map((id, idx) => [String(id), idx]));
+    orderedInvoices = [...pendingInvoices].sort((a, b) => {
+      const aKey = String(a._id);
+      const bKey = String(b._id);
+      const ai = orderMap.has(aKey) ? orderMap.get(aKey) : Number.MAX_SAFE_INTEGER;
+      const bi = orderMap.has(bKey) ? orderMap.get(bKey) : Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+
+      const da = new Date(a.invoiceDate).getTime();
+      const db = new Date(b.invoiceDate).getTime();
+      if (da !== db) return da - db;
+      return aKey.localeCompare(bKey);
+    });
+  }
+
+  const normalizedAmount = Math.max(0, Number(amount) || 0);
+  const effectiveAmount = Math.min(normalizedAmount, Math.max(0, Number(totalPending) || 0));
+  let remaining = effectiveAmount;
+  const allocations = [];
+
+  for (const inv of orderedInvoices) {
+    if (remaining <= 0) break;
+    const toAllocate = Math.min(inv.pendingAmount, remaining);
+    if (toAllocate > 0) {
+      allocations.push({ invoiceId: inv._id, amount: toAllocate });
+      remaining -= toAllocate;
+    }
+  }
+
+  const appliedAmount = effectiveAmount - Math.max(0, remaining);
+  return {
+    allocations,
+    appliedAmount,
+    totalPending
+  };
+}
+
+router.get('/next-number', async (req, res) => {
+  try {
+    const nextNumber = await getNextPaymentNumber();
+    res.json({ nextNumber });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/pending', async (req, res) => {
+  try {
+    const vendorId = req.query.vendorId;
+    const excludePaymentId = req.query.excludePaymentId;
+    if (!vendorId) {
+      return res.status(400).json({ message: 'vendorId is required' });
+    }
+    if (!isObjectId(vendorId)) {
+      return res.status(400).json({ message: 'Invalid vendor id' });
+    }
+    if (excludePaymentId && !isObjectId(excludePaymentId)) {
+      return res.status(400).json({ message: 'Invalid payment id' });
+    }
+
+    const data = await buildPendingInvoices(vendorId, excludePaymentId);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 25;
+    const skip = (page - 1) * limit;
+    const search = req.query.search || '';
+
+    let pipeline = [
+      {
+        $lookup: {
+          from: 'vendors',
+          localField: 'vendorId',
+          foreignField: '_id',
+          as: 'vendorId'
+        }
+      },
+      {
+        $unwind: {
+          path: '$vendorId',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ];
+
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { paymentNumber: { $regex: search, $options: 'i' } },
+            { 'vendorId.vendorName': { $regex: search, $options: 'i' } }
+          ]
+        }
+      });
+    }
+
+    let total = 0;
+    if (search) {
+      const countPipeline = [...pipeline, { $count: 'total' }];
+      const countResult = await Payment.aggregate(countPipeline);
+      total = countResult.length > 0 ? countResult[0].total : 0;
+    } else {
+      total = await Payment.countDocuments();
+    }
+
+    pipeline.push({
+      $addFields: {
+        numericId: {
+          $toInt: {
+            $replaceAll: { input: '$paymentNumber', find: 'PPAY', replacement: '' }
+          }
+        }
+      }
+    });
+
+    pipeline.push({ $sort: { numericId: -1 } });
+    pipeline.push({ $skip: skip });
+    pipeline.push({ $limit: limit });
+
+    pipeline.push({
+      $lookup: {
+        from: 'users',
+        localField: 'createdBy',
+        foreignField: '_id',
+        as: 'createdBy'
+      }
+    });
+    pipeline.push({ $unwind: { path: '$createdBy', preserveNullAndEmptyArrays: true } });
+    pipeline.push({
+      $addFields: {
+        createdBy: {
+          _id: '$createdBy._id',
+          fullName: '$createdBy.fullName',
+          email: '$createdBy.email',
+          roll: '$createdBy.roll'
+        }
+      }
+    });
+
+    const paymentsRaw = await Payment.aggregate(pipeline);
+    const payments = (paymentsRaw || []).map((p) => {
+      const hasCreatedBy =
+        p?.createdBy && (p.createdBy.fullName || p.createdBy.email || p.createdBy._id);
+      const createdByName = p?.createdBy?.fullName || p?.createdByName || '';
+      const createdByEmail = p?.createdBy?.email || p?.createdByEmail || '';
+      const createdBy = hasCreatedBy
+        ? p.createdBy
+        : {
+            _id: p?.createdBy?._id || p?.createdBy || null,
+            fullName: createdByName || null,
+            email: createdByEmail || null,
+            roll: null
+          };
+      return {
+        ...p,
+        createdBy,
+        createdByName,
+        createdByEmail
+      };
+    });
+
+    res.json({
+      payments,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/detail/:id', async (req, res) => {
+  try {
+    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid payment id' });
+    const payment = await Payment.findById(req.params.id)
+      .populate('vendorId')
+      .populate('createdBy', 'fullName email roll')
+      .populate('updatedBy', 'fullName email roll');
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+    if (payment.createdBy && (!payment.createdByName || !payment.createdByEmail)) {
+      payment.createdByName = payment.createdByName || payment.createdBy?.fullName || '';
+      payment.createdByEmail = payment.createdByEmail || payment.createdBy?.email || '';
+      await payment.save();
+    }
+    if (payment.updatedBy && (!payment.updatedByName || !payment.updatedByEmail)) {
+      payment.updatedByName = payment.updatedByName || payment.updatedBy?.fullName || '';
+      payment.updatedByEmail = payment.updatedByEmail || payment.updatedBy?.email || '';
+      await payment.save();
+    }
+    if (!Array.isArray(payment.activity) || payment.activity.length === 0) {
+      const activity = [];
+      activity.push({
+        action: 'create',
+        at: payment.createdAt || new Date(),
+        userId: payment.createdBy?._id || payment.createdBy || null,
+        userName: payment.createdBy?.fullName || payment.createdByName || '',
+        userEmail: payment.createdBy?.email || payment.createdByEmail || ''
+      });
+      if (
+        payment.updatedAt &&
+        payment.createdAt &&
+        new Date(payment.updatedAt).getTime() !== new Date(payment.createdAt).getTime() &&
+        (payment.updatedBy || payment.updatedByName || payment.updatedByEmail)
+      ) {
+        activity.unshift({
+          action: 'update',
+          at: payment.updatedAt,
+          userId: payment.updatedBy?._id || payment.updatedBy || null,
+          userName: payment.updatedBy?.fullName || payment.updatedByName || '',
+          userEmail: payment.updatedBy?.email || payment.updatedByEmail || ''
+        });
+      }
+      payment.activity = activity;
+      await payment.save();
+    }
+    res.json(payment);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid payment id' });
+    const payment = await Payment.findById(req.params.id)
+      .populate('vendorId')
+      .populate('createdBy', 'fullName email roll')
+      .populate('updatedBy', 'fullName email roll');
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+    if (payment.createdBy && (!payment.createdByName || !payment.createdByEmail)) {
+      payment.createdByName = payment.createdByName || payment.createdBy?.fullName || '';
+      payment.createdByEmail = payment.createdByEmail || payment.createdBy?.email || '';
+      await payment.save();
+    }
+    if (payment.updatedBy && (!payment.updatedByName || !payment.updatedByEmail)) {
+      payment.updatedByName = payment.updatedByName || payment.updatedBy?.fullName || '';
+      payment.updatedByEmail = payment.updatedByEmail || payment.updatedBy?.email || '';
+      await payment.save();
+    }
+    if (!Array.isArray(payment.activity) || payment.activity.length === 0) {
+      const activity = [];
+      activity.push({
+        action: 'create',
+        at: payment.createdAt || new Date(),
+        userId: payment.createdBy?._id || payment.createdBy || null,
+        userName: payment.createdBy?.fullName || payment.createdByName || '',
+        userEmail: payment.createdBy?.email || payment.createdByEmail || ''
+      });
+      if (
+        payment.updatedAt &&
+        payment.createdAt &&
+        new Date(payment.updatedAt).getTime() !== new Date(payment.createdAt).getTime() &&
+        (payment.updatedBy || payment.updatedByName || payment.updatedByEmail)
+      ) {
+        activity.unshift({
+          action: 'update',
+          at: payment.updatedAt,
+          userId: payment.updatedBy?._id || payment.updatedBy || null,
+          userName: payment.updatedBy?.fullName || payment.updatedByName || '',
+          userEmail: payment.updatedBy?.email || payment.updatedByEmail || ''
+        });
+      }
+      payment.activity = activity;
+      await payment.save();
+    }
+    res.json(payment);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    let paymentNumber = req.body.paymentNumber;
+    if (!paymentNumber) {
+      paymentNumber = await getNextPaymentNumber();
+    }
+
+    const vendorId = req.body.vendorId;
+    const paymentDate = req.body.paymentDate;
+    const amount = Number(req.body.amount) || 0;
+    const description = req.body.description || '';
+    const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
+
+    if (!vendorId) return res.status(400).json({ message: 'Vendor is required' });
+    if (!isObjectId(vendorId)) return res.status(400).json({ message: 'Invalid vendor id' });
+    if (!paymentDate) return res.status(400).json({ message: 'Payment date is required' });
+    if (!(amount > 0)) return res.status(400).json({ message: 'Payment amount must be greater than 0' });
+
+    const { allocations, appliedAmount } = await allocatePaymentToInvoices({ vendorId, amount, invoiceOrder });
+    if (!(appliedAmount > 0)) {
+      return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
+    }
+
+    const authUser = await getAuthUserInfo(req);
+
+    const payment = new Payment({
+      paymentNumber,
+      vendorId,
+      paymentDate,
+      amount: appliedAmount,
+      description,
+      allocations,
+      createdBy: authUser?.id || null,
+      createdByName: authUser?.fullName || '',
+      createdByEmail: authUser?.email || '',
+      activity: [
+        {
+          action: 'create',
+          at: new Date(),
+          userId: authUser?.id || null,
+          userName: authUser?.fullName || '',
+          userEmail: authUser?.email || ''
+        }
+      ]
+    });
+
+    const saved = await payment.save();
+    res.status(201).json(saved);
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'Payment number must be unique. A payment with this number already exists.' });
+    }
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid payment id' });
+    const existing = await Payment.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+
+    const vendorId = req.body.vendorId || existing.vendorId;
+    const paymentDate = req.body.paymentDate || existing.paymentDate;
+    const amount = Number(req.body.amount ?? existing.amount) || 0;
+    const description = req.body.description ?? existing.description;
+    const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
+
+    if (!vendorId) return res.status(400).json({ message: 'Vendor is required' });
+    if (!isObjectId(vendorId)) return res.status(400).json({ message: 'Invalid vendor id' });
+    if (!paymentDate) return res.status(400).json({ message: 'Payment date is required' });
+    if (!(amount > 0)) return res.status(400).json({ message: 'Payment amount must be greater than 0' });
+
+    const { allocations, appliedAmount } = await allocatePaymentToInvoices({
+      vendorId,
+      amount,
+      excludePaymentId: existing._id,
+      invoiceOrder
+    });
+    if (!(appliedAmount > 0)) {
+      return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
+    }
+
+    const changes = [];
+    const recordChange = (field, fromVal, toVal) => {
+      const fromS = truncate(toShortString(normalizePaymentValue(field, fromVal)));
+      const toS = truncate(toShortString(normalizePaymentValue(field, toVal)));
+      if (fromS === toS) return;
+      changes.push({ field, from: fromS, to: toS });
+    };
+    recordChange('vendorId', existing.vendorId, vendorId);
+    recordChange('paymentDate', existing.paymentDate, paymentDate);
+    recordChange('amount', existing.amount, appliedAmount);
+    recordChange('description', existing.description, description);
+
+    existing.vendorId = vendorId;
+    existing.paymentDate = paymentDate;
+    existing.amount = appliedAmount;
+    existing.description = description;
+    existing.allocations = allocations;
+    const authUser = await getAuthUserInfo(req);
+    existing.updatedBy = authUser?.id || null;
+    existing.updatedByName = authUser?.fullName || '';
+    existing.updatedByEmail = authUser?.email || '';
+    if (!Array.isArray(existing.activity)) existing.activity = [];
+    existing.activity.push({
+      action: 'update',
+      at: new Date(),
+      userId: authUser?.id || null,
+      userName: authUser?.fullName || '',
+      userEmail: authUser?.email || '',
+      changes
+    });
+
+    const updated = await existing.save();
+    res.json(updated);
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'Payment number must be unique. A payment with this number already exists.' });
+    }
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid payment id' });
+    await Payment.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Payment deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+module.exports = router;
