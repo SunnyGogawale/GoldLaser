@@ -68,8 +68,8 @@ function Invoice() {
   const [customerSearchText, setCustomerSearchText] = useState('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
 
-  const filteredCustomers = customers.filter(c => 
-    c.customerName?.toLowerCase().includes(customerSearchText.toLowerCase()) || 
+  const filteredCustomers = customers.filter(c =>
+    c.customerName?.toLowerCase().includes(customerSearchText.toLowerCase()) ||
     c.id?.toLowerCase().includes(customerSearchText.toLowerCase())
   );
 
@@ -127,7 +127,7 @@ function Invoice() {
       const amount = parseFloat(item.amount) || 0;
       return sum + amount;
     }, 0);
-    
+
     setInvoiceForm(prev => ({ ...prev, totalAmount: total }));
   }, [invoiceForm.items]);
 
@@ -178,7 +178,7 @@ function Invoice() {
       ...prev,
       [name]: value
     }));
-    
+
     if (formSubmitted && errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -191,7 +191,7 @@ function Invoice() {
   const handleItemChange = (index, field, value) => {
     const newItems = [...invoiceForm.items];
     newItems[index] = { ...newItems[index], [field]: value };
-    
+
     setInvoiceForm(prev => ({
       ...prev,
       items: newItems
@@ -218,11 +218,11 @@ function Invoice() {
   const handleInvoiceSubmit = async (e) => {
     e.preventDefault();
     setFormSubmitted(true);
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
     try {
       const token = getAuthToken();
@@ -236,12 +236,12 @@ function Invoice() {
           },
           body: JSON.stringify(invoiceForm)
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.message || 'Error updating invoice');
         }
-        
+
         setEditingInvoiceId(null);
         alert('Invoice updated successfully!');
       } else {
@@ -254,15 +254,15 @@ function Invoice() {
           },
           body: JSON.stringify(invoiceForm)
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.message || 'Error saving invoice');
         }
-        
+
         alert('Invoice created successfully!');
       }
-      
+
       await fetchInvoices(1);
       setInvoiceForm({
         invoiceNumber: '',
@@ -855,7 +855,7 @@ function Invoice() {
         <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Invoice List</h2>
-            
+
             {/* Search Bar */}
             <div style={{
               display: 'flex',
@@ -885,7 +885,7 @@ function Invoice() {
               />
             </div>
           </div>
-          
+
           {loading ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>Loading invoices...</div>
           ) : invoices.length === 0 ? (
@@ -987,10 +987,10 @@ function Invoice() {
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Pagination */}
               {totalPages > 1 && (
-                <div style={{ 
+                <div style={{
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
@@ -1013,7 +1013,7 @@ function Invoice() {
                   >
                     Previous
                   </button>
-                  
+
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                     <button
                       key={page}
@@ -1033,7 +1033,7 @@ function Invoice() {
                       {page}
                     </button>
                   ))}
-                  
+
                   <button
                     onClick={() => fetchInvoices(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
@@ -1252,10 +1252,10 @@ function Invoice() {
                               {a.changes
                                 .filter((c) => c?.field !== 'items' && c?.field !== 'totalAmount')
                                 .map((c, i) => (
-                                <div key={`${c.field}-${i}`}>
-                                  {c.field}: {String(c.from || '-').replace(/^"+|"+$/g, '')} → {String(c.to || '-').replace(/^"+|"+$/g, '')}
-                                </div>
-                              ))}
+                                  <div key={`${c.field}-${i}`}>
+                                    {c.field}: {String(c.from || '-').replace(/^"+|"+$/g, '')} → {String(c.to || '-').replace(/^"+|"+$/g, '')}
+                                  </div>
+                                ))}
                             </div>
                           </div>
                         )}

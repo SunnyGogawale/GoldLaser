@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
@@ -7,17 +7,81 @@ import { readJsonResponse } from '../utils/api'
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/customers`
 
+const CUSTOM_FIELDS_API_URL = `${API_BASE_URL}/api/customer-custom-fields`
+
 function Customer() {
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+  
   // Customer form state
   const [customerForm, setCustomerForm] = useState({
     id: '',
-    firstName: '',
-    lastName: '',
+    customerName: '',
+    companyName: '',
     contactNumber: '',
     email: '',
     address: '',
-    note: ''
+    note: '',
+    customFields: {}
   })
+  // State for custom fields (array of { key, value })
+  const [customFieldsArray, setCustomFieldsArray] = useState([])
+  // State for add custom field popup
+  const [addFieldPopupOpen, setAddFieldPopupOpen] = useState(false)
+  const [newFieldName, setNewFieldName] = useState('')
+  const [addToListTable, setAddToListTable] = useState(false)
+  // State for edit custom field popup
+  const [editFieldPopupOpen, setEditFieldPopupOpen] = useState(false)
+  const [editingFieldIndex, setEditingFieldIndex] = useState(null)
+  const [editingFieldOldName, setEditingFieldOldName] = useState('')
+  const [editingFieldNewName, setEditingFieldNewName] = useState('')
+  // State for custom columns in list table
+  const [customColumns, setCustomColumns] = useState([])
+  // State for all custom field names (permanent)
+  const [customFieldNames, setCustomFieldNames] = useState([])
+  // Loading state for custom fields
+  const [customFieldsLoading, setCustomFieldsLoading] = useState(true)
+
+  // Fetch custom fields from backend
+  const fetchCustomFields = async () => {
+    try {
+      const response = await fetch(CUSTOM_FIELDS_API_URL)
+      const fields = await response.json()
+      setCustomFieldNames(fields.map(f => f.fieldName))
+      setCustomColumns(fields.filter(f => f.showInTable).map(f => f.fieldName))
+      // Initialize custom fields array if form is open
+      if (formOpen || editingCustomerId) {
+        // Get existing custom fields to preserve values
+        const existingCustomFields = customerForm.customFields || {}
+        const initialCustomFieldsArray = fields.map(f => ({
+          key: f.fieldName,
+          value: existingCustomFields?.[f.fieldName] || ''
+        }))
+        setCustomFieldsArray(initialCustomFieldsArray)
+        // Also update customerForm.customFields, preserving existing values
+        const customFieldsObj = {}
+        initialCustomFieldsArray.forEach(f => {
+          if (f.key.trim()) {
+            customFieldsObj[f.key.trim()] = f.value
+          }
+        })
+        setCustomerForm(prev => ({ ...prev, customFields: customFieldsObj }))
+      }
+    } catch (err) {
+      console.error('Error fetching custom fields:', err)
+    } finally {
+      setCustomFieldsLoading(false)
+    }
+  }
 
   // Validation errors state
   const [errors, setErrors] = useState({});
@@ -33,6 +97,8 @@ function Customer() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortColumn, setSortColumn] = useState('')
+  const [sortOrder, setSortOrder] = useState('asc')
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
   const [infoOpen, setInfoOpen] = useState(false)
   const [infoCustomer, setInfoCustomer] = useState(null)
@@ -72,10 +138,23 @@ function Customer() {
     }
   };
 
-  async function fetchCustomers(page = 1, search = searchQuery) {
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortOrder('asc');
+    }
+  };
+
+  async function fetchCustomers(page = 1, search = searchQuery, column = sortColumn, order = sortOrder) {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`);
+      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
+      if (column) {
+        url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
+      }
+      const response = await fetch(url);
       const data = await readJsonResponse(response, 'Error fetching customers');
       setCustomers(data.customers || []);
       setTotalPages(data.totalPages || 0);
@@ -87,38 +166,33 @@ function Customer() {
     }
   }
 
-  // Fetch customers on component mount
+  // Fetch customers and custom fields on component mount
   useEffect(() => {
     fetchCustomers();
     fetchNextCustomerId();
+    fetchCustomFields();
   }, []);
+
+  // // Auto-refresh customer list every 2 seconds
+  // useEffect(() => {
+  //   const intervalId = setInterval(() => {
+  //     fetchCustomers();
+  //   }, 2000);
+
+  //   return () => clearInterval(intervalId);
+  // }, []);
 
   // Validation function
   const validateForm = () => {
     const newErrors = {};
 
-    if (!customerForm.firstName.trim()) {
-      newErrors.firstName = 'First name is required';
-    }
-
-    if (!customerForm.lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
-    }
-
-    if (!customerForm.contactNumber.trim()) {
-      newErrors.contactNumber = 'Contact number is required';
-    }
-
-    if (customerForm.email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(customerForm.email)) {
-        newErrors.email = 'Please enter a valid email';
+    const fields = ['customerName', 'companyName', 'contactNumber', 'email', 'address'];
+    fields.forEach(field => {
+      const error = validateField(field, customerForm[field]);
+      if (error) {
+        newErrors[field] = error;
       }
-    }
-
-    if (!customerForm.address.trim()) {
-      newErrors.address = 'Address is required';
-    }
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -126,10 +200,216 @@ function Customer() {
 
   // Fetch customers on component mount
   useEffect(() => {
-    fetchCustomers(1, searchQuery);
-  }, [searchQuery]);
+    fetchCustomers(1, searchQuery, sortColumn, sortOrder);
+  }, [searchQuery, sortColumn, sortOrder]);
+
+  // Validate single field
+  const validateField = (name, value) => {
+    let error = '';
+
+    switch (name) {
+      case 'customerName':
+        if (!value.trim()) {
+          error = 'Please enter a customer name';
+        } else if (value.trim().length < 2) {
+          error = 'Customer name must be at least 2 characters';
+        }
+        break;
+      case 'companyName':
+        if (!value.trim()) {
+          error = 'Please enter a company name';
+        } else if (value.trim().length < 2) {
+          error = 'Company name must be at least 2 characters';
+        }
+        break;
+      case 'contactNumber':
+        if (!value.trim()) {
+          error = 'Please enter a contact number';
+        } else {
+          const phoneRegex = /^[0-9+\-\s()]{6,}$/;
+          if (!phoneRegex.test(value.trim())) {
+            error = 'Please enter a valid contact number';
+          }
+        }
+        break;
+      case 'email':
+        if (!value.trim()) {
+          error = 'Please enter an email address';
+        } else {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(value.trim())) {
+            error = 'Please enter a valid email address';
+          }
+        }
+        break;
+      case 'address':
+        if (!value.trim()) {
+          error = 'Please enter an address';
+        } else if (value.trim().length < 5) {
+          error = 'Address must be at least 5 characters';
+        }
+        break;
+    }
+
+    return error;
+  };
 
   // Customer form handlers
+  // Handle adding a new custom field
+  const addCustomField = () => {
+    setAddFieldPopupOpen(true);
+    setNewFieldName('');
+    setAddToListTable(false);
+  };
+
+  // Handle saving new custom field
+  const saveNewCustomField = async () => {
+    if (!newFieldName.trim()) return;
+    // Avoid duplicates
+    if (customFieldNames.includes(newFieldName.trim())) {
+      alert('This field name already exists!');
+      return;
+    }
+
+    try {
+      // Save to backend
+      const token = getAuthToken();
+      const response = await fetch(CUSTOM_FIELDS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          fieldName: newFieldName.trim(),
+          showInTable: addToListTable
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || 'Error adding custom field');
+      }
+
+      // Refresh custom fields from backend
+      await fetchCustomFields();
+      // Refresh customer list
+      await fetchCustomers();
+      
+      // Close popup
+      setAddFieldPopupOpen(false);
+    } catch (err) {
+      console.error('Error saving custom field:', err);
+      alert(err.message || 'Error adding custom field!');
+    }
+  };
+
+  // Handle removing a custom field
+  const removeCustomField = async (index, fieldName) => {
+    // Ask for confirmation before deleting
+    if (!window.confirm(`Are you sure you want to delete the field "${fieldName}"?`)) {
+      return;
+    }
+
+    try {
+      // Delete from backend
+      const token = getAuthToken();
+      const response = await fetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(fieldName)}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || 'Error deleting custom field');
+      }
+
+      // Refresh custom fields from backend
+      await fetchCustomFields();
+      // Refresh customer list
+      await fetchCustomers();
+    } catch (err) {
+      console.error('Error deleting custom field:', err);
+      alert(err.message || 'Error deleting custom field!');
+    }
+  };
+
+  // Handle renaming a custom field
+  const renameCustomField = async () => {
+    if (!editingFieldNewName.trim() || editingFieldNewName.trim() === editingFieldOldName) {
+      setEditFieldPopupOpen(false);
+      return;
+    }
+
+    // Check if new name already exists
+    if (customFieldNames.includes(editingFieldNewName.trim()) && editingFieldNewName.trim() !== editingFieldOldName) {
+      alert('This field name already exists!');
+      return;
+    }
+
+    // Preserve existing value for the field being renamed
+    const existingValue = customerForm.customFields?.[editingFieldOldName] || '';
+
+    try {
+      // Update in backend
+      const token = getAuthToken();
+      const response = await fetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(editingFieldOldName)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          newFieldName: editingFieldNewName.trim()
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || 'Error renaming custom field');
+      }
+
+      // First update customerForm to preserve the value under the new name
+      const updatedCustomFields = { ...customerForm.customFields };
+      if (editingFieldOldName in updatedCustomFields) {
+        const value = updatedCustomFields[editingFieldOldName];
+        delete updatedCustomFields[editingFieldOldName];
+        updatedCustomFields[editingFieldNewName.trim()] = value;
+      } else if (existingValue) {
+        updatedCustomFields[editingFieldNewName.trim()] = existingValue;
+      }
+      setCustomerForm(prev => ({ ...prev, customFields: updatedCustomFields }));
+
+      // Then refresh custom fields from backend
+      await fetchCustomFields();
+      // Refresh customer list
+      await fetchCustomers();
+
+      // Close popup
+      setEditFieldPopupOpen(false);
+    } catch (err) {
+      console.error('Error renaming custom field:', err);
+      alert(err.message || 'Error renaming custom field!');
+    }
+  };
+
+  // Handle custom field input changes
+  const handleCustomFieldChange = (index, field, value) => {
+    const updated = [...customFieldsArray];
+    updated[index][field] = value;
+    setCustomFieldsArray(updated);
+    // Update customerForm
+    const customFieldsObj = {};
+    updated.forEach(f => {
+      if (f.key.trim()) {
+        customFieldsObj[f.key.trim()] = f.value;
+      }
+    });
+    setCustomerForm(prev => ({ ...prev, customFields: customFieldsObj }));
+  };
+
   const handleCustomerInputChange = (e) => {
     const { name, value } = e.target;
     const updatedForm = {
@@ -138,11 +418,16 @@ function Customer() {
     };
     setCustomerForm(updatedForm);
     
-    // Clear error for this field when user starts typing
-    if (formSubmitted && errors[name]) {
+    // Real-time validation
+    if (formSubmitted) {
+      const error = validateField(name, value);
       setErrors(prev => {
         const newErrors = { ...prev };
-        delete newErrors[name];
+        if (error) {
+          newErrors[name] = error;
+        } else {
+          delete newErrors[name];
+        }
         return newErrors;
       });
     }
@@ -151,7 +436,7 @@ function Customer() {
   const handleCustomerSubmit = async (e) => {
     e.preventDefault();
     setFormSubmitted(true);
-    
+
     if (!validateForm()) {
       return;
     }
@@ -161,8 +446,8 @@ function Customer() {
       const payload = {
         ...customerForm,
         id: String(customerForm.id || '').trim(),
-        firstName: String(customerForm.firstName || '').trim(),
-        lastName: String(customerForm.lastName || '').trim(),
+        customerName: String(customerForm.customerName || '').trim(),
+        companyName: String(customerForm.companyName || '').trim(),
         contactNumber: String(customerForm.contactNumber || '').trim(),
         email: String(customerForm.email || '').trim(),
         address: String(customerForm.address || '').trim(),
@@ -189,12 +474,12 @@ function Customer() {
           },
           body: JSON.stringify(payload)
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.message || 'Error updating customer');
         }
-        
+
         setEditingCustomerId(null);
         alert('Customer updated successfully!');
       } else {
@@ -207,25 +492,37 @@ function Customer() {
           },
           body: JSON.stringify(payload)
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.message || 'Error saving customer');
         }
-        
+
         alert('Customer added successfully!');
       }
       // Refresh customer list (go to first page after adding/updating)
       await fetchCustomers(1);
+      // Reset custom fields array with permanent field names
+      const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
+        key: fieldName,
+        value: ''
+      }))
+      setCustomFieldsArray(initialCustomFieldsArray)
+      // Initialize customFields in customerForm
+      const initialCustomFields = {}
+      customFieldNames.forEach(fieldName => {
+        initialCustomFields[fieldName] = ''
+      })
       // Reset form
       setCustomerForm({
         id: '',
-        firstName: '',
-        lastName: '',
+        customerName: '',
+        companyName: '',
         contactNumber: '',
         email: '',
         address: '',
-        note: ''
+        note: '',
+        customFields: initialCustomFields
       });
       await fetchNextCustomerId();
       setErrors({});
@@ -242,14 +539,26 @@ function Customer() {
   const openCreateCustomer = async () => {
     if (loading) return
     setEditingCustomerId(null)
+    // Initialize custom fields array with all permanent custom field names
+    const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
+      key: fieldName,
+      value: ''
+    }))
+    setCustomFieldsArray(initialCustomFieldsArray)
+    // Initialize customFields in customerForm
+    const initialCustomFields = {}
+    customFieldNames.forEach(fieldName => {
+      initialCustomFields[fieldName] = ''
+    })
     setCustomerForm({
       id: '',
-      firstName: '',
-      lastName: '',
+      customerName: '',
+      companyName: '',
       contactNumber: '',
       email: '',
       address: '',
-      note: ''
+      note: '',
+      customFields: initialCustomFields
     })
     await fetchNextCustomerId()
     setErrors({})
@@ -257,34 +566,72 @@ function Customer() {
     setFormOpen(true)
   }
 
-  const handleEditCustomer = (customer) => {
-    const firstName = customer.firstName || (customer.customerName ? customer.customerName.split(' ')[0] : '');
-    const lastName = customer.lastName || (customer.customerName ? customer.customerName.split(' ').slice(1).join(' ') : '');
-    setCustomerForm({
-      id: customer.id,
-      firstName,
-      lastName,
-      contactNumber: customer.contactNumber,
-      email: customer.email,
-      address: customer.address,
-      note: customer.note
-    });
-    setEditingCustomerId(customer._id);
-    setErrors({});
-    setFormSubmitted(false);
-    setFormOpen(true)
+  const handleEditCustomer = async (customer) => {
+    try {
+      // Fetch full customer details to ensure we have all customFields
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${customer._id}`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      })
+      if (!response.ok) throw new Error('Failed to fetch customer details')
+      const fullCustomer = await response.json()
+
+      // Convert customer's customFields to array, and add any missing permanent fields
+      const customerCustomFields = fullCustomer.customFields || {}
+      const customArray = customFieldNames.map(fieldName => ({
+        key: fieldName,
+        value: customerCustomFields[fieldName] || ''
+      }))
+      setCustomFieldsArray(customArray)
+      // Build customFields object with all permanent fields
+      const customFields = {}
+      customFieldNames.forEach(fieldName => {
+        customFields[fieldName] = customerCustomFields[fieldName] || ''
+      })
+      setCustomerForm({
+        id: fullCustomer.id,
+        customerName: fullCustomer.customerName || '',
+        companyName: fullCustomer.companyName || '',
+        contactNumber: fullCustomer.contactNumber,
+        email: fullCustomer.email,
+        address: fullCustomer.address,
+        note: fullCustomer.note,
+        customFields
+      })
+      setEditingCustomerId(fullCustomer._id)
+      setErrors({})
+      setFormSubmitted(false)
+      setFormOpen(true)
+    } catch (err) {
+      console.error('Error fetching customer for edit:', err)
+      alert('Failed to load customer details')
+    }
   };
 
   const handleCancelEdit = async () => {
     setEditingCustomerId(null);
+    // Reset custom fields array with permanent field names
+    const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
+      key: fieldName,
+      value: ''
+    }))
+    setCustomFieldsArray(initialCustomFieldsArray);
+    // Reset customerForm
+    const initialCustomFields = {}
+    customFieldNames.forEach(fieldName => {
+      initialCustomFields[fieldName] = ''
+    })
     setCustomerForm({
       id: '',
-      firstName: '',
-      lastName: '',
+      customerName: '',
+      companyName: '',
       contactNumber: '',
       email: '',
       address: '',
-      note: ''
+      note: '',
+      customFields: initialCustomFields
     });
     await fetchNextCustomerId();
     setErrors({});
@@ -349,11 +696,20 @@ function Customer() {
     setInfoLoading(true)
     setInfoNowMs(Date.now())
     try {
+      // Refresh custom fields first to ensure we have the latest
+      await fetchCustomFields()
+      
       const token = getAuthToken()
       const response = await fetch(`${API_URL}/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await readJsonResponse(response, 'Error refreshing customer info')
+      
+      // Ensure customFields is always an object
+      if (data && !data.customFields) {
+        data.customFields = {}
+      }
+      
       setInfoCustomer(data || null)
     } catch (err) {
       console.error('Error refreshing customer info:', err)
@@ -413,10 +769,10 @@ function Customer() {
               width: 'min(980px, 96vw)',
               maxHeight: '88vh',
               overflow: 'auto',
-              padding: '2rem'
+              padding: '1.5rem'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, color: 'var(--text-header)' }}>
                 {editingCustomerId ? 'Edit Customer' : 'Add New Customer'}
               </h2>
@@ -435,30 +791,6 @@ function Customer() {
                 >
                   Customer ID : {customerForm.id || 'xxxx'}
                 </div>
-                {editingCustomerId && (
-                  <button
-                    onClick={handleCancelEdit}
-                    disabled={loading}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: 'var(--bg-main)',
-                      color: 'var(--text-header)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      fontSize: '0.9375rem',
-                      fontWeight: 600,
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      opacity: loading ? 0.7 : 1
-                    }}
-                  >
-                    <X size={16} />
-                    Cancel
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={closeCustomerForm}
@@ -480,114 +812,142 @@ function Customer() {
                   }}
                 >
                   <X size={16} />
-                {/* Close */}
+                  {/* Close */}
                 </button>
               </div>
             </div>
-            <form onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+            <form onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    First Name
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Customer Name <span style={{ color: 'var(--danger)' }}>*</span></span>
                   </label>
                   <input
                     type="text"
-                    name="firstName"
-                    value={customerForm.firstName}
+                    name="customerName"
+                    value={customerForm.customerName}
                     onChange={handleCustomerInputChange}
-                    required
                     disabled={loading}
-                    autoComplete="given-name"
+                    autoComplete="name"
                     style={{
                       width: '100%',
                       padding: '0.75rem 1rem',
-                      border: `1px solid ${errors.firstName ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '8px',
+                      border: `2px solid ${errors.customerName ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
                       fontSize: '0.9375rem',
                       background: 'var(--bg-card)',
                       color: 'var(--text-header)',
-                      transition: 'all 0.2s',
-                      opacity: loading ? 0.7 : 1
+                      transition: 'all 0.2s ease',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.customerName ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
                     }}
-                    placeholder="Enter first name"
+                    placeholder="Enter customer name"
                   />
-                  {formSubmitted && errors.firstName && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                      {errors.firstName}
+                  {formSubmitted && errors.customerName && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.customerName}
                     </p>
                   )}
                 </div>
 
                 <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    Last Name
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Company Name <span style={{ color: 'var(--danger)' }}>*</span></span>
+                    {/* <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Optional</span> */}
                   </label>
                   <input
                     type="text"
-                    name="lastName"
-                    value={customerForm.lastName}
+                    name="companyName"
+                    value={customerForm.companyName}
                     onChange={handleCustomerInputChange}
-                    required
                     disabled={loading}
-                    autoComplete="family-name"
+                    autoComplete="organization"
                     style={{
                       width: '100%',
                       padding: '0.75rem 1rem',
-                      border: `1px solid ${errors.lastName ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '8px',
+                      border: `2px solid ${errors.companyName ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
                       fontSize: '0.9375rem',
                       background: 'var(--bg-card)',
                       color: 'var(--text-header)',
-                      transition: 'all 0.2s',
-                      opacity: loading ? 0.7 : 1
+                      transition: 'all 0.2s ease',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.companyName ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
                     }}
-                    placeholder="Enter last name"
+                    placeholder="Enter company name"
                   />
-                  {formSubmitted && errors.lastName && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                      {errors.lastName}
+                  {formSubmitted && errors.companyName && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.companyName}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    Contact Number
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Contact Number <span style={{ color: 'var(--danger)' }}>*</span></span>
                   </label>
                   <input
                     type="tel"
                     name="contactNumber"
                     value={customerForm.contactNumber}
                     onChange={handleCustomerInputChange}
-                    required
                     disabled={loading}
                     inputMode="tel"
                     autoComplete="tel"
                     style={{
                       width: '100%',
                       padding: '0.75rem 1rem',
-                      border: `1px solid ${errors.contactNumber ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '8px',
+                      border: `2px solid ${errors.contactNumber ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
                       fontSize: '0.9375rem',
                       background: 'var(--bg-card)',
                       color: 'var(--text-header)',
-                      transition: 'all 0.2s',
-                      opacity: loading ? 0.7 : 1
+                      transition: 'all 0.2s ease',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.contactNumber ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
                     }}
                     placeholder="Enter contact number"
                   />
                   {formSubmitted && errors.contactNumber && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
                       {errors.contactNumber}
                     </p>
                   )}
                 </div>
 
                 <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    Email
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Email <span style={{ color: 'var(--danger)' }}>*</span></span>
                   </label>
                   <input
                     type="email"
@@ -599,53 +959,72 @@ function Customer() {
                     style={{
                       width: '100%',
                       padding: '0.75rem 1rem',
-                      border: `1px solid ${errors.email ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '8px',
+                      border: `2px solid ${errors.email ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
                       fontSize: '0.9375rem',
                       background: 'var(--bg-card)',
                       color: 'var(--text-header)',
-                      transition: 'all 0.2s',
-                      opacity: loading ? 0.7 : 1
+                      transition: 'all 0.2s ease',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.email ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
                     }}
                     placeholder="Enter email address"
                   />
                   {formSubmitted && errors.email && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
                       {errors.email}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    Address
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Address <span style={{ color: 'var(--danger)' }}>*</span></span>
                   </label>
                   <textarea
                     name="address"
                     value={customerForm.address}
                     onChange={handleCustomerInputChange}
                     rows={3}
-                    required
                     disabled={loading}
                     autoComplete="street-address"
                     style={{
                       width: '100%',
                       padding: '0.75rem 1rem',
-                      border: `1px solid ${errors.address ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '8px',
+                      border: `2px solid ${errors.address ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
                       fontSize: '0.9375rem',
                       background: 'var(--bg-card)',
                       color: 'var(--text-header)',
-                      transition: 'all 0.2s',
+                      transition: 'all 0.2s ease',
                       resize: 'vertical',
-                      opacity: loading ? 0.7 : 1
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.address ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
                     }}
                     placeholder="Enter customer address"
                   ></textarea>
                   {formSubmitted && errors.address && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
                       {errors.address}
                     </p>
                   )}
@@ -678,6 +1057,121 @@ function Customer() {
                 </div>
               </div>
 
+              {/* Custom Fields Section */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Admin: Add new field button (only when not editing customer) */}
+                {isAdmin && !editingCustomerId && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1rem' }}>Custom Fields</h3>
+                    <button
+                      type="button"
+                      onClick={addCustomField}
+                      disabled={loading}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: 'var(--primary)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        opacity: loading ? 0.7 : 1
+                      }}
+                    >
+                      Add Field
+                    </button>
+                  </div>
+                )}
+                
+                {/* Render all custom fields in 2 columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                  {customFieldsArray.map((field, index) => (
+                    <div key={index}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <label style={{ marginBottom: 0, fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                          {field.key || 'Custom Field'}
+                        </label>
+                        {/* Only show edit/delete buttons for custom fields when NOT editing customer */}
+                        {isAdmin && !editingCustomerId && (
+                          <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingFieldIndex(index)
+                                setEditingFieldOldName(field.key)
+                                setEditingFieldNewName(field.key)
+                                setEditFieldPopupOpen(true)
+                              }}
+                              disabled={loading}
+                              onMouseEnter={(e) => !loading && (e.currentTarget.style.background = 'rgba(0, 0, 0, 0.05)')}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              style={{
+                                padding: '0.25rem',
+                                background: 'transparent',
+                                color: 'var(--text-header)',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s',
+                                opacity: loading ? 0.7 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeCustomField(index, field.key)}
+                              disabled={loading}
+                              onMouseEnter={(e) => !loading && (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)')}
+                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              style={{
+                                padding: '0.25rem',
+                                background: 'transparent',
+                                color: 'var(--danger)',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s',
+                                opacity: loading ? 0.7 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={field.value}
+                        onChange={(e) => handleCustomFieldChange(index, 'value', e.target.value)}
+                        disabled={loading}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem 1rem',
+                          border: '2px solid var(--border)',
+                          borderRadius: '12px',
+                          fontSize: '0.9375rem',
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          transition: 'all 0.2s ease',
+                          opacity: loading ? 0.7 : 1,
+                          outline: 'none'
+                        }}
+                        placeholder={`Enter ${field.key || 'value'}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                 <button
                   type="submit"
@@ -705,14 +1199,26 @@ function Customer() {
                   <button
                     type="button"
                     onClick={async () => {
+                      // Reset custom fields array with permanent field names
+                      const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
+                        key: fieldName,
+                        value: ''
+                      }))
+                      setCustomFieldsArray(initialCustomFieldsArray)
+                      // Reset customerForm
+                      const initialCustomFields = {}
+                      customFieldNames.forEach(fieldName => {
+                        initialCustomFields[fieldName] = ''
+                      })
                       setCustomerForm({
                         id: '',
-                        firstName: '',
-                        lastName: '',
+                        customerName: '',
+                        companyName: '',
                         contactNumber: '',
                         email: '',
                         address: '',
-                        note: ''
+                        note: '',
+                        customFields: initialCustomFields
                       });
                       await fetchNextCustomerId();
                       setErrors({});
@@ -745,12 +1251,262 @@ function Customer() {
         </div>
       )}
 
+      {/* Add Custom Field Popup */}
+      {addFieldPopupOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setAddFieldPopupOpen(false)
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: 'min(400px, 96vw)',
+              maxHeight: '88vh',
+              overflow: 'auto',
+              padding: '2rem'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-header)' }}>Add Custom Field</h3>
+              <button
+                type="button"
+                onClick={() => setAddFieldPopupOpen(false)}
+                style={{
+                  padding: '0.5rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                  Field Name
+                </label>
+                <input
+                  type="text"
+                  value={newFieldName}
+                  onChange={(e) => setNewFieldName(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    border: '2px solid var(--border)',
+                    borderRadius: '12px',
+                    fontSize: '0.9375rem',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-header)',
+                    outline: 'none'
+                  }}
+                  placeholder="Enter field name"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveNewCustomField()
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  id="addToListTable"
+                  checked={addToListTable}
+                  onChange={(e) => setAddToListTable(e.target.checked)}
+                  style={{
+                    width: '1rem',
+                    height: '1rem',
+                    cursor: 'pointer'
+                  }}
+                />
+                <label
+                  htmlFor="addToListTable"
+                  style={{
+                    color: 'var(--text-header)',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Add to customer list table
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setAddFieldPopupOpen(false)}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-header)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    fontSize: '0.9375rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveNewCustomField}
+                  disabled={!newFieldName.trim()}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.9375rem',
+                    fontWeight: 700,
+                    cursor: newFieldName.trim() ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.2s',
+                    opacity: newFieldName.trim() ? 1 : 0.5
+                  }}
+                >
+                  Add Field
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Custom Field Popup */}
+      {editFieldPopupOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setEditFieldPopupOpen(false)
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: 'min(400px, 96vw)',
+              maxHeight: '88vh',
+              overflow: 'auto',
+              padding: '2rem'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--text-header)' }}>Edit Custom Field</h3>
+              <button
+                type="button"
+                onClick={() => setEditFieldPopupOpen(false)}
+                style={{
+                  padding: '0.5rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                  Field Name
+                </label>
+                <input
+                  type="text"
+                  value={editingFieldNewName}
+                  onChange={(e) => setEditingFieldNewName(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    border: '2px solid var(--border)',
+                    borderRadius: '12px',
+                    fontSize: '0.9375rem',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-header)',
+                    outline: 'none'
+                  }}
+                  placeholder="Enter new field name"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') renameCustomField()
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditFieldPopupOpen(false)}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-header)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    fontSize: '0.9375rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={renameCustomField}
+                  disabled={!editingFieldNewName.trim() || editingFieldNewName.trim() === editingFieldOldName}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.9375rem',
+                    fontWeight: 700,
+                    cursor: (editingFieldNewName.trim() && editingFieldNewName.trim() !== editingFieldOldName) ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.2s',
+                    opacity: (editingFieldNewName.trim() && editingFieldNewName.trim() !== editingFieldOldName) ? 1 : 0.5
+                  }}
+                >
+                  Rename
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Customer List */}
       {(
         <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Customer List</h2>
-            
+
             {/* Search Bar */}
             <div style={{
               display: 'flex',
@@ -759,14 +1515,14 @@ function Customer() {
               border: '1px solid var(--border)',
               borderRadius: '8px',
               padding: '0.35rem 0.6rem',
-              width: 'min(220px, 100%)',
+              width: 'min(420px, 100%)',
               flex: '0 0 auto',
               marginLeft: 'auto'
             }}>
               <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
               <input
                 type="text"
-                placeholder="Search by customer no or name..."
+                placeholder="Search by company or customer name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -787,113 +1543,294 @@ function Customer() {
             <EmptyDataCard />
           ) : (
             <div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Customer ID</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Name</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Contact Number</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Email</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Address</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customers.map((customer) => {
-                      const name =
-                        customer.customerName ||
-                        `${customer.firstName || ''} ${customer.lastName || ''}`.replace(/\s+/g, ' ').trim()
-                      const id = customer.id || ''
-                      const contactNumber = customer.contactNumber || ''
-                      const email = customer.email || ''
-                      const address = customer.address || ''
-                      return (
-                      <tr key={customer._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }} title={String(id)}>
-                          {truncateText(id)}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>
-                          <span title={String(name)}>{truncateText(name)}</span>
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }} title={String(contactNumber)}>
-                          {truncateText(contactNumber)}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }} title={String(email)}>
-                          {truncateText(email)}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }} title={String(address)}>
-                          {truncateText(address)}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>
-                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+              {/* Mobile/Tablet Card View */}
+              {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {customers.map((customer) => {
+                    const customerName =
+                      customer.customerName ||
+                      `${customer.firstName || ''} ${customer.lastName || ''}`.replace(/\s+/g, ' ').trim()
+                    const companyName = customer.companyName || ''
+                    const mobile = customer.contactNumber || ''
+                    const email = customer.email || ''
+                    const outstanding = customer.outstanding || '0'
+                    
+                    return (
+                      <div 
+                        key={customer._id} 
+                        style={{
+                          border: '1px solid var(--border)',
+                          borderRadius: '12px',
+                          padding: '1rem',
+                          background: 'var(--bg-card)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ 
+                              fontSize: '1rem', 
+                              fontWeight: 800, 
+                              color: 'var(--text-header)',
+                              marginBottom: '0.25rem'
+                            }}>
+                              {customerName || '-'}
+                            </div>
+                            {companyName && (
+                              <div style={{ 
+                                fontSize: '0.875rem', 
+                                color: 'var(--text-muted)',
+                                fontWeight: 600
+                              }}>
+                                {companyName}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                              onClick={() => {
+                                setInfoCustomer(customer);
+                                setInfoOpen(true);
+                              }}
+                              style={{
+                                padding: '0.35rem',
+                                background: 'var(--bg-main)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted)',
+                                transition: 'all 0.2s'
+                              }}
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </button>
                             <button
                               onClick={() => handleEditCustomer(customer)}
                               style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                border: 'none',
+                                padding: '0.35rem',
+                                background: 'var(--bg-main)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
                                 color: 'var(--text-muted)',
-                                borderRadius: '6px',
                                 transition: 'all 0.2s'
                               }}
                               title="Edit"
                             >
-                              <Edit2 size={14} />
+                              <Edit2 size={16} />
                             </button>
-                            {isAdmin && (
-                              <button
-                                type="button"
-                                onClick={() => openInfo(customer)}
-                                style={{
-                                  padding: '0.25rem',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  color: 'var(--text-muted)',
-                                  borderRadius: '6px',
-                                  transition: 'all 0.2s'
-                                }}
-                                title="Info"
-                              >
-                                <Info size={14} />
-                              </button>
-                            )}
                             {isAdmin && (
                               <button
                                 onClick={() => handleDeleteCustomer(customer._id)}
                                 style={{
-                                  padding: '0.25rem',
-                                  background: 'transparent',
-                                  border: 'none',
+                                  padding: '0.35rem',
+                                  background: 'var(--bg-main)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: '8px',
                                   cursor: 'pointer',
                                   color: 'var(--danger)',
-                                  borderRadius: '6px',
                                   transition: 'all 0.2s'
                                 }}
                                 title="Delete"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={16} />
                               </button>
                             )}
                           </div>
-                        </td>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {mobile && (
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Mobile:</div>
+                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{mobile}</div>
+                            </div>
+                          )}
+                          {email && (
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Email:</div>
+                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600, wordBreak: 'break-all' }}>{email}</div>
+                            </div>
+                          )}
+                          {outstanding && outstanding !== '0' && (
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Outstanding:</div>
+                              <div style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 800 }}>{outstanding}</div>
+                            </div>
+                          )}
+                          {/* Custom columns */}
+                          {customColumns.map((columnName) => {
+                            const value = customer.customFields?.[columnName]
+                            if (!value) return null
+                            return (
+                              <div key={columnName} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>{columnName}:</div>
+                                <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{value}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                /* Desktop Table View */
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        <th
+                          onClick={() => handleSort('companyName')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Company Name {sortColumn === 'companyName' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('customerName')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Customer Name {sortColumn === 'customerName' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('contactNumber')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Mobile {sortColumn === 'contactNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('email')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Email {sortColumn === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('outstanding')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Outstanding {sortColumn === 'outstanding' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        {/* Custom columns */}
+                        {customColumns.map((columnName) => (
+                          <th
+                            key={columnName}
+                            onClick={() => handleSort(`customField_${columnName}`)}
+                            style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          >
+                            {columnName} {sortColumn === `customField_${columnName}` && (sortOrder === 'asc' ? '↑' : '↓')}
+                          </th>
+                        ))}
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
                       </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              
+                    </thead>
+                    <tbody>
+                      {customers.map((customer) => {
+                        const customerName =
+                          customer.customerName ||
+                          `${customer.firstName || ''} ${customer.lastName || ''}`.replace(/\s+/g, ' ').trim()
+                        const companyName = customer.companyName || ''
+                        const mobile = customer.contactNumber || ''
+                        const email = customer.email || ''
+                        const outstanding = customer.outstanding || '0'
+                        return (
+                          <tr key={customer._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(companyName)}>
+                              {truncateText(companyName) || '-'}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>
+                              <span title={String(customerName)}>{truncateText(customerName)}</span>
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(mobile)}>
+                              {truncateText(mobile)}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(email)}>
+                              {truncateText(email)}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(outstanding)}>
+                              {outstanding}
+                            </td>
+                            {/* Custom column cells */}
+                            {customColumns.map((columnName) => (
+                              <td key={columnName} style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(customer.customFields?.[columnName] || '-')}>
+                                {truncateText(customer.customFields?.[columnName] || '-')}
+                              </td>
+                            ))}
+                            <td style={{ padding: '0.5rem 0.375rem' }}>
+                              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                {/* View Button */}
+                                <button
+                                  onClick={() => {
+                                    setInfoCustomer(customer);
+                                    setInfoOpen(true);
+                                  }}
+                                  style={{
+                                    padding: '0.25rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    borderRadius: '6px',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  title="View"
+                                >
+                                  <Eye size={14} />
+                                </button>
+
+                                {/* Edit Button */}
+                                <button
+                                  onClick={() => handleEditCustomer(customer)}
+                                  style={{
+                                    padding: '0.25rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    borderRadius: '6px',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  title="Edit"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+
+                                {/* Delete Button (Admin Only) */}
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => handleDeleteCustomer(customer._id)}
+                                    style={{
+                                      padding: '0.25rem',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      color: 'var(--danger)',
+                                      borderRadius: '6px',
+                                      transition: 'all 0.2s'
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               {/* Pagination */}
               {totalPages > 1 && (
-                <div style={{ 
+                <div style={{
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  marginTop: '1.5rem'
+                  marginTop: '1.5rem',
+                  flexWrap: 'wrap'
                 }}>
                   <button
                     onClick={() => fetchCustomers(currentPage - 1, searchQuery)}
@@ -911,7 +1848,7 @@ function Customer() {
                   >
                     Previous
                   </button>
-                  
+
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                     <button
                       key={page}
@@ -931,7 +1868,7 @@ function Customer() {
                       {page}
                     </button>
                   ))}
-                  
+
                   <button
                     onClick={() => fetchCustomers(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
@@ -982,29 +1919,12 @@ function Customer() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
               <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Recent Activity</div>
-                <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Customer Details</div>
+                {/* <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                   {infoCustomer?.customerName ? `${infoCustomer.customerName}` : 'Customer'}
-                </div>
+                </div> */}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={refreshInfo}
-                  disabled={infoLoading}
-                  style={{
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    borderRadius: 10,
-                    padding: '0.45rem',
-                    cursor: infoLoading ? 'not-allowed' : 'pointer',
-                    color: 'var(--text-muted)',
-                    opacity: infoLoading ? 0.6 : 1
-                  }}
-                  title="Refresh"
-                >
-                  <RotateCcw size={18} />
-                </button>
                 <button
                   type="button"
                   onClick={closeInfo}
@@ -1016,152 +1936,215 @@ function Customer() {
               </div>
             </div>
 
-            {(() => {
-              const record = infoCustomer?.id ? `Customer • ${infoCustomer.id}` : 'Customer'
-              const createdByName = infoCustomer?.createdBy?.fullName || '-'
-              const createdByEmail = infoCustomer?.createdBy?.email || '-'
-              const updatedByName = infoCustomer?.updatedBy?.fullName || infoCustomer?.updatedByName || '-'
-              const updatedByEmail = infoCustomer?.updatedBy?.email || infoCustomer?.updatedByEmail || '-'
+            {/* Customer Details */}
+            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 200px' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Customer Name</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer?.customerName || '-'}</div>
+                </div>
+                <div style={{ flex: '1 1 200px' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Company Name</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer?.companyName || '-'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 200px' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Contact Number</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer?.contactNumber || '-'}</div>
+                </div>
+                <div style={{ flex: '1 1 200px' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Email</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer?.email || '-'}</div>
+                </div>
+              </div>
+              {infoCustomer?.address && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Address</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer.address}</div>
+                </div>
+              )}
+              {infoCustomer?.note && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Note</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer.note}</div>
+                </div>
+              )}
+              {/* Custom Fields as individual columns */}
+              {infoCustomer?.customFields && (
+                <>
+                  {customFieldNames.length > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                      {customFieldNames.map((fieldName, index) => {
+                        const value = infoCustomer.customFields?.[fieldName] || ''
+                        if (!value) return null // Hide if no value
+                        return (
+                          <div key={fieldName} style={{ flex: '1 1 200px' }}>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>{fieldName}</div>
+                            <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{value}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
-              const raw = Array.isArray(infoCustomer?.activity) ? infoCustomer.activity : []
-              let activities = raw
-                .filter((a) => a && a.action && a.at)
-                .slice()
-                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+            {isAdmin && (
+              (() => {
+                const record = infoCustomer?.id ? `Customer • ${infoCustomer.id}` : 'Customer'
+                const createdByName = infoCustomer?.createdBy?.fullName || '-'
+                const createdByEmail = infoCustomer?.createdBy?.email || '-'
+                const updatedByName = infoCustomer?.updatedBy?.fullName || infoCustomer?.updatedByName || '-'
+                const updatedByEmail = infoCustomer?.updatedBy?.email || infoCustomer?.updatedByEmail || '-'
 
-              if (activities.length === 0) {
-                const fallback = []
-                if (infoCustomer?.createdAt) {
-                  fallback.push({
-                    action: 'create',
-                    at: infoCustomer.createdAt,
-                    userName: createdByName,
-                    userEmail: createdByEmail,
-                    changes: []
-                  })
+                const raw = Array.isArray(infoCustomer?.activity) ? infoCustomer.activity : []
+                let activities = raw
+                  .filter((a) => a && a.action && a.at)
+                  .slice()
+                  .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+
+                if (activities.length === 0) {
+                  const fallback = []
+                  if (infoCustomer?.createdAt) {
+                    fallback.push({
+                      action: 'create',
+                      at: infoCustomer.createdAt,
+                      userName: createdByName,
+                      userEmail: createdByEmail,
+                      changes: []
+                    })
+                  }
+                  if (infoCustomer?.updatedAt && infoCustomer?.createdAt && new Date(infoCustomer.updatedAt).getTime() !== new Date(infoCustomer.createdAt).getTime()) {
+                    fallback.unshift({
+                      action: 'update',
+                      at: infoCustomer.updatedAt,
+                      userName: updatedByName,
+                      userEmail: updatedByEmail,
+                      changes: []
+                    })
+                  }
+                  activities = fallback
                 }
-                if (infoCustomer?.updatedAt && infoCustomer?.createdAt && new Date(infoCustomer.updatedAt).getTime() !== new Date(infoCustomer.createdAt).getTime()) {
-                  fallback.unshift({
-                    action: 'update',
-                    at: infoCustomer.updatedAt,
-                    userName: updatedByName,
-                    userEmail: updatedByEmail,
-                    changes: []
-                  })
-                }
-                activities = fallback
-              }
 
-              const items = activities.map((a, idx) => {
-                const isUpdate = a.action === 'update'
-                return {
-                  key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
-                  chip: isUpdate ? 'Update Customer' : 'Create Customer',
-                  method: isUpdate ? 'PUT' : 'POST',
-                  path: isUpdate ? '/api/customers/:id' : '/api/customers',
-                  at: a.at,
-                  icon: isUpdate ? '✎' : '+',
-                  iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
-                  iconColor: isUpdate ? '#1d4ed8' : '#065f46',
-                  userName: a.userName || (isUpdate ? updatedByName : createdByName) || '-',
-                  userEmail: a.userEmail || (isUpdate ? updatedByEmail : createdByEmail) || '-',
-                  record,
-                  changes: Array.isArray(a.changes) ? a.changes : []
-                }
-              })
+                const items = activities.map((a, idx) => {
+                  const isUpdate = a.action === 'update'
+                  // Filter out customFields from changes
+                  const filteredChanges = Array.isArray(a.changes) 
+                    ? a.changes.filter(c => c.field !== 'customFields') 
+                    : []
+                  return {
+                    key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
+                    chip: isUpdate ? 'Update Customer' : 'Create Customer',
+                    method: isUpdate ? 'PUT' : 'POST',
+                    path: isUpdate ? '/api/customers/:id' : '/api/customers',
+                    at: a.at,
+                    icon: isUpdate ? '✎' : '+',
+                    iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
+                    iconColor: isUpdate ? '#1d4ed8' : '#065f46',
+                    userName: a.userName || (isUpdate ? updatedByName : createdByName) || '-',
+                    userEmail: a.userEmail || (isUpdate ? updatedByEmail : createdByEmail) || '-',
+                    record,
+                    changes: filteredChanges
+                  }
+                })
 
-              return (
-                <div style={{ marginTop: '1rem' }}>
-                  {items.map((a, idx) => (
-                    <div key={a.key} style={{ display: 'flex', gap: '0.9rem', padding: '0.75rem 0' }}>
-                      <div style={{ width: 34, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                return (
+                  <div style={{ marginTop: '1rem' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)', marginBottom: '0.5rem' }}>Recent Activity</div>
+                    {items.map((a, idx) => (
+                      <div key={a.key} style={{ display: 'flex', gap: '0.9rem', padding: '0.75rem 0' }}>
+                        <div style={{ width: 34, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: 10,
+                              background: a.iconBg,
+                              color: a.iconColor,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 900,
+                              border: '1px solid rgba(0,0,0,0.04)'
+                            }}
+                          >
+                            {a.icon}
+                          </div>
+                          {idx !== items.length - 1 && (
+                            <div style={{ flex: 1, width: 2, background: 'var(--border)', opacity: 0.6, marginTop: 8 }} />
+                          )}
+                        </div>
+
                         <div
                           style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 10,
-                            background: a.iconBg,
-                            color: a.iconColor,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 900,
-                            border: '1px solid rgba(0,0,0,0.04)'
+                            flex: 1,
+                            background: 'transparent',
+                            border: '1px solid var(--border)',
+                            borderRadius: 14,
+                            padding: '0.85rem 0.95rem'
                           }}
                         >
-                          {a.icon}
-                        </div>
-                        {idx !== items.length - 1 && (
-                          <div style={{ flex: 1, width: 2, background: 'var(--border)', opacity: 0.6, marginTop: 8 }} />
-                        )}
-                      </div>
-
-                      <div
-                        style={{
-                          flex: 1,
-                          background: 'transparent',
-                          border: '1px solid var(--border)',
-                          borderRadius: 14,
-                          padding: '0.85rem 0.95rem'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '0.25rem 0.6rem',
-                              borderRadius: 999,
-                              background: 'transparent',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text-header)',
-                              fontWeight: 800,
-                              fontSize: '0.85rem'
-                            }}
-                          >
-                            {a.chip}
-                          </div>
-                          <div
-                            style={{
-                              padding: '0.2rem 0.55rem',
-                              borderRadius: 999,
-                              border: '1px solid var(--border)',
-                              background: 'transparent',
-                              color: 'var(--text-muted)',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {infoLoading ? 'Loading...' : formatTimeAgo(a.at)}
-                          </div>
-                        </div>
-
-                        <div style={{ marginTop: 10, color: 'var(--text-header)', fontWeight: 800, fontSize: '0.93rem' }}>
-                          {infoLoading ? 'Loading...' : a.userName}
-                          <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginLeft: 8 }}>
-                            {infoLoading ? '' : a.userEmail && a.userEmail !== '-' ? `• ${a.userEmail}` : ''}
-                          </span>
-                        </div>
-
-                        {Array.isArray(a.changes) && a.changes.length > 0 && (
-                          <div style={{ marginTop: 10 }}>
-                            <div style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '0.85rem' }}>Recent Changes</div>
-                            <div style={{ marginTop: 6, display: 'grid', gap: 4, color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>
-                              {a.changes.map((c, i) => (
-                                <div key={`${c.field}-${i}`}>
-                                  {c.field}: {c.from || '-'} → {c.to || '-'}
-                                </div>
-                              ))}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: 999,
+                                background: 'transparent',
+                                border: '1px solid var(--border)',
+                                color: 'var(--text-header)',
+                                fontWeight: 800,
+                                fontSize: '0.85rem'
+                              }}
+                            >
+                              {a.chip}
+                            </div>
+                            <div
+                              style={{
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: 999,
+                                border: '1px solid var(--border)',
+                                background: 'transparent',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.78rem',
+                                fontWeight: 800,
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {infoLoading ? 'Loading...' : formatTimeAgo(a.at)}
                             </div>
                           </div>
-                        )}
+
+                          <div style={{ marginTop: 10, color: 'var(--text-header)', fontWeight: 800, fontSize: '0.93rem' }}>
+                            {infoLoading ? 'Loading...' : a.userName}
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginLeft: 8 }}>
+                              {infoLoading ? '' : a.userEmail && a.userEmail !== '-' ? `• ${a.userEmail}` : ''}
+                            </span>
+                          </div>
+
+                          {Array.isArray(a.changes) && a.changes.length > 0 && (
+                            <div style={{ marginTop: 10 }}>
+                              <div style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '0.85rem' }}>Recent Changes</div>
+                              <div style={{ marginTop: 6, display: 'grid', gap: 4, color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>
+                                {a.changes.map((c, i) => (
+                                  <div key={`${c.field}-${i}`}>
+                                    {c.field}: {c.from || '-'} → {c.to || '-'}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
+                    ))}
+                  </div>
+                )
+              })()
+            )}
+
           </div>
         </div>
       )}

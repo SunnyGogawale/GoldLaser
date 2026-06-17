@@ -13,6 +13,7 @@ app.use(cors());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/customers', require('./routes/customers'));
+app.use('/api/customer-custom-fields', require('./routes/customerCustomFields'));
 app.use('/api/vendors', require('./routes/vendors'));
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/payments', require('./routes/payments'));

@@ -6,6 +6,54 @@ const Invoice = require('../models/Invoice');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 
+function invoicePaidLookupStage() {
+  return {
+    $lookup: {
+      from: 'payments',
+      let: { invoiceId: '$_id' },
+      pipeline: [
+        { $unwind: '$allocations' },
+        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
+        { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
+      ],
+      as: 'paidAgg'
+    }
+  };
+}
+
+function invoiceComputedFieldsStage() {
+  return {
+    $addFields: {
+      paidAmount: { $ifNull: [{ $arrayElemAt: ['$paidAgg.paidAmount', 0] }, 0] },
+      pendingAmount: {
+        $max: [
+          0,
+          {
+            $subtract: [
+              { $ifNull: ['$totalAmount', 0] },
+              { $ifNull: [{ $arrayElemAt: ['$paidAgg.paidAmount', 0] }, 0] }
+            ]
+          }
+        ]
+      }
+    }
+  };
+}
+
+async function getCustomerOutstanding(customerId) {
+  try {
+    const pendingAgg = await Invoice.aggregate([
+      { $match: { customerId } },
+      invoicePaidLookupStage(),
+      invoiceComputedFieldsStage(),
+      { $group: { _id: null, totalPendingAmount: { $sum: '$pendingAmount' } } }
+    ]);
+    return pendingAgg.length > 0 ? pendingAgg[0].totalPendingAmount : 0;
+  } catch {
+    return 0;
+  }
+}
+
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
   const [type, token] = header.split(' ');
@@ -118,28 +166,54 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
     const search = req.query.search || '';
+    const sortColumn = req.query.sortColumn || '';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
     let query = {};
     if (search) {
       query = {
         $or: [
-          { id: { $regex: search, $options: 'i' } },
-          { firstName: { $regex: search, $options: 'i' } },
-          { lastName: { $regex: search, $options: 'i' } },
+          { companyName: { $regex: search, $options: 'i' } },
           { customerName: { $regex: search, $options: 'i' } }
         ]
       };
     }
 
     const total = await Customer.countDocuments(query);
+    
+    // Define sort object
+    let sortObj = { createdAt: -1 }; // Default sort
+    if (sortColumn && ['companyName', 'customerName', 'contactNumber', 'email'].includes(sortColumn)) {
+      sortObj = { [sortColumn]: sortOrder };
+    }
+
     const customers = await Customer.find(query)
       .populate('createdBy', 'fullName email roll')
-      .sort({ createdAt: -1 })
+      .sort(sortObj)
       .skip(skip)
       .limit(limit);
+
+    // Calculate outstanding for each customer
+    let customersWithOutstanding = await Promise.all(
+      customers.map(async (customer) => {
+        const customerObj = customer.toObject();
+        customerObj.outstanding = await getCustomerOutstanding(customer._id);
+        customerObj.customFields = customer.customFields || {};
+        return customerObj;
+      })
+    );
+
+    // If sorting by outstanding, do it client-side after calculation
+    if (sortColumn === 'outstanding') {
+      customersWithOutstanding.sort((a, b) => {
+        const valA = a.outstanding || 0;
+        const valB = b.outstanding || 0;
+        return sortOrder === 1 ? valA - valB : valB - valA;
+      });
+    }
     
     res.json({
-      customers,
+      customers: customersWithOutstanding,
       total,
       page,
       totalPages: Math.ceil(total / limit)
@@ -187,7 +261,9 @@ router.get('/:id', async (req, res) => {
       customer.activity = activity;
       await customer.save();
     }
-    res.json(customer);
+    const customerObj = customer.toObject();
+    customerObj.outstanding = await getCustomerOutstanding(customer._id);
+    res.json(customerObj);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -202,21 +278,20 @@ router.post('/', async (req, res) => {
       generatedId = await getNextCustomerId();
     }
 
-    const firstName = (req.body.firstName || '').trim();
-    const lastName = (req.body.lastName || '').trim();
-    const fullName = `${firstName} ${lastName}`.replace(/\s+/g, ' ').trim();
+    const customerName = (req.body.customerName || '').trim();
+    const companyName = (req.body.companyName || '').trim();
 
     const authUser = await getAuthUserInfo(req);
 
     const customer = new Customer({
       id: generatedId,
-      firstName,
-      lastName,
-      customerName: fullName,
+      customerName,
+      companyName,
       contactNumber: req.body.contactNumber,
       email: req.body.email,
       address: req.body.address,
       note: req.body.note,
+      customFields: req.body.customFields || {},
       createdBy: authUser?.id || null,
       activity: [
         {
@@ -252,12 +327,15 @@ router.put('/:id', async (req, res) => {
     delete update.updatedByEmail;
     delete update.activity;
 
-    if (typeof update.firstName === 'string' || typeof update.lastName === 'string') {
-      const firstName = (update.firstName || '').trim();
-      const lastName = (update.lastName || '').trim();
-      update.firstName = firstName;
-      update.lastName = lastName;
-      update.customerName = `${firstName} ${lastName}`.replace(/\s+/g, ' ').trim();
+    if (typeof update.customerName === 'string') {
+      update.customerName = update.customerName.trim();
+    }
+    if (typeof update.companyName === 'string') {
+      update.companyName = update.companyName.trim();
+    }
+    // Ensure customFields is an object
+    if (update.customFields !== undefined && typeof update.customFields !== 'object') {
+      update.customFields = {};
     }
 
     const authUser = await getAuthUserInfo(req);
