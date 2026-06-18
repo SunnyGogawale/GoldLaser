@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Save, RotateCcw, Trash2, Edit2, X, Plus, Search, Info, Eye } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, RotateCcw, Trash2, Edit2, X, Plus, Search, Info, Eye, MoreHorizontal } from 'lucide-react';
 import EmptyDataCard from '../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../utils/authStorage';
 
@@ -77,6 +77,7 @@ function PurchaseInvoice() {
   const [infoInvoice, setInfoInvoice] = useState(null);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoNowMs, setInfoNowMs] = useState(0);
+  const [openDropdownId, setOpenDropdownId] = useState(null);
 
   const formatTimeAgo = (dateValue) => {
     const d = dateValue ? new Date(dateValue) : null
@@ -170,6 +171,17 @@ function PurchaseInvoice() {
     
     setInvoiceForm(prev => ({ ...prev, totalAmount: total }));
   }, [invoiceForm.items]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenDropdownId(null);
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
 
   // Validation function
   const validateForm = () => {
@@ -969,9 +981,12 @@ function PurchaseInvoice() {
                               {label}
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div style={{ position: 'relative' }}>
                             <button
-                              onClick={() => openInfo(invoice)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDropdownId(openDropdownId === invoice._id ? null : invoice._id);
+                              }}
                               style={{
                                 padding: '0.35rem',
                                 background: 'var(--bg-main)',
@@ -981,41 +996,101 @@ function PurchaseInvoice() {
                                 color: 'var(--text-muted)',
                                 transition: 'all 0.2s'
                               }}
-                              title="View"
+                              title="Actions"
                             >
-                              <Eye size={16} />
+                              <MoreHorizontal size={16} />
                             </button>
-                            <button
-                              onClick={() => handleEditInvoice(invoice)}
-                              style={{
-                                padding: '0.35rem',
-                                background: 'var(--bg-main)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                color: 'var(--text-muted)',
-                                transition: 'all 0.2s'
-                              }}
-                              title="Edit"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            {isAdmin && (
-                              <button
-                                onClick={() => handleDeleteInvoice(invoice._id)}
+                            {openDropdownId === invoice._id && (
+                              <div 
                                 style={{
-                                  padding: '0.35rem',
-                                  background: 'var(--bg-main)',
+                                  position: 'absolute',
+                                  right: 0,
+                                  top: '100%',
+                                  marginTop: '0.25rem',
+                                  background: 'var(--bg-card)',
                                   border: '1px solid var(--border)',
                                   borderRadius: '8px',
-                                  cursor: 'pointer',
-                                  color: 'var(--danger)',
-                                  transition: 'all 0.2s'
+                                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                  zIndex: 9999,
+                                  minWidth: '120px'
                                 }}
-                                title="Delete"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <Trash2 size={16} />
-                              </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openInfo(invoice);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    padding: '0.5rem 1rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.875rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  <Eye size={14} />
+                                  View
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditInvoice(invoice);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    padding: '0.5rem 1rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.875rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  <Edit2 size={14} />
+                                  Edit
+                                </button>
+                                {isAdmin && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteInvoice(invoice._id);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      padding: '0.5rem 1rem',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      color: 'var(--danger)',
+                                      fontSize: '0.875rem',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.5rem',
+                                      transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>

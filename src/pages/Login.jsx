@@ -69,7 +69,7 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
 
       <div className="login-card-wrapper">
         <div className="login-card">
-          <Link to="/" className="login-close-btn"><X size={18} /></Link>
+          {/* <Link to="/" className="login-close-btn"><X size={18} /></Link> */}
           
           <div className="login-header">
             <div className="login-logo">

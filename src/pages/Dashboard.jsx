@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -228,7 +228,7 @@ function Dashboard() {
   const [customerModalSalesTotalPages, setCustomerModalSalesTotalPages] = useState(1)
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
 
-  const fetchDashboardSummary = async () => {
+  const fetchDashboardSummary = useCallback(async () => {
     setSummaryLoading(true)
     try {
       const response = await fetch(`${API_BASE_URL}/api/dashboard/summary`)
@@ -242,9 +242,9 @@ function Dashboard() {
     } finally {
       setSummaryLoading(false)
     }
-  }
+  }, [])
 
-  const fetchCustomerOverview = async (search = '') => {
+  const fetchCustomerOverview = useCallback(async (search = '') => {
     setCustomerOverviewLoading(true)
     try {
       const url = new URL(`${API_BASE_URL}/api/dashboard/customer-overview`, window.location.origin)
@@ -259,19 +259,19 @@ function Dashboard() {
     } finally {
       setCustomerOverviewLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     fetchDashboardSummary()
     fetchCustomerOverview('')
-  }, [])
+  }, [fetchDashboardSummary, fetchCustomerOverview])
 
   useEffect(() => {
     const t = setTimeout(() => {
       fetchCustomerOverview(customerOverviewSearch)
     }, 300)
     return () => clearTimeout(t)
-  }, [customerOverviewSearch])
+  }, [customerOverviewSearch, fetchCustomerOverview])
 
   const formatMoney = (value, fractionDigits = 2) =>
     Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })

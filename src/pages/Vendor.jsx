@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye } from 'lucide-react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreHorizontal } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
@@ -51,37 +51,7 @@ function Vendor() {
   // Loading state for custom fields
   const [customFieldsLoading, setCustomFieldsLoading] = useState(true)
 
-  // Fetch custom fields from backend
-  const fetchCustomFields = async () => {
-    try {
-      const response = await fetch(CUSTOM_FIELDS_API_URL)
-      const fields = await response.json()
-      setCustomFieldNames(fields.map(f => f.fieldName))
-      setCustomColumns(fields.filter(f => f.showInTable).map(f => f.fieldName))
-      // Initialize custom fields array if form is open
-      if (formOpen || editingVendorId) {
-        // Get existing custom fields to preserve values
-        const existingCustomFields = vendorForm.customFields || {}
-        const initialCustomFieldsArray = fields.map(f => ({
-          key: f.fieldName,
-          value: existingCustomFields?.[f.fieldName] || ''
-        }))
-        setCustomFieldsArray(initialCustomFieldsArray)
-        // Also update vendorForm.customFields, preserving existing values
-        const customFieldsObj = {}
-        initialCustomFieldsArray.forEach(f => {
-          if (f.key.trim()) {
-            customFieldsObj[f.key.trim()] = f.value
-          }
-        })
-        setVendorForm(prev => ({ ...prev, customFields: customFieldsObj }))
-      }
-    } catch (err) {
-      console.error('Error fetching custom fields:', err)
-    } finally {
-      setCustomFieldsLoading(false)
-    }
-  }
+
 
   // Validation errors state
   const [errors, setErrors] = useState({});
@@ -104,6 +74,7 @@ function Vendor() {
   const [infoVendor, setInfoVendor] = useState(null)
   const [infoLoading, setInfoLoading] = useState(false)
   const [infoNowMs, setInfoNowMs] = useState(0)
+  const [openDropdownId, setOpenDropdownId] = useState(null)
 
   const formatTimeAgo = (dateValue) => {
     const d = dateValue ? new Date(dateValue) : null
@@ -128,7 +99,7 @@ function Vendor() {
   }
 
   // Function to fetch next vendor id
-  const fetchNextVendorId = async () => {
+  const fetchNextVendorId = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/next-id`);
       const data = await readJsonResponse(response, 'Error fetching next vendor id');
@@ -136,7 +107,7 @@ function Vendor() {
     } catch (err) {
       console.error('Error fetching next vendor id:', err);
     }
-  };
+  }, []);
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -147,7 +118,7 @@ function Vendor() {
     }
   };
 
-  async function fetchVendors(page = 1, search = searchQuery, column = sortColumn, order = sortOrder) {
+  const fetchVendors = useCallback(async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
     setLoading(true);
     try {
       let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
@@ -164,23 +135,61 @@ function Vendor() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [searchQuery, sortColumn, sortOrder]);
+
+  const fetchCustomFields = useCallback(async () => {
+    try {
+      const response = await fetch(CUSTOM_FIELDS_API_URL);
+      const fields = await response.json();
+      setCustomFieldNames(fields.map(f => f.fieldName));
+      setCustomColumns(fields.filter(f => f.showInTable).map(f => f.fieldName));
+      // Initialize custom fields array if form is open
+      if (formOpen || editingVendorId) {
+        // Get existing custom fields from current state (using functional update to avoid dependency)
+        setCustomFieldsArray(prevArray => {
+          return fields.map(f => {
+            // Try to find existing value from previous array, default to empty string
+            const existingField = prevArray.find(item => item.key === f.fieldName);
+            return {
+              key: f.fieldName,
+              value: existingField?.value || ''
+            };
+          });
+        });
+        // Also update vendorForm.customFields using functional update
+        setVendorForm(prevForm => {
+          const existingCustomFields = prevForm.customFields || {};
+          const customFieldsObj = {};
+          fields.forEach(f => {
+            customFieldsObj[f.fieldName] = existingCustomFields[f.fieldName] || '';
+          });
+          return { ...prevForm, customFields: customFieldsObj };
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching custom fields:', err);
+    } finally {
+      setCustomFieldsLoading(false);
+    }
+  }, [formOpen, editingVendorId]);
 
   // Fetch vendors and custom fields on component mount
   useEffect(() => {
-    fetchVendors();
+    fetchVendors(1, searchQuery, sortColumn, sortOrder);
     fetchNextVendorId();
     fetchCustomFields();
+  }, [searchQuery, sortColumn, sortOrder, fetchVendors, fetchNextVendorId, fetchCustomFields]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenDropdownId(null);
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
   }, []);
-
-  // // Auto-refresh vendor list every 2 seconds
-  // useEffect(() => {
-  //   const intervalId = setInterval(() => {
-  //     fetchVendors();
-  //   }, 2000);
-
-  //   return () => clearInterval(intervalId);
-  // }, []);
 
   // Validation function
   const validateForm = () => {
@@ -197,11 +206,6 @@ function Vendor() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  // Fetch vendors on component mount
-  useEffect(() => {
-    fetchVendors(1, searchQuery, sortColumn, sortOrder);
-  }, [searchQuery, sortColumn, sortOrder]);
 
   // Validate single field
   const validateField = (name, value) => {
@@ -501,7 +505,7 @@ function Vendor() {
         alert('Vendor added successfully!');
       }
       // Refresh vendor list (go to first page after adding/updating)
-      await fetchVendors(1);
+      await fetchVendors(1, searchQuery, sortColumn, sortOrder);
       // Reset custom fields array with permanent field names
       const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
         key: fieldName,
@@ -1585,11 +1589,11 @@ function Vendor() {
                               </div>
                             )}
                           </div>
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div style={{ position: 'relative' }}>
                             <button
-                              onClick={() => {
-                                setInfoVendor(vendor);
-                                setInfoOpen(true);
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenDropdownId(openDropdownId === vendor._id ? null : vendor._id);
                               }}
                               style={{
                                 padding: '0.35rem',
@@ -1600,41 +1604,102 @@ function Vendor() {
                                 color: 'var(--text-muted)',
                                 transition: 'all 0.2s'
                               }}
-                              title="View"
+                              title="Actions"
                             >
-                              <Eye size={16} />
+                              <MoreHorizontal size={16} />
                             </button>
-                            <button
-                              onClick={() => handleEditVendor(vendor)}
-                              style={{
-                                padding: '0.35rem',
-                                background: 'var(--bg-main)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                color: 'var(--text-muted)',
-                                transition: 'all 0.2s'
-                              }}
-                              title="Edit"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            {isAdmin && (
-                              <button
-                                onClick={() => handleDeleteVendor(vendor._id)}
+                            {openDropdownId === vendor._id && (
+                              <div 
                                 style={{
-                                  padding: '0.35rem',
-                                  background: 'var(--bg-main)',
+                                  position: 'absolute',
+                                  right: 0,
+                                  top: '100%',
+                                  marginTop: '0.25rem',
+                                  background: 'var(--bg-card)',
                                   border: '1px solid var(--border)',
                                   borderRadius: '8px',
-                                  cursor: 'pointer',
-                                  color: 'var(--danger)',
-                                  transition: 'all 0.2s'
+                                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                  zIndex: 9999,
+                                  minWidth: '120px'
                                 }}
-                                title="Delete"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <Trash2 size={16} />
-                              </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInfoVendor(vendor);
+                                    setInfoOpen(true);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    padding: '0.5rem 1rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.875rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  <Eye size={14} />
+                                  View
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditVendor(vendor);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    padding: '0.5rem 1rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.875rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  <Edit2 size={14} />
+                                  Edit
+                                </button>
+                                {isAdmin && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteVendor(vendor._id);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      textAlign: 'left',
+                                      padding: '0.5rem 1rem',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      color: 'var(--danger)',
+                                      fontSize: '0.875rem',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.5rem',
+                                      transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>

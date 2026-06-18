@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Edit2, Trash2, X } from 'lucide-react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
+import { Edit2, Trash2, X, MoreHorizontal } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 
@@ -29,6 +29,7 @@ function User() {
 
   const token = useMemo(() => getAuthToken(), [])
   const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])
+  const [openDropdownId, setOpenDropdownId] = useState(null)
 
   const fetchUsers = async () => {
     if (!isAdmin) return
@@ -55,6 +56,17 @@ function User() {
   useEffect(() => {
     fetchUsers()
   }, [isAdmin, token])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenDropdownId(null)
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => {
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [])
 
   const openEdit = (u) => {
     setEditForm({
@@ -213,11 +225,12 @@ function User() {
                             {u.email || '-'}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div style={{ position: 'relative' }}>
                           <button
-                            type="button"
-                            onClick={() => openEdit(u)}
-                            disabled={saving}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdownId(openDropdownId === u._id ? null : u._id);
+                            }}
                             style={{
                               padding: '0.35rem',
                               background: 'var(--bg-main)',
@@ -227,27 +240,81 @@ function User() {
                               color: 'var(--text-muted)',
                               transition: 'all 0.2s'
                             }}
-                            title="Edit"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteUser(u)}
+                            title="Actions"
                             disabled={saving}
-                            style={{
-                              padding: '0.35rem',
-                              background: 'var(--bg-main)',
-                              border: '1px solid var(--border)',
-                              borderRadius: '8px',
-                              cursor: saving ? 'not-allowed' : 'pointer',
-                              color: 'var(--danger)',
-                              transition: 'all 0.2s'
-                            }}
-                            title="Delete"
                           >
-                            <Trash2 size={16} />
+                            <MoreHorizontal size={16} />
                           </button>
+                          {openDropdownId === u._id && (
+                            <div 
+                              style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: '100%',
+                                marginTop: '0.25rem',
+                                background: 'var(--bg-card)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                zIndex: 9999,
+                                minWidth: '120px'
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEdit(u);
+                                  setOpenDropdownId(null);
+                                }}
+                                disabled={saving}
+                                style={{
+                                  width: '100%',
+                                  textAlign: 'left',
+                                  padding: '0.5rem 1rem',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: saving ? 'not-allowed' : 'pointer',
+                                  color: 'var(--text-header)',
+                                  fontSize: '0.875rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem',
+                                  transition: 'all 0.2s'
+                                }}
+                              >
+                                <Edit2 size={14} />
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteUser(u);
+                                  setOpenDropdownId(null);
+                                }}
+                                disabled={saving}
+                                style={{
+                                  width: '100%',
+                                  textAlign: 'left',
+                                  padding: '0.5rem 1rem',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: saving ? 'not-allowed' : 'pointer',
+                                  color: 'var(--danger)',
+                                  fontSize: '0.875rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem',
+                                  transition: 'all 0.2s'
+                                }}
+                              >
+                                <Trash2 size={14} />
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
