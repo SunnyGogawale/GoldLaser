@@ -15,6 +15,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/customer-custom-fields', require('./routes/customerCustomFields'));
 app.use('/api/vendors', require('./routes/vendors'));
+app.use('/api/vendor-custom-fields', require('./routes/vendorCustomFields'));
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/purchase-invoices', require('./routes/purchaseInvoices'));
@@ -60,7 +61,7 @@ if (require.main === module) {
     .then(async () => {
       console.log('Connected to MongoDB');
       try {
-        const Payment = require('./models/Payment');
+        const Payment = require('./models/SalePayment');
         await Payment.updateMany(
           { unappliedAmount: { $exists: true } },
           { $unset: { unappliedAmount: '' } }

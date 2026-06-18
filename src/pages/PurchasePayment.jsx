@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../utils/authStorage'
 
@@ -22,6 +22,17 @@ const readJsonResponse = async (response, fallbackMessage) => {
 }
 
 function PurchasePayment() {
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const [paymentForm, setPaymentForm] = useState({
     paymentNumber: '',
     vendorId: '',
@@ -50,6 +61,18 @@ function PurchasePayment() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortColumn, setSortColumn] = useState('')
+  const [sortOrder, setSortOrder] = useState('asc')
+
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      setSortOrder('asc')
+    }
+  }
+
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
   const [infoOpen, setInfoOpen] = useState(false)
   const [infoPayment, setInfoPayment] = useState(null)
@@ -168,10 +191,14 @@ function PurchasePayment() {
     }
   }
 
-  const fetchPayments = async (page = 1, search = searchQuery) => {
+  const fetchPayments = async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
     setListLoading(true)
     try {
-      const response = await fetch(`${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`)
+      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`
+      if (column) {
+        url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`
+      }
+      const response = await fetch(url)
       const data = await readJsonResponse(response, 'Error fetching payments')
       setPayments(data.payments || [])
       setTotalPages(data.totalPages || 0)
@@ -211,8 +238,8 @@ function PurchasePayment() {
   }, [])
 
   useEffect(() => {
-    fetchPayments(1, searchQuery)
-  }, [searchQuery])
+    fetchPayments(1, searchQuery, sortColumn, sortOrder)
+  }, [searchQuery, sortColumn, sortOrder])
 
   useEffect(() => {
     if (!paymentForm.vendorId) {
@@ -936,7 +963,7 @@ function PurchasePayment() {
               border: '1px solid var(--border)',
               borderRadius: '8px',
               padding: '0.35rem 0.6rem',
-              width: 'min(220px, 100%)',
+              width: 'min(420px, 100%)',
               flex: '0 0 auto',
               marginLeft: 'auto'
             }}>
@@ -964,116 +991,268 @@ function PurchasePayment() {
             <EmptyDataCard />
           ) : (
             <div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Payment No</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Vendor</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Date</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Description</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Amount</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payments.map((payment) => {
-                      const name =
-                        payment.vendorId?.vendorName ||
-                        `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                        'Unknown'
-                      const vendorLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
-                      const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
-                      const amountLabel = `₹${formatMoney(payment.amount)}`
-                      const descriptionLabel = payment.description ? String(payment.description) : '-'
-                      return (
-                      <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '0.75rem 0.5rem' }} title={String(payment.paymentNumber || '')}>
-                          {truncateText(payment.paymentNumber || '')}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }} title={String(vendorLabel)}>
-                          {truncateText(vendorLabel)}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }} title={String(dateLabel)}>
-                          {truncateText(dateLabel)}
-                        </td>
-                        <td
-                          style={{
-                            padding: '0.75rem 0.5rem',
-                            maxWidth: 260,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                          title={String(descriptionLabel === '-' ? '' : descriptionLabel)}
-                        >
-                          {descriptionLabel === '-' ? '-' : truncateText(descriptionLabel)}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }} title={amountLabel}>
-                          {truncateText(amountLabel)}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>
-                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+              {/* Mobile/Tablet Card View */}
+              {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {payments.map((payment) => {
+                    const name =
+                      payment.vendorId?.vendorName ||
+                      `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                      'Unknown'
+                    const vendorLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
+                    const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
+                    const amountLabel = `₹${formatMoney(payment.amount)}`
+                    const descriptionLabel = payment.description ? String(payment.description) : '-'
+
+                    return (
+                      <div
+                        key={payment._id}
+                        style={{
+                          border: '1px solid var(--border)',
+                          borderRadius: '12px',
+                          padding: '1rem',
+                          background: 'var(--bg-card)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: '1rem',
+                              fontWeight: 800,
+                              color: 'var(--text-header)',
+                              marginBottom: '0.25rem'
+                            }}>
+                              {payment.paymentNumber || '-'}
+                            </div>
+                            <div style={{
+                              fontSize: '0.875rem',
+                              color: 'var(--text-muted)',
+                              fontWeight: 600
+                            }}>
+                              {vendorLabel}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
-                              type="button"
+                              onClick={() => {
+                                setInfoPayment(payment);
+                                setInfoOpen(true);
+                              }}
+                              style={{
+                                padding: '0.35rem',
+                                background: 'var(--bg-main)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted)',
+                                transition: 'all 0.2s'
+                              }}
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            <button
                               onClick={() => handleEditPayment(payment)}
                               style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                border: 'none',
+                                padding: '0.35rem',
+                                background: 'var(--bg-main)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
-                                color: 'var(--text-muted)'
+                                color: 'var(--text-muted)',
+                                transition: 'all 0.2s'
                               }}
+                              title="Edit"
                             >
-                              <Edit2 size={14} />
+                              <Edit2 size={16} />
                             </button>
                             {isAdmin && (
                               <button
-                                type="button"
-                                onClick={() => openInfo(payment)}
-                                style={{
-                                  padding: '0.25rem',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  color: 'var(--text-muted)'
-                                }}
-                                title="Info"
-                              >
-                                <Info size={14} />
-                              </button>
-                            )}
-                            {isAdmin && (
-                              <button
-                                type="button"
                                 onClick={() => handleDeletePayment(payment._id)}
                                 style={{
-                                  padding: '0.25rem',
-                                  background: 'transparent',
-                                  border: 'none',
+                                  padding: '0.35rem',
+                                  background: 'var(--bg-main)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: '8px',
                                   cursor: 'pointer',
-                                  color: 'var(--danger)'
+                                  color: 'var(--danger)',
+                                  transition: 'all 0.2s'
                                 }}
+                                title="Delete"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={16} />
                               </button>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
 
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Date:</div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{dateLabel}</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Amount:</div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 800 }}>{amountLabel}</div>
+                          </div>
+                          {descriptionLabel !== '-' && (
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Description:</div>
+                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{descriptionLabel}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                /* Desktop Table View */
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        <th
+                          onClick={() => handleSort('paymentNumber')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Payment No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('vendorId')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Vendor {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('paymentDate')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Date {sortColumn === 'paymentDate' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('description')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Description {sortColumn === 'description' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('amount')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Amount {sortColumn === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((payment) => {
+                        const name =
+                          payment.vendorId?.vendorName ||
+                          `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                          'Unknown'
+                        const vendorLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
+                        const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
+                        const amountLabel = `₹${formatMoney(payment.amount)}`
+                        const descriptionLabel = payment.description ? String(payment.description) : '-'
+
+                        return (
+                          <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
+                              {truncateText(payment.paymentNumber || '')}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(vendorLabel)}>
+                              {truncateText(vendorLabel)}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(dateLabel)}>
+                              {truncateText(dateLabel)}
+                            </td>
+                            <td
+                              style={{
+                                padding: '0.5rem 0.375rem',
+                                maxWidth: 260,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                              title={String(descriptionLabel === '-' ? '' : descriptionLabel)}
+                            >
+                              {descriptionLabel === '-' ? '-' : truncateText(descriptionLabel)}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={amountLabel}>
+                              {amountLabel}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem' }}>
+                              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                <button
+                                  onClick={() => {
+                                    setInfoPayment(payment);
+                                    setInfoOpen(true);
+                                  }}
+                                  style={{
+                                    padding: '0.25rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    borderRadius: '6px',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  title="View"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleEditPayment(payment)}
+                                  style={{
+                                    padding: '0.25rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    borderRadius: '6px',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  title="Edit"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => handleDeletePayment(payment._id)}
+                                    style={{
+                                      padding: '0.25rem',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      color: 'var(--danger)',
+                                      borderRadius: '6px',
+                                      transition: 'all 0.2s'
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Pagination */}
               {totalPages > 1 && (
                 <div style={{
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  marginTop: '1.5rem'
+                  marginTop: '1.5rem',
+                  flexWrap: 'wrap'
                 }}>
                   <button
                     onClick={() => fetchPayments(currentPage - 1, searchQuery)}

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const Invoice = require('../models/Invoice');
+const Invoice = require('../models/SaleInvoice');
 const User = require('../models/User');
 
 const getBearerToken = (req) => {

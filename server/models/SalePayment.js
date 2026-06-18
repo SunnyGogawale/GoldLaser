@@ -38,7 +38,7 @@ const activitySchema = new mongoose.Schema({
 const paymentAllocationSchema = new mongoose.Schema({
   invoiceId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Invoice',
+    ref: 'SaleInvoice',
     required: true
   },
   amount: {
@@ -111,4 +111,4 @@ const paymentSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('Payment', paymentSchema);
+module.exports = mongoose.model('SalePayment', paymentSchema, 'salepayments');

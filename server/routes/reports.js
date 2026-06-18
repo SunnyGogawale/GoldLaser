@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const Invoice = require('../models/Invoice');
+const Invoice = require('../models/SaleInvoice');
 
 function parseDateStart(value) {
   if (!value) return null;
@@ -40,7 +40,7 @@ function buildInvoiceMatch({ fromDate, toDate, customerId }) {
 function invoicePaidLookupStage() {
   return {
     $lookup: {
-      from: 'payments',
+      from: 'salepayments',
       let: { invoiceId: '$_id' },
       pipeline: [
         { $unwind: '$allocations' },

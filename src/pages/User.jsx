@@ -6,6 +6,17 @@ import { getAuthToken, getAuthValue } from '../utils/authStorage'
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
 function User() {
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [users, setUsers] = useState([])
@@ -170,66 +181,154 @@ function User() {
           ) : users.length === 0 ? (
             <EmptyDataCard />
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Name</th>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Email</th>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Role</th>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Created</th>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div>
+              {/* Mobile/Tablet Card View */}
+              {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {users.map((u) => (
-                      <tr key={String(u._id)} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>{u.fullName || '-'}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>{u.email || '-'}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>{u.roll || u.role || 'user'}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>
-                          {u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>
-                          <div style={{ display: 'flex', gap: '0.25rem' }}>
-                            <button
-                              type="button"
-                              onClick={() => openEdit(u)}
-                              disabled={saving}
-                              style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: saving ? 'not-allowed' : 'pointer',
-                                color: 'var(--text-muted)',
-                                borderRadius: '6px'
-                              }}
-                              title="Edit"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => deleteUser(u)}
-                              disabled={saving}
-                              style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: saving ? 'not-allowed' : 'pointer',
-                                color: 'var(--danger)',
-                                borderRadius: '6px'
-                              }}
-                              title="Delete"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                    <div
+                      key={String(u._id)}
+                      style={{
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        background: 'var(--bg-card)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: '1rem',
+                            fontWeight: 800,
+                            color: 'var(--text-header)',
+                            marginBottom: '0.25rem'
+                          }}>
+                            {u.fullName || '-'}
                           </div>
-                        </td>
+                          <div style={{
+                            fontSize: '0.875rem',
+                            color: 'var(--text-muted)',
+                            fontWeight: 600
+                          }}>
+                            {u.email || '-'}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(u)}
+                            disabled={saving}
+                            style={{
+                              padding: '0.35rem',
+                              background: 'var(--bg-main)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              cursor: saving ? 'not-allowed' : 'pointer',
+                              color: 'var(--text-muted)',
+                              transition: 'all 0.2s'
+                            }}
+                            title="Edit"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteUser(u)}
+                            disabled={saving}
+                            style={{
+                              padding: '0.35rem',
+                              background: 'var(--bg-main)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              cursor: saving ? 'not-allowed' : 'pointer',
+                              color: 'var(--danger)',
+                              transition: 'all 0.2s'
+                            }}
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Role:</div>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{u.roll || u.role || 'user'}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Created:</div>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* Desktop Table View */
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Name</th>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Email</th>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Role</th>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Created</th>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
                       </tr>
-                    ))}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr key={String(u._id)} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>{u.fullName || '-'}</td>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>{u.email || '-'}</td>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>{u.roll || u.role || 'user'}</td>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>
+                            {u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.375rem' }}>
+                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => openEdit(u)}
+                                disabled={saving}
+                                style={{
+                                  padding: '0.25rem',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: saving ? 'not-allowed' : 'pointer',
+                                  color: 'var(--text-muted)',
+                                  borderRadius: '6px',
+                                  transition: 'all 0.2s'
+                                }}
+                                title="Edit"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteUser(u)}
+                                disabled={saving}
+                                style={{
+                                  padding: '0.25rem',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  cursor: saving ? 'not-allowed' : 'pointer',
+                                  color: 'var(--danger)',
+                                  borderRadius: '6px',
+                                  transition: 'all 0.2s'
+                                }}
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>

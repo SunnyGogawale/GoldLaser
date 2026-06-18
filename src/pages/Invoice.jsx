@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, RotateCcw, Trash2, Edit2, X, Plus, Search, Info } from 'lucide-react';
+import { Save, RotateCcw, Trash2, Edit2, X, Plus, Search, Info, Eye } from 'lucide-react';
 import EmptyDataCard from '../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../utils/authStorage';
 import { readJsonResponse } from '../utils/api';
@@ -9,6 +9,18 @@ const API_URL = `${API_BASE_URL}/api/invoices`;
 const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`;
 
 function Invoice() {
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    }
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
     invoiceNumber: '',
@@ -36,11 +48,22 @@ function Invoice() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortColumn, setSortColumn] = useState('');
+  const [sortOrder, setSortOrder] = useState('asc');
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin';
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoInvoice, setInfoInvoice] = useState(null);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoNowMs, setInfoNowMs] = useState(0);
+  
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortOrder('asc');
+    }
+  };
 
   const formatTimeAgo = (dateValue) => {
     const d = dateValue ? new Date(dateValue) : null
@@ -96,10 +119,14 @@ function Invoice() {
   };
 
   // Fetch invoices on component mount
-  const fetchInvoices = async (page = 1, search = searchQuery) => {
+  const fetchInvoices = async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`);
+      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
+      if (column) {
+        url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
+      }
+      const response = await fetch(url);
       const data = await readJsonResponse(response, 'Error fetching invoices');
       setInvoices(data.invoices || []);
       setTotalPages(data.totalPages || 0);
@@ -112,9 +139,9 @@ function Invoice() {
   };
 
   useEffect(() => {
-    // Reset to page 1 when search query changes
-    fetchInvoices(1, searchQuery);
-  }, [searchQuery]);
+    // Reset to page 1 when search query or sort changes
+    fetchInvoices(1, searchQuery, sortColumn, sortOrder);
+  }, [searchQuery, sortColumn, sortOrder]);
 
   useEffect(() => {
     fetchCustomersList();
@@ -864,7 +891,7 @@ function Invoice() {
               border: '1px solid var(--border)',
               borderRadius: '8px',
               padding: '0.35rem 0.6rem',
-              width: 'min(220px, 100%)',
+              width: 'min(420px, 100%)',
               flex: '0 0 auto',
               marginLeft: 'auto'
             }}>
@@ -892,101 +919,245 @@ function Invoice() {
             <EmptyDataCard />
           ) : (
             <div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Invoice No</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Customer</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Date</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Txn Description</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Total Amount</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.map((invoice) => (
-                      <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '0.75rem 0.5rem' }} title={String(invoice.invoiceNumber || '')}>
-                          {truncateText(invoice.invoiceNumber || '')}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>
-                          {(() => {
-                            const name =
-                              invoice.customerId?.customerName ||
-                              `${invoice.customerId?.firstName || ''} ${invoice.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                              'Unknown'
-                            const label = invoice.customerId?.id ? `${name} (${invoice.customerId.id})` : name
-                            return (
-                              <span title={String(label)}>
-                                {truncateText(label)}
-                              </span>
-                            )
-                          })()}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }} title={new Date(invoice.invoiceDate).toLocaleDateString()}>
-                          {truncateText(new Date(invoice.invoiceDate).toLocaleDateString())}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }} title={String(invoice.transactionDescription || '')}>
-                          {invoice.transactionDescription ? truncateText(invoice.transactionDescription) : '-'}
-                        </td>
-                        <td
-                          style={{ padding: '0.75rem 0.5rem' }}
-                          title={`₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                        >
-                          ₹{truncateText(invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>
-                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+              {/* Mobile/Tablet Card View */}
+              {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {invoices.map((invoice) => {
+                    const name =
+                      invoice.customerId?.customerName ||
+                      `${invoice.customerId?.firstName || ''} ${invoice.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                      'Unknown'
+                    const label = invoice.customerId?.id ? `${name} (${invoice.customerId.id})` : name
+                    
+                    return (
+                      <div 
+                        key={invoice._id} 
+                        style={{
+                          border: '1px solid var(--border)',
+                          borderRadius: '12px',
+                          padding: '1rem',
+                          background: 'var(--bg-card)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ 
+                              fontSize: '1rem', 
+                              fontWeight: 800, 
+                              color: 'var(--text-header)',
+                              marginBottom: '0.25rem'
+                            }}>
+                              {invoice.invoiceNumber || '-'}
+                            </div>
+                            <div style={{ 
+                              fontSize: '0.875rem', 
+                              color: 'var(--text-muted)',
+                              fontWeight: 600
+                            }}>
+                              {label}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                              onClick={() => {
+                                setInfoInvoice(invoice);
+                                setInfoOpen(true);
+                              }}
+                              style={{
+                                padding: '0.35rem',
+                                background: 'var(--bg-main)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted)',
+                                transition: 'all 0.2s'
+                              }}
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </button>
                             <button
                               onClick={() => handleEditInvoice(invoice)}
                               style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                border: 'none',
+                                padding: '0.35rem',
+                                background: 'var(--bg-main)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
-                                color: 'var(--text-muted)'
+                                color: 'var(--text-muted)',
+                                transition: 'all 0.2s'
                               }}
+                              title="Edit"
                             >
-                              <Edit2 size={14} />
+                              <Edit2 size={16} />
                             </button>
-                            {isAdmin && (
-                              <button
-                                type="button"
-                                onClick={() => openInfo(invoice)}
-                                style={{
-                                  padding: '0.25rem',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  color: 'var(--text-muted)'
-                                }}
-                                title="Info"
-                              >
-                                <Info size={14} />
-                              </button>
-                            )}
                             {isAdmin && (
                               <button
                                 onClick={() => handleDeleteInvoice(invoice._id)}
                                 style={{
-                                  padding: '0.25rem',
-                                  background: 'transparent',
-                                  border: 'none',
+                                  padding: '0.35rem',
+                                  background: 'var(--bg-main)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: '8px',
                                   cursor: 'pointer',
-                                  color: 'var(--danger)'
+                                  color: 'var(--danger)',
+                                  transition: 'all 0.2s'
                                 }}
+                                title="Delete"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={16} />
                               </button>
                             )}
                           </div>
-                        </td>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Date:</div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{new Date(invoice.invoiceDate).toLocaleDateString()}</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Amount:</div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 800 }}>
+                              ₹{invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                          {invoice.transactionDescription && (
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Note:</div>
+                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{invoice.transactionDescription}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                /* Desktop Table View */
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        <th
+                          onClick={() => handleSort('invoiceNumber')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Invoice No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('customerId')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Customer {sortColumn === 'customerId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('invoiceDate')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Date {sortColumn === 'invoiceDate' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('transactionDescription')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Txn Description {sortColumn === 'transactionDescription' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th
+                          onClick={() => handleSort('totalAmount')}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          Total Amount {sortColumn === 'totalAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        </th>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {invoices.map((invoice) => {
+                        const name =
+                          invoice.customerId?.customerName ||
+                          `${invoice.customerId?.firstName || ''} ${invoice.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                          'Unknown'
+                        const label = invoice.customerId?.id ? `${name} (${invoice.customerId.id})` : name
+                        
+                        return (
+                          <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(invoice.invoiceNumber || '')}>
+                              {truncateText(invoice.invoiceNumber || '')}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(label)}>
+                              {truncateText(label)}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={new Date(invoice.invoiceDate).toLocaleDateString()}>
+                              {truncateText(new Date(invoice.invoiceDate).toLocaleDateString())}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(invoice.transactionDescription || '')}>
+                              {invoice.transactionDescription ? truncateText(invoice.transactionDescription) : '-'}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={`₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                              ₹{truncateText(invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.375rem' }}>
+                              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                <button
+                                  onClick={() => {
+                                    setInfoInvoice(invoice);
+                                    setInfoOpen(true);
+                                  }}
+                                  style={{
+                                    padding: '0.25rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    borderRadius: '6px',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  title="View"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleEditInvoice(invoice)}
+                                  style={{
+                                    padding: '0.25rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    borderRadius: '6px',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  title="Edit"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => handleDeleteInvoice(invoice._id)}
+                                    style={{
+                                      padding: '0.25rem',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      color: 'var(--danger)',
+                                      borderRadius: '6px',
+                                      transition: 'all 0.2s'
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
@@ -995,7 +1166,8 @@ function Invoice() {
                   justifyContent: 'center',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  marginTop: '1.5rem'
+                  marginTop: '1.5rem',
+                  flexWrap: 'wrap'
                 }}>
                   <button
                     onClick={() => fetchInvoices(currentPage - 1, searchQuery)}

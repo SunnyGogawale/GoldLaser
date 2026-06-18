@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
-const Invoice = require('../models/Invoice');
+const Invoice = require('../models/SaleInvoice');
 
 function invoicePaidLookupStage() {
   return {
     $lookup: {
-      from: 'payments',
+      from: 'salepayments',
       let: { invoiceId: '$_id' },
       pipeline: [
         { $unwind: '$allocations' },

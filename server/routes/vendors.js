@@ -1,13 +1,58 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const Vendor = require('../models/Vendor');
-const Invoice = require('../models/PurchaseInvoice');
-const Payment = require('../models/PurchasePayment');
+const PurchaseInvoice = require('../models/PurchaseInvoice');
+const PurchasePayment = require('../models/PurchasePayment');
 const User = require('../models/User');
 
-const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
+function invoicePaidLookupStage() {
+  return {
+    $lookup: {
+      from: 'purchasepayments',
+      let: { invoiceId: '$_id' },
+      pipeline: [
+        { $unwind: '$allocations' },
+        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
+        { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
+      ],
+      as: 'paidAgg'
+    }
+  };
+}
+
+function invoiceComputedFieldsStage() {
+  return {
+    $addFields: {
+      paidAmount: { $ifNull: [{ $arrayElemAt: ['$paidAgg.paidAmount', 0] }, 0] },
+      pendingAmount: {
+        $max: [
+          0,
+          {
+            $subtract: [
+              { $ifNull: ['$totalAmount', 0] },
+              { $ifNull: [{ $arrayElemAt: ['$paidAgg.paidAmount', 0] }, 0] }
+            ]
+          }
+        ]
+      }
+    }
+  };
+}
+
+async function getVendorOutstanding(vendorId) {
+  try {
+    const pendingAgg = await PurchaseInvoice.aggregate([
+      { $match: { vendorId } },
+      invoicePaidLookupStage(),
+      invoiceComputedFieldsStage(),
+      { $group: { _id: null, totalPendingAmount: { $sum: '$pendingAmount' } } }
+    ]);
+    return pendingAgg.length > 0 ? pendingAgg[0].totalPendingAmount : 0;
+  } catch {
+    return 0;
+  }
+}
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -121,28 +166,54 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
     const search = req.query.search || '';
+    const sortColumn = req.query.sortColumn || '';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
     let query = {};
     if (search) {
       query = {
         $or: [
-          { id: { $regex: search, $options: 'i' } },
-          { firstName: { $regex: search, $options: 'i' } },
-          { lastName: { $regex: search, $options: 'i' } },
+          { companyName: { $regex: search, $options: 'i' } },
           { vendorName: { $regex: search, $options: 'i' } }
         ]
       };
     }
 
     const total = await Vendor.countDocuments(query);
+    
+    // Define sort object
+    let sortObj = { createdAt: -1 }; // Default sort
+    if (sortColumn && ['companyName', 'vendorName', 'contactNumber', 'email'].includes(sortColumn)) {
+      sortObj = { [sortColumn]: sortOrder };
+    }
+
     const vendors = await Vendor.find(query)
       .populate('createdBy', 'fullName email roll')
-      .sort({ createdAt: -1 })
+      .sort(sortObj)
       .skip(skip)
       .limit(limit);
+
+    // Calculate outstanding for each vendor
+    let vendorsWithOutstanding = await Promise.all(
+      vendors.map(async (vendor) => {
+        const vendorObj = vendor.toObject();
+        vendorObj.outstanding = await getVendorOutstanding(vendor._id);
+        vendorObj.customFields = vendor.customFields || {};
+        return vendorObj;
+      })
+    );
+
+    // If sorting by outstanding, do it client-side after calculation
+    if (sortColumn === 'outstanding') {
+      vendorsWithOutstanding.sort((a, b) => {
+        const valA = a.outstanding || 0;
+        const valB = b.outstanding || 0;
+        return sortOrder === 1 ? valA - valB : valB - valA;
+      });
+    }
     
     res.json({
-      vendors,
+      vendors: vendorsWithOutstanding,
       total,
       page,
       totalPages: Math.ceil(total / limit)
@@ -155,7 +226,6 @@ router.get('/', async (req, res) => {
 // Get a single vendor by ID
 router.get('/:id', async (req, res) => {
   try {
-    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid vendor id' });
     const vendor = await Vendor.findById(req.params.id)
       .populate('createdBy', 'fullName email roll')
       .populate('updatedBy', 'fullName email roll');
@@ -191,7 +261,9 @@ router.get('/:id', async (req, res) => {
       vendor.activity = activity;
       await vendor.save();
     }
-    res.json(vendor);
+    const vendorObj = vendor.toObject();
+    vendorObj.outstanding = await getVendorOutstanding(vendor._id);
+    res.json(vendorObj);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -206,21 +278,20 @@ router.post('/', async (req, res) => {
       generatedId = await getNextVendorId();
     }
 
-    const firstName = (req.body.firstName || '').trim();
-    const lastName = (req.body.lastName || '').trim();
-    const fullName = `${firstName} ${lastName}`.replace(/\s+/g, ' ').trim();
+    const vendorName = (req.body.vendorName || '').trim();
+    const companyName = (req.body.companyName || '').trim();
 
     const authUser = await getAuthUserInfo(req);
 
     const vendor = new Vendor({
       id: generatedId,
-      firstName,
-      lastName,
-      vendorName: fullName,
+      vendorName,
+      companyName,
       contactNumber: req.body.contactNumber,
       email: req.body.email,
       address: req.body.address,
       note: req.body.note,
+      customFields: req.body.customFields || {},
       createdBy: authUser?.id || null,
       activity: [
         {
@@ -246,7 +317,6 @@ router.post('/', async (req, res) => {
 // Update a vendor
 router.put('/:id', async (req, res) => {
   try {
-    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid vendor id' });
     const existing = await Vendor.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Vendor not found' });
 
@@ -257,12 +327,15 @@ router.put('/:id', async (req, res) => {
     delete update.updatedByEmail;
     delete update.activity;
 
-    if (typeof update.firstName === 'string' || typeof update.lastName === 'string') {
-      const firstName = (update.firstName || '').trim();
-      const lastName = (update.lastName || '').trim();
-      update.firstName = firstName;
-      update.lastName = lastName;
-      update.vendorName = `${firstName} ${lastName}`.replace(/\s+/g, ' ').trim();
+    if (typeof update.vendorName === 'string') {
+      update.vendorName = update.vendorName.trim();
+    }
+    if (typeof update.companyName === 'string') {
+      update.companyName = update.companyName.trim();
+    }
+    // Ensure customFields is an object
+    if (update.customFields !== undefined && typeof update.customFields !== 'object') {
+      update.customFields = {};
     }
 
     const authUser = await getAuthUserInfo(req);
@@ -309,27 +382,26 @@ router.put('/:id', async (req, res) => {
 // Delete a vendor
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
-    if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid vendor id' });
     const vendor = await Vendor.findById(req.params.id);
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
     const [invoiceResult, paymentResult] = await Promise.all([
-      Invoice.deleteMany({ vendorId: vendor._id }),
-      Payment.deleteMany({ vendorId: vendor._id })
+      PurchaseInvoice.deleteMany({ vendorId: vendor._id }),
+      PurchasePayment.deleteMany({ vendorId: vendor._id })
     ]);
 
     await Vendor.findByIdAndDelete(vendor._id);
 
     const existingVendorIds = (await Vendor.find({}, { _id: 1 }).lean()).map((c) => c._id);
     const [orphanInvoiceResult, orphanPaymentResult] = await Promise.all([
-      Invoice.deleteMany({
+      PurchaseInvoice.deleteMany({
         $or: [
           { vendorId: { $exists: false } },
           { vendorId: null },
           { vendorId: { $nin: existingVendorIds } }
         ]
       }),
-      Payment.deleteMany({
+      PurchasePayment.deleteMany({
         $or: [
           { vendorId: { $exists: false } },
           { vendorId: null },

@@ -41,17 +41,13 @@ const vendorSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  firstName: {
-    type: String,
-    required: true
-  },
-  lastName: {
-    type: String,
-    required: true
-  },
   vendorName: {
     type: String,
     required: true
+  },
+  companyName: {
+    type: String,
+    default: ''
   },
   contactNumber: {
     type: String,
@@ -68,6 +64,11 @@ const vendorSchema = new mongoose.Schema({
   note: {
     type: String,
     default: ''
+  },
+  customFields: {
+    type: Map,
+    of: String,
+    default: {}
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

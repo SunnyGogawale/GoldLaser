@@ -2,14 +2,14 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Customer = require('../models/Customer');
-const Invoice = require('../models/Invoice');
-const Payment = require('../models/Payment');
+const Invoice = require('../models/SaleInvoice');
+const Payment = require('../models/SalePayment');
 const User = require('../models/User');
 
 function invoicePaidLookupStage() {
   return {
     $lookup: {
-      from: 'payments',
+      from: 'salepayments',
       let: { invoiceId: '$_id' },
       pipeline: [
         { $unwind: '$allocations' },

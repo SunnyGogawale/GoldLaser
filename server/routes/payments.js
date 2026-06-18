@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const Payment = require('../models/Payment');
-const Invoice = require('../models/Invoice');
+const Payment = require('../models/SalePayment');
+const Invoice = require('../models/SaleInvoice');
 const User = require('../models/User');
 
 const getBearerToken = (req) => {
