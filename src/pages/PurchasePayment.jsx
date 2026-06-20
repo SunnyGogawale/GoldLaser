@@ -1368,7 +1368,7 @@ function PurchasePayment() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
               <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Recent Activity</div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Payment Details</div>
                 <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                   {infoPayment?.paymentNumber ? `Payment • ${infoPayment.paymentNumber}` : 'Payment'}
                 </div>
@@ -1402,151 +1402,120 @@ function PurchasePayment() {
               </div>
             </div>
 
-            {(() => {
-              const record = infoPayment?.paymentNumber ? `Payment • ${infoPayment.paymentNumber}` : 'Payment'
-              const createdByName = infoPayment?.createdBy?.fullName || infoPayment?.createdByName || '-'
-              const createdByEmail = infoPayment?.createdBy?.email || infoPayment?.createdByEmail || '-'
-              const updatedByName = infoPayment?.updatedBy?.fullName || infoPayment?.updatedByName || '-'
-              const updatedByEmail = infoPayment?.updatedBy?.email || infoPayment?.updatedByEmail || '-'
+            <div style={{ marginTop: '1.5rem' }}>
+              {/* Client Details */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Client Details</div>
+                <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    {(() => {
+                      const client = infoPayment?.vendorId;
+                      const paymentDate = infoPayment?.paymentDate ? new Date(infoPayment.paymentDate).toLocaleDateString() : '-';
+                      const description = infoPayment?.description || '-';
 
-              const raw = Array.isArray(infoPayment?.activity) ? infoPayment.activity : []
-              let activities = raw
-                .filter((a) => a && a.action && a.at)
-                .slice()
-                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-
-              if (activities.length === 0) {
-                const fallback = []
-                if (infoPayment?.createdAt) {
-                  fallback.push({
-                    action: 'create',
-                    at: infoPayment.createdAt,
-                    userName: createdByName,
-                    userEmail: createdByEmail,
-                    changes: []
-                  })
-                }
-                if (infoPayment?.updatedAt && infoPayment?.createdAt && new Date(infoPayment.updatedAt).getTime() !== new Date(infoPayment.createdAt).getTime()) {
-                  fallback.unshift({
-                    action: 'update',
-                    at: infoPayment.updatedAt,
-                    userName: updatedByName,
-                    userEmail: updatedByEmail,
-                    changes: []
-                  })
-                }
-                activities = fallback
-              }
-
-              const items = activities.map((a, idx) => {
-                const isUpdate = a.action === 'update'
-                return {
-                  key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
-                  chip: isUpdate ? 'Update Payment' : 'Create Payment',
-                  method: isUpdate ? 'PUT' : 'POST',
-                  path: isUpdate ? '/api/purchase-payments/:id' : '/api/purchase-payments',
-                  at: a.at,
-                  icon: isUpdate ? '✎' : '+',
-                  iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
-                  iconColor: isUpdate ? '#1d4ed8' : '#065f46',
-                  userName: a.userName || (isUpdate ? updatedByName : createdByName) || '-',
-                  userEmail: a.userEmail || (isUpdate ? updatedByEmail : createdByEmail) || '-',
-                  record,
-                  changes: Array.isArray(a.changes) ? a.changes : []
-                }
-              })
-
-              return (
-                <div style={{ marginTop: '1rem' }}>
-                  {items.map((a, idx) => (
-                    <div key={a.key} style={{ display: 'flex', gap: '0.9rem', padding: '0.75rem 0' }}>
-                      <div style={{ width: 34, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <div
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 10,
-                            background: a.iconBg,
-                            color: a.iconColor,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 900,
-                            border: '1px solid rgba(0,0,0,0.04)'
-                          }}
-                        >
-                          {a.icon}
-                        </div>
-                        {idx !== items.length - 1 && (
-                          <div style={{ flex: 1, width: 2, background: 'var(--border)', opacity: 0.6, marginTop: 8 }} />
-                        )}
-                      </div>
-
-                      <div
-                        style={{
-                          flex: 1,
-                          background: 'transparent',
-                          border: '1px solid var(--border)',
-                          borderRadius: 14,
-                          padding: '0.85rem 0.95rem'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '0.25rem 0.6rem',
-                              borderRadius: 999,
-                              background: 'transparent',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text-header)',
-                              fontWeight: 800,
-                              fontSize: '0.85rem'
-                            }}
-                          >
-                            {a.chip}
-                          </div>
-                          <div
-                            style={{
-                              padding: '0.2rem 0.55rem',
-                              borderRadius: 999,
-                              border: '1px solid var(--border)',
-                              background: 'transparent',
-                              color: 'var(--text-muted)',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {infoLoading ? 'Loading...' : formatTimeAgo(a.at)}
-                          </div>
-                        </div>
-
-                        <div style={{ marginTop: 10, color: 'var(--text-header)', fontWeight: 800, fontSize: '0.93rem' }}>
-                          {infoLoading ? 'Loading...' : a.userName}
-                          <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginLeft: 8 }}>
-                            {infoLoading ? '' : a.userEmail && a.userEmail !== '-' ? `• ${a.userEmail}` : ''}
-                          </span>
-                        </div>
-                        {Array.isArray(a.changes) && a.changes.length > 0 && (
-                          <div style={{ marginTop: 10 }}>
-                            <div style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '0.85rem' }}>Recent Changes</div>
-                            <div style={{ marginTop: 6, display: 'grid', gap: 4, color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>
-                              {a.changes.map((c, i) => (
-                                <div key={`${c.field}-${i}`}>
-                                  {c.field}: {String(c.from || '-').replace(/^"+|"+$/g, '')} → {String(c.to || '-').replace(/^"+|"+$/g, '')}
-                                </div>
-                              ))}
+                      return (
+                        <>
+                          {client?.customerName && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.customerName}</span>
                             </div>
+                          )}
+                          {client?.vendorName && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
+                            </div>
+                          )}
+                          {client?.id && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
+                            </div>
+                          )}
+                          {infoPayment?.clientType && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem', textTransform: 'capitalize' }}>{infoPayment.clientType}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Payment Date</span>
+                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{paymentDate}</span>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Description</span>
+                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{description}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Amount</span>
+                            <span style={{ color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
+                              ₹{infoPayment?.amount ? infoPayment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                            </span>
+                          </div>
+                        </>
+                      )
+                    })()}
+                  </div>
                 </div>
-              )
-            })()}
+              </div>
+
+              {/* Allocations (Invoice Items) Table */}
+              <div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Invoice Allocations</div>
+                <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
+                        <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Invoice No</th>
+                        <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Invoice Amount</th>
+                        <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Paid Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const allocations = infoPayment?.allocations || [];
+                        let totalPaidAmount = 0;
+                        allocations.forEach(alloc => totalPaidAmount += alloc.amount || 0);
+
+                        return (
+                          <>
+                            {allocations.length === 0 ? (
+                              <tr>
+                                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No invoice allocations found</td>
+                              </tr>
+                            ) : (
+                              <>
+                                {allocations.map((alloc, idx) => (
+                                  <tr key={idx} style={{ borderBottom: idx < allocations.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                    <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                      {alloc.invoiceId?.invoiceNumber || 'Unknown Invoice'}
+                                    </td>
+                                    <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                      ₹{alloc.invoiceId?.totalAmount ? alloc.invoiceId.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                    </td>
+                                    <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                      ₹{alloc.amount ? alloc.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                    </td>
+                                  </tr>
+                                ))}
+                                <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
+                                  <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
+                                  <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}></td>
+                                  <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
+                                    ₹{totalPaidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                </tr>
+                              </>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

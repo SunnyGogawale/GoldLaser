@@ -395,7 +395,8 @@ router.get('/', async (req, res) => {
 const getPurchasePaymentWithClient = async (id) => {
   const payment = await Payment.findById(id)
     .populate('createdBy', 'fullName email roll')
-    .populate('updatedBy', 'fullName email roll');
+    .populate('updatedBy', 'fullName email roll')
+    .populate('allocations.invoiceId', 'invoiceNumber totalAmount');
   if (!payment) return null;
   
   let client = null;

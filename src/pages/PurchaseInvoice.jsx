@@ -1288,7 +1288,7 @@ function PurchaseInvoice() {
           <div
             className="card"
             style={{
-              width: 'min(520px, 96vw)',
+              width: 'min(700px, 96vw)',
               maxHeight: '88vh',
               overflow: 'auto',
               padding: '1.25rem'
@@ -1296,7 +1296,7 @@ function PurchaseInvoice() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
               <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Recent Activity</div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Invoice Details</div>
                 <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                   {infoInvoice?.invoiceNumber ? `Invoice • ${infoInvoice.invoiceNumber}` : 'Invoice'}
                 </div>
@@ -1330,153 +1330,105 @@ function PurchaseInvoice() {
               </div>
             </div>
 
-            {(() => {
-              const record = infoInvoice?.invoiceNumber ? `Invoice • ${infoInvoice.invoiceNumber}` : 'Invoice'
-              const createdByName = infoInvoice?.createdBy?.fullName || infoInvoice?.createdByName || '-'
-              const createdByEmail = infoInvoice?.createdBy?.email || infoInvoice?.createdByEmail || '-'
-              const updatedByName = infoInvoice?.updatedBy?.fullName || infoInvoice?.updatedByName || '-'
-              const updatedByEmail = infoInvoice?.updatedBy?.email || infoInvoice?.updatedByEmail || '-'
+            <div style={{ marginTop: '1.5rem' }}>
+              {/* Client Details */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Client Details</div>
+                <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    {(() => {
+                      const client = infoInvoice?.vendorId;
+                      const invoiceDate = infoInvoice?.invoiceDate ? new Date(infoInvoice.invoiceDate).toLocaleDateString() : '-';
+                      const transactionDesc = infoInvoice?.transactionDescription || '-';
 
-              const raw = Array.isArray(infoInvoice?.activity) ? infoInvoice.activity : []
-              let activities = raw
-                .filter((a) => a && a.action && a.at)
-                .slice()
-                .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-
-              if (activities.length === 0) {
-                const fallback = []
-                if (infoInvoice?.createdAt) {
-                  fallback.push({
-                    action: 'create',
-                    at: infoInvoice.createdAt,
-                    userName: createdByName,
-                    userEmail: createdByEmail,
-                    changes: []
-                  })
-                }
-                if (infoInvoice?.updatedAt && infoInvoice?.createdAt && new Date(infoInvoice.updatedAt).getTime() !== new Date(infoInvoice.createdAt).getTime()) {
-                  fallback.unshift({
-                    action: 'update',
-                    at: infoInvoice.updatedAt,
-                    userName: updatedByName,
-                    userEmail: updatedByEmail,
-                    changes: []
-                  })
-                }
-                activities = fallback
-              }
-
-              const items = activities.map((a, idx) => {
-                const isUpdate = a.action === 'update'
-                return {
-                  key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
-                  chip: isUpdate ? 'Update Invoice' : 'Create Invoice',
-                  method: isUpdate ? 'PUT' : 'POST',
-                  path: isUpdate ? '/api/purchase-invoices/:id' : '/api/purchase-invoices',
-                  at: a.at,
-                  icon: isUpdate ? '✎' : '+',
-                  iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
-                  iconColor: isUpdate ? '#1d4ed8' : '#065f46',
-                  userName: a.userName || (isUpdate ? updatedByName : createdByName) || '-',
-                  userEmail: a.userEmail || (isUpdate ? updatedByEmail : createdByEmail) || '-',
-                  record,
-                  changes: Array.isArray(a.changes) ? a.changes : []
-                }
-              })
-
-              return (
-                <div style={{ marginTop: '1rem' }}>
-                  {items.map((a, idx) => (
-                    <div key={a.key} style={{ display: 'flex', gap: '0.9rem', padding: '0.75rem 0' }}>
-                      <div style={{ width: 34, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <div
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 10,
-                            background: a.iconBg,
-                            color: a.iconColor,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 900,
-                            border: '1px solid rgba(0,0,0,0.04)'
-                          }}
-                        >
-                          {a.icon}
-                        </div>
-                        {idx !== items.length - 1 && (
-                          <div style={{ flex: 1, width: 2, background: 'var(--border)', opacity: 0.6, marginTop: 8 }} />
-                        )}
-                      </div>
-
-                      <div
-                        style={{
-                          flex: 1,
-                          background: 'transparent',
-                          border: '1px solid var(--border)',
-                          borderRadius: 14,
-                          padding: '0.85rem 0.95rem'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '0.25rem 0.6rem',
-                              borderRadius: 999,
-                              background: 'transparent',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text-header)',
-                              fontWeight: 800,
-                              fontSize: '0.85rem'
-                            }}
-                          >
-                            {a.chip}
-                          </div>
-                          <div
-                            style={{
-                              padding: '0.2rem 0.55rem',
-                              borderRadius: 999,
-                              border: '1px solid var(--border)',
-                              background: 'transparent',
-                              color: 'var(--text-muted)',
-                              fontSize: '0.78rem',
-                              fontWeight: 800,
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {infoLoading ? 'Loading...' : formatTimeAgo(a.at)}
-                          </div>
-                        </div>
-
-                        <div style={{ marginTop: 10, color: 'var(--text-header)', fontWeight: 800, fontSize: '0.93rem' }}>
-                          {infoLoading ? 'Loading...' : a.userName}
-                          <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginLeft: 8 }}>
-                            {infoLoading ? '' : a.userEmail && a.userEmail !== '-' ? `• ${a.userEmail}` : ''}
-                          </span>
-                        </div>
-                        {Array.isArray(a.changes) && a.changes.length > 0 && (
-                          <div style={{ marginTop: 10 }}>
-                            <div style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '0.85rem' }}>Recent Changes</div>
-                            <div style={{ marginTop: 6, display: 'grid', gap: 4, color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>
-                              {a.changes
-                                .filter((c) => c?.field !== 'items' && c?.field !== 'totalAmount')
-                                .map((c, i) => (
-                                <div key={`${c.field}-${i}`}>
-                                  {c.field}: {String(c.from || '-').replace(/^"+|"+$/g, '')} → {String(c.to || '-').replace(/^"+|"+$/g, '')}
-                                </div>
-                              ))}
+                      return (
+                        <>
+                          {client?.customerName && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.customerName}</span>
                             </div>
+                          )}
+                          {client?.vendorName && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
+                            </div>
+                          )}
+                          {client?.id && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
+                            </div>
+                          )}
+                          {infoInvoice?.clientType && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem', textTransform: 'capitalize' }}>{infoInvoice.clientType}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Invoice Date</span>
+                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{invoiceDate}</span>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Description</span>
+                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{transactionDesc}</span>
+                          </div>
+                        </>
+                      )
+                    })()}
+                  </div>
                 </div>
-              )
-            })()}
+              </div>
+
+              {/* Items Table */}
+              <div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Items</div>
+                <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
+                        <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Product</th>
+                        <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Description</th>
+                        <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const items = infoInvoice?.items || [];
+                        if (items.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No items found</td>
+                            </tr>
+                          )
+                        }
+                        return (
+                          <>
+                            {items.map((item, idx) => (
+                              <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.product || '-'}</td>
+                                <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.description || '-'}</td>
+                                <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 700 }}>
+                                  ₹{item.amount ? item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
+                              <td colSpan={2} style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
+                              <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
+                                ₹{infoInvoice?.totalAmount ? infoInvoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                              </td>
+                            </tr>
+                          </>
+                        )
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
