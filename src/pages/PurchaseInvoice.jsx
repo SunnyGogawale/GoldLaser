@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus } from 'lucide-react';
 import EmptyDataCard from '../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../utils/authStorage';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/purchase-invoices`;
+const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`;
 const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`;
 
 const readJsonResponse = async (response, fallbackMessage) => {
@@ -36,7 +37,8 @@ function PurchaseInvoice() {
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
     invoiceNumber: '',
-    vendorId: '',
+    clientId: '',
+    clientType: 'Vendor',
     invoiceDate: new Date().toISOString().split('T')[0],
     transactionDescription: '',
     items: [
@@ -55,6 +57,7 @@ function PurchaseInvoice() {
 
   // Invoices list state
   const [invoices, setInvoices] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -122,70 +125,20 @@ function PurchaseInvoice() {
     return s.slice(0, max) + '...'
   }
 
-  // Vendor dropdown autocomplete state
-  const [vendorSearchText, setVendorSearchText] = useState('');
-  const [isVendorDropdownOpen, setIsVendorDropdownOpen] = useState(false);
-  // Quick create vendor modal state
-  const [quickCreateVendorOpen, setQuickCreateVendorOpen] = useState(false);
-  const [quickCreateVendorName, setQuickCreateVendorName] = useState('');
+  // Client dropdown autocomplete state
+  const [clientSearchText, setClientSearchText] = useState('');
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
 
-  const filteredVendors = vendors.filter(c => 
-    c.vendorName?.toLowerCase().includes(vendorSearchText.toLowerCase()) || 
-    c.id?.toLowerCase().includes(vendorSearchText.toLowerCase())
-  );
+  // Combine customers and vendors
+  const allClients = useMemo(() => [
+    ...customers.map(c => ({ ...c, type: 'Customer', name: c.customerName })),
+    ...vendors.map(v => ({ ...v, type: 'Vendor', name: v.vendorName }))
+  ], [customers, vendors]);
 
-  // Quick create vendor
-  const quickCreateVendor = async () => {
-    if (!quickCreateVendorName.trim()) {
-      alert('Please enter vendor name!');
-      return;
-    }
-    try {
-      const token = getAuthToken();
-      // First get next vendor ID
-      const idResponse = await fetch(`http://localhost:5001/api/vendors/next-id`);
-      const idData = await readJsonResponse(idResponse, 'Error fetching next vendor id');
-      
-      // Create vendor
-      const vendorResponse = await fetch(`http://localhost:5001/api/vendors`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          id: idData.nextId,
-          vendorName: quickCreateVendorName.trim(),
-          companyName: '',
-          contactNumber: '',
-          email: '',
-          address: '',
-          note: '',
-          customFields: {}
-        })
-      });
-      
-      if (!vendorResponse.ok) {
-        throw new Error('Error creating vendor!');
-      }
-      
-      const newVendor = await readJsonResponse(vendorResponse, 'Error reading vendor data');
-      
-      // Refresh vendors list
-      await fetchVendorsList();
-      
-      // Select the new vendor
-      setInvoiceForm(prev => ({ ...prev, vendorId: newVendor._id }));
-      setVendorSearchText(`${newVendor.vendorName} (${newVendor.id})`);
-      setIsVendorDropdownOpen(false);
-      setQuickCreateVendorOpen(false);
-      setQuickCreateVendorName('');
-      
-    } catch (err) {
-      console.error('Error creating vendor:', err);
-      alert(err.message || 'Error creating vendor!');
-    }
-  };
+  const filteredClients = useMemo(() => allClients.filter(c => 
+    c.name?.toLowerCase().includes(clientSearchText.toLowerCase()) || 
+    c.id?.toLowerCase().includes(clientSearchText.toLowerCase())
+  ), [allClients, clientSearchText]);
 
   // Fetch next invoice number
   const fetchNextInvoiceNumber = async () => {
@@ -206,6 +159,17 @@ function PurchaseInvoice() {
       setVendors(data.vendors || []);
     } catch (err) {
       console.error('Error fetching vendors:', err);
+    }
+  };
+
+  // Fetch customers for dropdown
+  const fetchCustomersList = async () => {
+    try {
+      const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`); // Get all for dropdown
+      const data = await readJsonResponse(response, 'Error fetching customers');
+      setCustomers(data.customers || []);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
     }
   };
 
@@ -235,6 +199,7 @@ function PurchaseInvoice() {
   }, [searchQuery, sortColumn, sortOrder]);
 
   useEffect(() => {
+    fetchCustomersList();
     fetchVendorsList();
     fetchNextInvoiceNumber();
   }, []);
@@ -264,8 +229,8 @@ function PurchaseInvoice() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!invoiceForm.vendorId) {
-      newErrors.vendorId = 'Please select a vendor';
+    if (!invoiceForm.clientId) {
+      newErrors.clientId = 'Please select a client';
     }
 
     if (!invoiceForm.invoiceDate) {
@@ -395,13 +360,14 @@ function PurchaseInvoice() {
       await fetchInvoices(1);
       setInvoiceForm({
         invoiceNumber: '',
-        vendorId: '',
+        clientId: '',
+        clientType: 'Vendor',
         invoiceDate: new Date().toISOString().split('T')[0],
         transactionDescription: '',
         items: [{ product: '', description: '', amount: 0 }],
         totalAmount: 0
       });
-      setVendorSearchText('');
+      setClientSearchText('');
       await fetchNextInvoiceNumber();
       setErrors({});
       setFormSubmitted(false);
@@ -460,9 +426,16 @@ function PurchaseInvoice() {
   };
 
   const handleEditInvoice = (invoice) => {
+    const clientType = invoice.clientType || 'Vendor';
+    const clientId = invoice.clientId || invoice.vendorId?._id || invoice.vendorId;
+    const client = invoice.vendorId;
+    const clientName = client?.customerName || client?.vendorName || '';
+    const clientIdStr = client?.id || '';
+    
     setInvoiceForm({
       invoiceNumber: invoice.invoiceNumber,
-      vendorId: invoice.vendorId._id || invoice.vendorId,
+      clientId: clientId,
+      clientType: clientType,
       invoiceDate: new Date(invoice.invoiceDate).toISOString().split('T')[0],
       transactionDescription: invoice.transactionDescription || '',
       items: invoice.items.map(item => ({
@@ -472,9 +445,7 @@ function PurchaseInvoice() {
       })),
       totalAmount: invoice.totalAmount
     });
-    const custName = invoice.vendorId?.vendorName || '';
-    const custId = invoice.vendorId?.id || '';
-    setVendorSearchText(custName ? `${custName} (${custId})` : '');
+    setClientSearchText(clientName ? `${clientName} (${clientIdStr}) - ${clientType}` : '');
     setEditingInvoiceId(invoice._id);
     setErrors({});
     setFormSubmitted(false);
@@ -485,13 +456,14 @@ function PurchaseInvoice() {
     setEditingInvoiceId(null);
     setInvoiceForm({
       invoiceNumber: '',
-      vendorId: '',
+      clientId: '',
+      clientType: 'Vendor',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
       items: [{ product: '', description: '', amount: 0 }],
       totalAmount: 0
     });
-    setVendorSearchText('');
+    setClientSearchText('');
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -503,14 +475,15 @@ function PurchaseInvoice() {
     setEditingInvoiceId(null);
     setInvoiceForm({
       invoiceNumber: '',
-      vendorId: '',
+      clientId: '',
+      clientType: 'Vendor',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
       items: [{ product: '', description: '', amount: 0 }],
       totalAmount: 0
     });
-    setVendorSearchText('');
-    setIsVendorDropdownOpen(false);
+    setClientSearchText('');
+    setIsClientDropdownOpen(false);
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -657,36 +630,36 @@ function PurchaseInvoice() {
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px', position: 'relative' }}>
                   <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Vendor <span style={{ color: 'var(--danger)' }}>*</span>
+                    Select Client <span style={{ color: 'var(--danger)' }}>*</span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="text"
-                      placeholder="Search vendor..."
-                      value={vendorSearchText}
+                      placeholder="Search client (customer or vendor)..."
+                      value={clientSearchText}
                       onChange={(e) => {
-                        setVendorSearchText(e.target.value);
-                        setIsVendorDropdownOpen(e.target.value.length > 0);
-                        if (invoiceForm.vendorId) {
-                          setInvoiceForm(prev => ({ ...prev, vendorId: '' }));
+                        setClientSearchText(e.target.value);
+                        setIsClientDropdownOpen(e.target.value.length > 0);
+                        if (invoiceForm.clientId) {
+                          setInvoiceForm(prev => ({ ...prev, clientId: '', clientType: 'Vendor' }));
                         }
-                        if (formSubmitted && errors.vendorId) {
+                        if (formSubmitted && errors.clientId) {
                           setErrors(prev => {
                             const newE = { ...prev };
-                            delete newE.vendorId;
+                            delete newE.clientId;
                             return newE;
                           });
                         }
                       }}
                       onFocus={(e) => {
-                        if (e.target.value.length > 0) setIsVendorDropdownOpen(true);
+                        if (e.target.value.length > 0) setIsClientDropdownOpen(true);
                       }}
-                      onBlur={() => setTimeout(() => setIsVendorDropdownOpen(false), 200)}
+                      onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
                       disabled={loading}
                       style={{
                         width: '100%',
                         padding: '0.5rem 0.75rem',
-                        border: `1px solid ${errors.vendorId ? 'var(--danger)' : 'var(--border)'}`,
+                        border: `1px solid ${errors.clientId ? 'var(--danger)' : 'var(--border)'}`,
                         borderRadius: '6px',
                         fontSize: '0.875rem',
                         background: 'var(--bg-card)',
@@ -694,7 +667,7 @@ function PurchaseInvoice() {
                         outline: 'none'
                       }}
                     />
-                    {isVendorDropdownOpen && (
+                    {isClientDropdownOpen && (
                       <ul style={{
                         position: 'absolute',
                         top: '100%',
@@ -711,13 +684,13 @@ function PurchaseInvoice() {
                         zIndex: 10,
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}>
-                        {filteredVendors.map(vendor => (
+                        {filteredClients.map(client => (
                           <li
-                            key={vendor._id}
+                            key={client._id + client.type}
                             onClick={() => {
-                              setInvoiceForm(prev => ({ ...prev, vendorId: vendor._id }));
-                              setVendorSearchText(`${vendor.vendorName} (${vendor.id})`);
-                              setIsVendorDropdownOpen(false);
+                              setInvoiceForm(prev => ({ ...prev, clientId: client._id, clientType: client.type }));
+                              setClientSearchText(`${client.name} (${client.id}) - ${client.type}`);
+                              setIsClientDropdownOpen(false);
                             }}
                             style={{
                               padding: '0.5rem 0.75rem',
@@ -730,37 +703,14 @@ function PurchaseInvoice() {
                             onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
                             onMouseLeave={(e) => e.target.style.background = 'transparent'}
                           >
-                            {vendor.vendorName} ({vendor.id})
+                            {client.name} ({client.id}) - {client.type}
                           </li>
                         ))}
-                        <li
-                          onClick={() => {
-                            setQuickCreateVendorName(vendorSearchText);
-                            setQuickCreateVendorOpen(true);
-                            setIsVendorDropdownOpen(false);
-                          }}
-                          style={{
-                            padding: '0.5rem 0.75rem',
-                            cursor: 'pointer',
-                            fontSize: '0.875rem',
-                            color: 'var(--primary)',
-                            fontWeight: '600',
-                            borderTop: filteredVendors.length > 0 ? '1px solid var(--border)' : 'none',
-                            transition: 'background 0.2s',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                          onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
-                          onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                        >
-                          + Create new vendor
-                        </li>
                       </ul>
                     )}
                   </div>
-                  {formSubmitted && errors.vendorId && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.vendorId}</p>
+                  {formSubmitted && errors.clientId && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.clientId}</p>
                   )}
                 </div>
 
@@ -1046,6 +996,7 @@ function PurchaseInvoice() {
                   {invoices.map((invoice) => {
                     const name =
                       invoice.vendorId?.vendorName ||
+                      invoice.vendorId?.customerName ||
                       `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                       'Unknown';
                     const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name;
@@ -1267,10 +1218,10 @@ function PurchaseInvoice() {
                           Invoice No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
-                          onClick={() => handleSort('vendorId')}
+                          onClick={() => handleSort('clientId')}
                           style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                         >
-                          Vendor {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          Client {sortColumn === 'clientId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('invoiceDate')}
@@ -1297,6 +1248,7 @@ function PurchaseInvoice() {
                       {invoices.map((invoice) => {
                         const name =
                           invoice.vendorId?.vendorName ||
+                          invoice.vendorId?.customerName ||
                           `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                           'Unknown';
                         const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name;
@@ -1752,92 +1704,7 @@ function PurchaseInvoice() {
         </div>
       )}
       
-      {/* Quick Create Vendor Modal */}
-      {quickCreateVendorOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onClick={() => setQuickCreateVendorOpen(false)}
-        >
-          <div
-            className="card"
-            style={{
-              width: 'min(400px, 96vw)',
-              padding: '1.5rem'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-header)' }}>Create New Vendor</h3>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: 'var(--text-header)' }}>
-                Vendor Name <span style={{ color: 'var(--danger)' }}>*</span>
-              </label>
-              <input
-                autoFocus
-                type="text"
-                value={quickCreateVendorName}
-                onChange={(e) => setQuickCreateVendorName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    quickCreateVendor()
-                  } else if (e.key === 'Escape') {
-                    setQuickCreateVendorOpen(false)
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem 0.75rem',
-                  border: '1px solid var(--border)',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  background: 'var(--bg-card)',
-                  color: 'var(--text-header)',
-                  outline: 'none'
-                }}
-              />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button
-                type="button"
-                onClick={() => setQuickCreateVendorOpen(false)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: 'transparent',
-                  color: 'var(--text-header)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={quickCreateVendor}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: 'var(--primary)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                Create Vendor
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

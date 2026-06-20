@@ -2,14 +2,31 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Customer = require('../models/Customer');
-const Invoice = require('../models/SaleInvoice');
-const Payment = require('../models/SalePayment');
+const SaleInvoice = require('../models/SaleInvoice');
+const SalePayment = require('../models/SalePayment');
+const PurchaseInvoice = require('../models/PurchaseInvoice');
+const PurchasePayment = require('../models/PurchasePayment');
 const User = require('../models/User');
 
-function invoicePaidLookupStage() {
+function saleInvoicePaidLookupStage() {
   return {
     $lookup: {
       from: 'salepayments',
+      let: { invoiceId: '$_id' },
+      pipeline: [
+        { $unwind: '$allocations' },
+        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
+        { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
+      ],
+      as: 'paidAgg'
+    }
+  };
+}
+
+function purchaseInvoicePaidLookupStage() {
+  return {
+    $lookup: {
+      from: 'purchasepayments',
       let: { invoiceId: '$_id' },
       pipeline: [
         { $unwind: '$allocations' },
@@ -42,15 +59,66 @@ function invoiceComputedFieldsStage() {
 
 async function getCustomerOutstanding(customerId) {
   try {
-    const pendingAgg = await Invoice.aggregate([
-      { $match: { customerId } },
-      invoicePaidLookupStage(),
+    // Get sale invoices data
+    const saleDataAgg = await SaleInvoice.aggregate([
+      { 
+        $match: { 
+          $or: [
+            { clientId: customerId, clientType: 'Customer' },
+            { customerId }
+          ] 
+        } 
+      },
+      saleInvoicePaidLookupStage(),
       invoiceComputedFieldsStage(),
-      { $group: { _id: null, totalPendingAmount: { $sum: '$pendingAmount' } } }
+      { 
+        $group: { 
+          _id: null, 
+          totalInvoiceAmount: { $sum: '$totalAmount' },
+          totalPaidAmount: { $sum: '$paidAmount' },
+          totalPendingAmount: { $sum: '$pendingAmount' }
+        } 
+      }
     ]);
-    return pendingAgg.length > 0 ? pendingAgg[0].totalPendingAmount : 0;
+    const saleData = saleDataAgg.length > 0 ? saleDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 };
+    
+    // Get purchase invoices data
+    const purchaseDataAgg = await PurchaseInvoice.aggregate([
+      { 
+        $match: { 
+          clientId: customerId, 
+          clientType: 'Customer'
+        } 
+      },
+      purchaseInvoicePaidLookupStage(),
+      invoiceComputedFieldsStage(),
+      { 
+        $group: { 
+          _id: null, 
+          totalInvoiceAmount: { $sum: '$totalAmount' },
+          totalPaidAmount: { $sum: '$paidAmount' },
+          totalPendingAmount: { $sum: '$pendingAmount' }
+        } 
+      }
+    ]);
+    const purchaseData = purchaseDataAgg.length > 0 ? purchaseDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 };
+    
+    // Calculate totals
+    const totalInvoices = saleData.totalInvoiceAmount + purchaseData.totalInvoiceAmount;
+    const totalPayments = saleData.totalPaidAmount + purchaseData.totalPaidAmount;
+    const outstanding = totalInvoices - totalPayments;
+    
+    return {
+      totalInvoices,
+      totalPayments,
+      outstanding
+    };
   } catch {
-    return 0;
+    return {
+      totalInvoices: 0,
+      totalPayments: 0,
+      outstanding: 0
+    };
   }
 }
 
@@ -206,8 +274,8 @@ router.get('/', async (req, res) => {
     // If sorting by outstanding, do it client-side after calculation
     if (sortColumn === 'outstanding') {
       customersWithOutstanding.sort((a, b) => {
-        const valA = a.outstanding || 0;
-        const valB = b.outstanding || 0;
+        const valA = a.outstanding?.outstanding || 0;
+        const valB = b.outstanding?.outstanding || 0;
         return sortOrder === 1 ? valA - valB : valB - valA;
       });
     }
@@ -386,27 +454,69 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
 
-    const [invoiceResult, paymentResult] = await Promise.all([
-      Invoice.deleteMany({ customerId: customer._id }),
-      Payment.deleteMany({ customerId: customer._id })
+    const [invoiceResult, paymentResult, purchaseInvoiceResult, purchasePaymentResult] = await Promise.all([
+      SaleInvoice.deleteMany({ $or: [{ customerId: customer._id }, { clientId: customer._id, clientType: 'Customer' }] }),
+      SalePayment.deleteMany({ $or: [{ customerId: customer._id }, { clientId: customer._id, clientType: 'Customer' }] }),
+      PurchaseInvoice.deleteMany({ clientId: customer._id, clientType: 'Customer' }),
+      PurchasePayment.deleteMany({ clientId: customer._id, clientType: 'Customer' })
     ]);
 
     await Customer.findByIdAndDelete(customer._id);
 
     const existingCustomerIds = (await Customer.find({}, { _id: 1 }).lean()).map((c) => c._id);
-    const [orphanInvoiceResult, orphanPaymentResult] = await Promise.all([
-      Invoice.deleteMany({
+    const [orphanInvoiceResult, orphanPaymentResult, orphanPurchaseInvoiceResult, orphanPurchasePaymentResult] = await Promise.all([
+      SaleInvoice.deleteMany({
         $or: [
           { customerId: { $exists: false } },
           { customerId: null },
-          { customerId: { $nin: existingCustomerIds } }
+          { customerId: { $nin: existingCustomerIds } },
+          { 
+            $and: [
+              { clientType: 'Customer' },
+              { $or: [
+                { clientId: { $exists: false } },
+                { clientId: null },
+                { clientId: { $nin: existingCustomerIds } }
+              ]}
+            ]
+          }
         ]
       }),
-      Payment.deleteMany({
+      SalePayment.deleteMany({
         $or: [
           { customerId: { $exists: false } },
           { customerId: null },
-          { customerId: { $nin: existingCustomerIds } }
+          { customerId: { $nin: existingCustomerIds } },
+          { 
+            $and: [
+              { clientType: 'Customer' },
+              { $or: [
+                { clientId: { $exists: false } },
+                { clientId: null },
+                { clientId: { $nin: existingCustomerIds } }
+              ]}
+            ]
+          }
+        ]
+      }),
+      PurchaseInvoice.deleteMany({
+        $and: [
+          { clientType: 'Customer' },
+          { $or: [
+            { clientId: { $exists: false } },
+            { clientId: null },
+            { clientId: { $nin: existingCustomerIds } }
+          ]}
+        ]
+      }),
+      PurchasePayment.deleteMany({
+        $and: [
+          { clientType: 'Customer' },
+          { $or: [
+            { clientId: { $exists: false } },
+            { clientId: null },
+            { clientId: { $nin: existingCustomerIds } }
+          ]}
         ]
       })
     ]);
@@ -415,10 +525,14 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       message: 'Customer deleted',
       deleted: {
         customers: 1,
-        invoices: invoiceResult?.deletedCount || 0,
-        payments: paymentResult?.deletedCount || 0,
-        orphanInvoices: orphanInvoiceResult?.deletedCount || 0,
-        orphanPayments: orphanPaymentResult?.deletedCount || 0
+        saleInvoices: invoiceResult?.deletedCount || 0,
+        salePayments: paymentResult?.deletedCount || 0,
+        purchaseInvoices: purchaseInvoiceResult?.deletedCount || 0,
+        purchasePayments: purchasePaymentResult?.deletedCount || 0,
+        orphanSaleInvoices: orphanInvoiceResult?.deletedCount || 0,
+        orphanSalePayments: orphanPaymentResult?.deletedCount || 0,
+        orphanPurchaseInvoices: orphanPurchaseInvoiceResult?.deletedCount || 0,
+        orphanPurchasePayments: orphanPurchasePaymentResult?.deletedCount || 0
       }
     });
   } catch (err) {

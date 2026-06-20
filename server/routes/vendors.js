@@ -4,12 +4,29 @@ const jwt = require('jsonwebtoken');
 const Vendor = require('../models/Vendor');
 const PurchaseInvoice = require('../models/PurchaseInvoice');
 const PurchasePayment = require('../models/PurchasePayment');
+const SaleInvoice = require('../models/SaleInvoice');
+const SalePayment = require('../models/SalePayment');
 const User = require('../models/User');
 
-function invoicePaidLookupStage() {
+function purchaseInvoicePaidLookupStage() {
   return {
     $lookup: {
       from: 'purchasepayments',
+      let: { invoiceId: '$_id' },
+      pipeline: [
+        { $unwind: '$allocations' },
+        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
+        { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
+      ],
+      as: 'paidAgg'
+    }
+  };
+}
+
+function saleInvoicePaidLookupStage() {
+  return {
+    $lookup: {
+      from: 'salepayments',
       let: { invoiceId: '$_id' },
       pipeline: [
         { $unwind: '$allocations' },
@@ -42,15 +59,66 @@ function invoiceComputedFieldsStage() {
 
 async function getVendorOutstanding(vendorId) {
   try {
-    const pendingAgg = await PurchaseInvoice.aggregate([
-      { $match: { vendorId } },
-      invoicePaidLookupStage(),
+    // Get purchase invoices data
+    const purchaseDataAgg = await PurchaseInvoice.aggregate([
+      { 
+        $match: { 
+          $or: [
+            { clientId: vendorId, clientType: 'Vendor' },
+            { vendorId }
+          ] 
+        } 
+      },
+      purchaseInvoicePaidLookupStage(),
       invoiceComputedFieldsStage(),
-      { $group: { _id: null, totalPendingAmount: { $sum: '$pendingAmount' } } }
+      { 
+        $group: { 
+          _id: null, 
+          totalInvoiceAmount: { $sum: '$totalAmount' },
+          totalPaidAmount: { $sum: '$paidAmount' },
+          totalPendingAmount: { $sum: '$pendingAmount' }
+        } 
+      }
     ]);
-    return pendingAgg.length > 0 ? pendingAgg[0].totalPendingAmount : 0;
+    const purchaseData = purchaseDataAgg.length > 0 ? purchaseDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 };
+    
+    // Get sale invoices data
+    const saleDataAgg = await SaleInvoice.aggregate([
+      { 
+        $match: { 
+          clientId: vendorId, 
+          clientType: 'Vendor'
+        } 
+      },
+      saleInvoicePaidLookupStage(),
+      invoiceComputedFieldsStage(),
+      { 
+        $group: { 
+          _id: null, 
+          totalInvoiceAmount: { $sum: '$totalAmount' },
+          totalPaidAmount: { $sum: '$paidAmount' },
+          totalPendingAmount: { $sum: '$pendingAmount' }
+        } 
+      }
+    ]);
+    const saleData = saleDataAgg.length > 0 ? saleDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 };
+    
+    // Calculate totals
+    const totalInvoices = purchaseData.totalInvoiceAmount + saleData.totalInvoiceAmount;
+    const totalPayments = purchaseData.totalPaidAmount + saleData.totalPaidAmount;
+    const outstanding = totalInvoices - totalPayments;
+    
+    return {
+      totalInvoices,
+      totalPayments,
+      outstanding
+    };
   } catch {
-    return 0;
+    return {
+      totalInvoices: 0,
+      totalPayments: 0,
+      outstanding: 0
+    };
   }
 }
 
@@ -206,8 +274,8 @@ router.get('/', async (req, res) => {
     // If sorting by outstanding, do it client-side after calculation
     if (sortColumn === 'outstanding') {
       vendorsWithOutstanding.sort((a, b) => {
-        const valA = a.outstanding || 0;
-        const valB = b.outstanding || 0;
+        const valA = a.outstanding?.outstanding || 0;
+        const valB = b.outstanding?.outstanding || 0;
         return sortOrder === 1 ? valA - valB : valB - valA;
       });
     }
@@ -385,27 +453,69 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     const vendor = await Vendor.findById(req.params.id);
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
-    const [invoiceResult, paymentResult] = await Promise.all([
-      PurchaseInvoice.deleteMany({ vendorId: vendor._id }),
-      PurchasePayment.deleteMany({ vendorId: vendor._id })
+    const [invoiceResult, paymentResult, saleInvoiceResult, salePaymentResult] = await Promise.all([
+      PurchaseInvoice.deleteMany({ $or: [{ vendorId: vendor._id }, { clientId: vendor._id, clientType: 'Vendor' }] }),
+      PurchasePayment.deleteMany({ $or: [{ vendorId: vendor._id }, { clientId: vendor._id, clientType: 'Vendor' }] }),
+      SaleInvoice.deleteMany({ clientId: vendor._id, clientType: 'Vendor' }),
+      SalePayment.deleteMany({ clientId: vendor._id, clientType: 'Vendor' })
     ]);
 
     await Vendor.findByIdAndDelete(vendor._id);
 
     const existingVendorIds = (await Vendor.find({}, { _id: 1 }).lean()).map((c) => c._id);
-    const [orphanInvoiceResult, orphanPaymentResult] = await Promise.all([
+    const [orphanInvoiceResult, orphanPaymentResult, orphanSaleInvoiceResult, orphanSalePaymentResult] = await Promise.all([
       PurchaseInvoice.deleteMany({
         $or: [
           { vendorId: { $exists: false } },
           { vendorId: null },
-          { vendorId: { $nin: existingVendorIds } }
+          { vendorId: { $nin: existingVendorIds } },
+          { 
+            $and: [
+              { clientType: 'Vendor' },
+              { $or: [
+                { clientId: { $exists: false } },
+                { clientId: null },
+                { clientId: { $nin: existingVendorIds } }
+              ]}
+            ]
+          }
         ]
       }),
       PurchasePayment.deleteMany({
         $or: [
           { vendorId: { $exists: false } },
           { vendorId: null },
-          { vendorId: { $nin: existingVendorIds } }
+          { vendorId: { $nin: existingVendorIds } },
+          { 
+            $and: [
+              { clientType: 'Vendor' },
+              { $or: [
+                { clientId: { $exists: false } },
+                { clientId: null },
+                { clientId: { $nin: existingVendorIds } }
+              ]}
+            ]
+          }
+        ]
+      }),
+      SaleInvoice.deleteMany({
+        $and: [
+          { clientType: 'Vendor' },
+          { $or: [
+            { clientId: { $exists: false } },
+            { clientId: null },
+            { clientId: { $nin: existingVendorIds } }
+          ]}
+        ]
+      }),
+      SalePayment.deleteMany({
+        $and: [
+          { clientType: 'Vendor' },
+          { $or: [
+            { clientId: { $exists: false } },
+            { clientId: null },
+            { clientId: { $nin: existingVendorIds } }
+          ]}
         ]
       })
     ]);
@@ -414,10 +524,14 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       message: 'Vendor deleted',
       deleted: {
         vendors: 1,
-        invoices: invoiceResult?.deletedCount || 0,
-        payments: paymentResult?.deletedCount || 0,
-        orphanInvoices: orphanInvoiceResult?.deletedCount || 0,
-        orphanPayments: orphanPaymentResult?.deletedCount || 0
+        purchaseInvoices: invoiceResult?.deletedCount || 0,
+        purchasePayments: paymentResult?.deletedCount || 0,
+        saleInvoices: saleInvoiceResult?.deletedCount || 0,
+        salePayments: salePaymentResult?.deletedCount || 0,
+        orphanPurchaseInvoices: orphanInvoiceResult?.deletedCount || 0,
+        orphanPurchasePayments: orphanPaymentResult?.deletedCount || 0,
+        orphanSaleInvoices: orphanSaleInvoiceResult?.deletedCount || 0,
+        orphanSalePayments: orphanSalePaymentResult?.deletedCount || 0
       }
     });
   } catch (err) {

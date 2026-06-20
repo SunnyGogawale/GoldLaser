@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const Payment = require('../models/PurchasePayment');
 const Invoice = require('../models/PurchaseInvoice');
+const Customer = require('../models/Customer');
+const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
@@ -89,6 +91,9 @@ const truncate = (s, max = 140) => {
 const normalizePaymentValue = (field, value) => {
   if (value === null || value === undefined) return value;
 
+  if (field === 'clientId') {
+    return String(value?._id || value);
+  }
   if (field === 'vendorId') {
     return String(value?._id || value);
   }
@@ -149,8 +154,8 @@ async function getPaidAmountMapByInvoiceIds(invoiceIds, excludePaymentId) {
   return map;
 }
 
-async function buildPendingInvoices(vendorId, excludePaymentId) {
-  const invoices = await Invoice.find({ vendorId }).sort({ invoiceDate: 1, createdAt: 1 });
+async function buildPendingInvoices(clientId, clientType, excludePaymentId) {
+  const invoices = await Invoice.find({ clientId, clientType }).sort({ invoiceDate: 1, createdAt: 1 });
   if (invoices.length === 0) {
     return { invoices: [], totalPending: 0 };
   }
@@ -185,8 +190,8 @@ async function buildPendingInvoices(vendorId, excludePaymentId) {
   return { invoices: result, totalPending };
 }
 
-async function allocatePaymentToInvoices({ vendorId, amount, excludePaymentId, invoiceOrder }) {
-  const { invoices: pendingInvoices, totalPending } = await buildPendingInvoices(vendorId, excludePaymentId);
+async function allocatePaymentToInvoices({ clientId, clientType, amount, excludePaymentId, invoiceOrder }) {
+  const { invoices: pendingInvoices, totalPending } = await buildPendingInvoices(clientId, clientType, excludePaymentId);
 
   let orderedInvoices = pendingInvoices;
   if (Array.isArray(invoiceOrder) && invoiceOrder.length > 0) {
@@ -238,19 +243,20 @@ router.get('/next-number', async (req, res) => {
 
 router.get('/pending', async (req, res) => {
   try {
-    const vendorId = req.query.vendorId;
+    const clientId = req.query.clientId;
+    const clientType = req.query.clientType || 'Vendor';
     const excludePaymentId = req.query.excludePaymentId;
-    if (!vendorId) {
-      return res.status(400).json({ message: 'vendorId is required' });
+    if (!clientId) {
+      return res.status(400).json({ message: 'clientId is required' });
     }
-    if (!isObjectId(vendorId)) {
-      return res.status(400).json({ message: 'Invalid vendor id' });
+    if (!isObjectId(clientId)) {
+      return res.status(400).json({ message: 'Invalid client id' });
     }
     if (excludePaymentId && !isObjectId(excludePaymentId)) {
       return res.status(400).json({ message: 'Invalid payment id' });
     }
 
-    const data = await buildPendingInvoices(vendorId, excludePaymentId);
+    const data = await buildPendingInvoices(clientId, clientType, excludePaymentId);
     res.json(data);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -264,101 +270,80 @@ router.get('/', async (req, res) => {
     const skip = (page - 1) * limit;
     const search = req.query.search || '';
 
-    let pipeline = [
-      {
-        $lookup: {
-          from: 'vendors',
-          localField: 'vendorId',
-          foreignField: '_id',
-          as: 'vendorId'
-        }
-      },
-      {
-        $unwind: {
-          path: '$vendorId',
-          preserveNullAndEmptyArrays: true
-        }
-      }
-    ];
+    // First fetch all payments
+    let payments = await Payment.find()
+      .sort({ paymentNumber: -1 })
+      .skip(skip)
+      .limit(limit);
 
+    // Fetch customers and vendors
+    const customerIds = payments.filter(p => p.clientType === 'Customer').map(p => p.clientId);
+    const vendorIds = payments.filter(p => p.clientType === 'Vendor').map(p => p.clientId);
+
+    const customers = customerIds.length ? await Customer.find({ _id: { $in: customerIds } }) : [];
+    const vendors = vendorIds.length ? await Vendor.find({ _id: { $in: vendorIds } }) : [];
+
+    const customerMap = new Map(customers.map(c => [c._id.toString(), c]));
+    const vendorMap = new Map(vendors.map(v => [v._id.toString(), v]));
+
+    // Attach client data as vendorId
+    const paymentsWithClients = payments.map(p => {
+      const pObj = p.toObject();
+      if (pObj.clientType === 'Customer') {
+        pObj.vendorId = customerMap.get(pObj.clientId?.toString()) || null;
+      } else {
+        pObj.vendorId = vendorMap.get(pObj.clientId?.toString()) || null;
+      }
+      return pObj;
+    });
+
+    // Filter by search
+    let filteredPayments = paymentsWithClients;
     if (search) {
-      pipeline.push({
-        $match: {
-          $or: [
-            { paymentNumber: { $regex: search, $options: 'i' } },
-            { 'vendorId.vendorName': { $regex: search, $options: 'i' } }
-          ]
-        }
-      });
+      filteredPayments = paymentsWithClients.filter(p =>
+        p.paymentNumber.toLowerCase().includes(search.toLowerCase()) ||
+        (p.vendorId?.customerName?.toLowerCase().includes(search.toLowerCase())) ||
+        (p.vendorId?.vendorName?.toLowerCase().includes(search.toLowerCase()))
+      );
     }
 
-    let total = 0;
+    // Get total count
+    let total;
     if (search) {
-      const countPipeline = [...pipeline, { $count: 'total' }];
-      const countResult = await Payment.aggregate(countPipeline);
-      total = countResult.length > 0 ? countResult[0].total : 0;
+      total = await Payment.countDocuments({
+        $or: [
+          { paymentNumber: { $regex: search, $options: 'i' } }
+        ]
+      });
+      // Since we can't easily search populated fields in count, use filtered length
+      total = filteredPayments.length + (payments.length - paymentsWithClients.length);
     } else {
       total = await Payment.countDocuments();
     }
 
-    pipeline.push({
-      $addFields: {
-        numericId: {
-          $toInt: {
-            $replaceAll: { input: '$paymentNumber', find: 'PPAY', replacement: '' }
-          }
-        }
-      }
-    });
+    // Fetch user data for createdBy
+    const userIds = filteredPayments.map(p => p.createdBy).filter(Boolean);
+    const users = userIds.length ? await User.find({ _id: { $in: userIds } }) : [];
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
-    pipeline.push({ $sort: { numericId: -1 } });
-    pipeline.push({ $skip: skip });
-    pipeline.push({ $limit: limit });
-
-    pipeline.push({
-      $lookup: {
-        from: 'users',
-        localField: 'createdBy',
-        foreignField: '_id',
-        as: 'createdBy'
-      }
-    });
-    pipeline.push({ $unwind: { path: '$createdBy', preserveNullAndEmptyArrays: true } });
-    pipeline.push({
-      $addFields: {
-        createdBy: {
-          _id: '$createdBy._id',
-          fullName: '$createdBy.fullName',
-          email: '$createdBy.email',
-          roll: '$createdBy.roll'
-        }
-      }
-    });
-
-    const paymentsRaw = await Payment.aggregate(pipeline);
-    const payments = (paymentsRaw || []).map((p) => {
-      const hasCreatedBy =
-        p?.createdBy && (p.createdBy.fullName || p.createdBy.email || p.createdBy._id);
-      const createdByName = p?.createdBy?.fullName || p?.createdByName || '';
-      const createdByEmail = p?.createdBy?.email || p?.createdByEmail || '';
-      const createdBy = hasCreatedBy
-        ? p.createdBy
-        : {
-            _id: p?.createdBy?._id || p?.createdBy || null,
-            fullName: createdByName || null,
-            email: createdByEmail || null,
-            roll: null
-          };
+    // Attach user data
+    const finalPayments = filteredPayments.map(p => {
+      const user = p.createdBy ? userMap.get(p.createdBy.toString()) : null;
+      const hasCreatedBy = user && (user.fullName || user.email || user._id);
+      const createdByName = user?.fullName || p?.createdByName || '';
+      const createdByEmail = user?.email || p?.createdByEmail || '';
       return {
         ...p,
-        createdBy,
+        createdBy: hasCreatedBy
+          ? { _id: user._id, fullName: user.fullName, email: user.email, roll: user.roll }
+          : { _id: p?.createdBy || null, fullName: createdByName || null, email: createdByEmail || null, roll: null },
         createdByName,
         createdByEmail
       };
     });
 
     res.json({
-      payments,
+      payments: finalPayments,
       total,
       page,
       totalPages: Math.ceil(total / limit)
@@ -368,13 +353,28 @@ router.get('/', async (req, res) => {
   }
 });
 
+const getPurchasePaymentWithClient = async (id) => {
+  const payment = await Payment.findById(id)
+    .populate('createdBy', 'fullName email roll')
+    .populate('updatedBy', 'fullName email roll');
+  if (!payment) return null;
+  
+  let client = null;
+  if (payment.clientType === 'Customer') {
+    client = await Customer.findById(payment.clientId);
+  } else {
+    client = await Vendor.findById(payment.clientId);
+  }
+  
+  const paymentObj = payment.toObject();
+  paymentObj.vendorId = client;
+  return paymentObj;
+};
+
 router.get('/detail/:id', async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid payment id' });
-    const payment = await Payment.findById(req.params.id)
-      .populate('vendorId')
-      .populate('createdBy', 'fullName email roll')
-      .populate('updatedBy', 'fullName email roll');
+    const payment = await getPurchasePaymentWithClient(req.params.id);
     if (!payment) {
       return res.status(404).json({ message: 'Payment not found' });
     }
@@ -423,10 +423,7 @@ router.get('/detail/:id', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid payment id' });
-    const payment = await Payment.findById(req.params.id)
-      .populate('vendorId')
-      .populate('createdBy', 'fullName email roll')
-      .populate('updatedBy', 'fullName email roll');
+    const payment = await getPurchasePaymentWithClient(req.params.id);
     if (!payment) {
       return res.status(404).json({ message: 'Payment not found' });
     }
@@ -479,18 +476,19 @@ router.post('/', async (req, res) => {
       paymentNumber = await getNextPaymentNumber();
     }
 
-    const vendorId = req.body.vendorId;
+    const clientId = req.body.clientId;
+    const clientType = req.body.clientType || 'Vendor';
     const paymentDate = req.body.paymentDate;
     const amount = Number(req.body.amount) || 0;
     const description = req.body.description || '';
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
 
-    if (!vendorId) return res.status(400).json({ message: 'Vendor is required' });
-    if (!isObjectId(vendorId)) return res.status(400).json({ message: 'Invalid vendor id' });
+    if (!clientId) return res.status(400).json({ message: 'Client is required' });
+    if (!isObjectId(clientId)) return res.status(400).json({ message: 'Invalid client id' });
     if (!paymentDate) return res.status(400).json({ message: 'Payment date is required' });
     if (!(amount > 0)) return res.status(400).json({ message: 'Payment amount must be greater than 0' });
 
-    const { allocations, appliedAmount } = await allocatePaymentToInvoices({ vendorId, amount, invoiceOrder });
+    const { allocations, appliedAmount } = await allocatePaymentToInvoices({ clientId, clientType, amount, invoiceOrder });
     if (!(appliedAmount > 0)) {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }
@@ -499,7 +497,8 @@ router.post('/', async (req, res) => {
 
     const payment = new Payment({
       paymentNumber,
-      vendorId,
+      clientId,
+      clientType,
       paymentDate,
       amount: appliedAmount,
       description,
@@ -536,19 +535,21 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Payment not found' });
     }
 
-    const vendorId = req.body.vendorId || existing.vendorId;
+    const clientId = req.body.clientId || existing.clientId;
+    const clientType = req.body.clientType || existing.clientType || 'Vendor';
     const paymentDate = req.body.paymentDate || existing.paymentDate;
     const amount = Number(req.body.amount ?? existing.amount) || 0;
     const description = req.body.description ?? existing.description;
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
 
-    if (!vendorId) return res.status(400).json({ message: 'Vendor is required' });
-    if (!isObjectId(vendorId)) return res.status(400).json({ message: 'Invalid vendor id' });
+    if (!clientId) return res.status(400).json({ message: 'Client is required' });
+    if (!isObjectId(clientId)) return res.status(400).json({ message: 'Invalid client id' });
     if (!paymentDate) return res.status(400).json({ message: 'Payment date is required' });
     if (!(amount > 0)) return res.status(400).json({ message: 'Payment amount must be greater than 0' });
 
     const { allocations, appliedAmount } = await allocatePaymentToInvoices({
-      vendorId,
+      clientId,
+      clientType,
       amount,
       excludePaymentId: existing._id,
       invoiceOrder
@@ -564,12 +565,14 @@ router.put('/:id', async (req, res) => {
       if (fromS === toS) return;
       changes.push({ field, from: fromS, to: toS });
     };
-    recordChange('vendorId', existing.vendorId, vendorId);
+    recordChange('clientId', existing.clientId, clientId);
+    recordChange('clientType', existing.clientType, clientType);
     recordChange('paymentDate', existing.paymentDate, paymentDate);
     recordChange('amount', existing.amount, appliedAmount);
     recordChange('description', existing.description, description);
 
-    existing.vendorId = vendorId;
+    existing.clientId = clientId;
+    existing.clientType = clientType;
     existing.paymentDate = paymentDate;
     existing.amount = appliedAmount;
     existing.description = description;

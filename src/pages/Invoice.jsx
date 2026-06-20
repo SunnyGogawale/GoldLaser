@@ -984,6 +984,7 @@ function Invoice() {
                   {invoices.map((invoice) => {
                     const name =
                       invoice.customerId?.customerName ||
+                      invoice.customerId?.vendorName ||
                       `${invoice.customerId?.firstName || ''} ${invoice.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                       'Unknown'
                     const label = invoice.customerId?.id ? `${name} (${invoice.customerId.id})` : name
@@ -1088,10 +1089,10 @@ function Invoice() {
                           Invoice No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
-                          onClick={() => handleSort('customerId')}
+                          onClick={() => handleSort('clientId')}
                           style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                         >
-                          Customer {sortColumn === 'customerId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          Client {sortColumn === 'clientId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('invoiceDate')}

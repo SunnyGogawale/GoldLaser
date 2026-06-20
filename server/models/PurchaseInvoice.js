@@ -61,9 +61,13 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  vendorId: {
+  clientId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor',
+    required: true
+  },
+  clientType: {
+    type: String,
+    enum: ['Customer', 'Vendor'],
     required: true
   },
   createdBy: {

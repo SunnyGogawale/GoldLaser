@@ -54,9 +54,13 @@ const paymentSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  vendorId: {
+  clientId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vendor',
+    required: true
+  },
+  clientType: {
+    type: String,
+    enum: ['Customer', 'Vendor'],
     required: true
   },
   createdBy: {

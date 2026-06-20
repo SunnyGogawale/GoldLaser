@@ -3,6 +3,8 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const Invoice = require('../models/PurchaseInvoice');
+const Customer = require('../models/Customer');
+const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
@@ -88,6 +90,9 @@ const truncate = (s, max = 140) => {
 const normalizeInvoiceValue = (field, value) => {
   if (value === null || value === undefined) return value;
 
+  if (field === 'clientId') {
+    return String(value?._id || value);
+  }
   if (field === 'vendorId') {
     return String(value?._id || value);
   }
@@ -151,105 +156,120 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
     const search = req.query.search || '';
+    const sortColumn = req.query.sortColumn || 'invoiceDate';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
-    let pipeline = [
-      {
-        $lookup: {
-          from: 'vendors',
-          localField: 'vendorId',
-          foreignField: '_id',
-          as: 'vendorId'
-        }
-      },
-      {
-        $unwind: {
-          path: "$vendorId",
-          preserveNullAndEmptyArrays: true
-        }
+    // First fetch all invoices without pagination
+    let invoices = await Invoice.find()
+      .sort({ invoiceDate: 1, createdAt: 1 });
+
+    // Fetch customers and vendors
+    const customerIds = invoices.filter(inv => inv.clientType === 'Customer').map(inv => inv.clientId);
+    const vendorIds = invoices.filter(inv => inv.clientType === 'Vendor').map(inv => inv.clientId);
+
+    const customers = customerIds.length ? await Customer.find({ _id: { $in: customerIds } }) : [];
+    const vendors = vendorIds.length ? await Vendor.find({ _id: { $in: vendorIds } }) : [];
+
+    const customerMap = new Map(customers.map(c => [c._id.toString(), c]));
+    const vendorMap = new Map(vendors.map(v => [v._id.toString(), v]));
+
+    // Attach client data as vendorId
+    const invoicesWithClients = invoices.map(inv => {
+      const invObj = inv.toObject();
+      if (invObj.clientType === 'Customer') {
+        invObj.vendorId = customerMap.get(invObj.clientId?.toString()) || null;
+      } else {
+        invObj.vendorId = vendorMap.get(invObj.clientId?.toString()) || null;
       }
-    ];
+      return invObj;
+    });
 
+    // Filter by search
+    let filteredInvoices = invoicesWithClients;
     if (search) {
-      pipeline.push({
-        $match: {
-          $or: [
-            { invoiceNumber: { $regex: search, $options: 'i' } },
-            { 'vendorId.vendorName': { $regex: search, $options: 'i' } }
-          ]
-        }
-      });
+      filteredInvoices = invoicesWithClients.filter(inv =>
+        inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
+        (inv.vendorId?.customerName?.toLowerCase().includes(search.toLowerCase())) ||
+        (inv.vendorId?.vendorName?.toLowerCase().includes(search.toLowerCase()))
+      );
     }
 
-    // Get total count after match
-    let total = 0;
+    // Sort the filtered invoices
+    filteredInvoices.sort((a, b) => {
+      let aVal, bVal;
+      switch(sortColumn) {
+        case 'clientId':
+        case 'vendorId':
+          // Get client name for sorting
+          aVal = (a.vendorId?.vendorName || a.vendorId?.customerName || '').toLowerCase();
+          bVal = (b.vendorId?.vendorName || b.vendorId?.customerName || '').toLowerCase();
+          break;
+        case 'invoiceNumber':
+          aVal = a.invoiceNumber || '';
+          bVal = b.invoiceNumber || '';
+          break;
+        case 'invoiceDate':
+          aVal = new Date(a.invoiceDate);
+          bVal = new Date(b.invoiceDate);
+          break;
+        case 'totalAmount':
+          aVal = a.totalAmount || 0;
+          bVal = b.totalAmount || 0;
+          break;
+        case 'transactionDescription':
+          aVal = (a.transactionDescription || '').toLowerCase();
+          bVal = (b.transactionDescription || '').toLowerCase();
+          break;
+        default:
+          aVal = new Date(a.invoiceDate);
+          bVal = new Date(b.invoiceDate);
+      }
+
+      if (aVal < bVal) return -1 * sortOrder;
+      if (aVal > bVal) return 1 * sortOrder;
+      return 0;
+    });
+
+    // Get total count
+    let total;
     if (search) {
-      const countPipeline = [...pipeline, { $count: 'total' }];
-      const countResult = await Invoice.aggregate(countPipeline);
-      total = countResult.length > 0 ? countResult[0].total : 0;
+      total = await Invoice.countDocuments({
+        $or: [
+          { invoiceNumber: { $regex: search, $options: 'i' } }
+        ]
+      });
+      // Since we can't easily search populated fields in count, use filtered length
+      total = filteredInvoices.length;
     } else {
       total = await Invoice.countDocuments();
     }
 
-    // Continue with sort and pagination
-    pipeline.push({
-      $addFields: {
-        numericId: {
-          $toInt: {
-            $replaceAll: { input: "$invoiceNumber", find: "PINV", replacement: "" }
-          }
-        }
-      }
-    });
-    
-    pipeline.push({ $sort: { invoiceDate: 1, numericId: 1, createdAt: 1 } }); // Old -> New (ascending)
-    pipeline.push({ $skip: skip });
-    pipeline.push({ $limit: limit });
+    // Apply pagination after filtering and sorting
+    const paginatedInvoices = filteredInvoices.slice(skip, skip + limit);
 
-    pipeline.push({
-      $lookup: {
-        from: 'users',
-        localField: 'createdBy',
-        foreignField: '_id',
-        as: 'createdBy'
-      }
-    });
-    pipeline.push({ $unwind: { path: '$createdBy', preserveNullAndEmptyArrays: true } });
-    pipeline.push({
-      $addFields: {
-        createdBy: {
-          _id: '$createdBy._id',
-          fullName: '$createdBy.fullName',
-          email: '$createdBy.email',
-          roll: '$createdBy.roll'
-        }
-      }
-    });
+    // Fetch user data for createdBy
+    const userIds = paginatedInvoices.map(inv => inv.createdBy).filter(Boolean);
+    const users = userIds.length ? await User.find({ _id: { $in: userIds } }) : [];
+    const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
-    const invoicesRaw = await Invoice.aggregate(pipeline);
-    const invoices = (invoicesRaw || []).map((inv) => {
-      const hasCreatedBy =
-        inv?.createdBy &&
-        (inv.createdBy.fullName || inv.createdBy.email || inv.createdBy._id);
-      const createdByName = inv?.createdBy?.fullName || inv?.createdByName || '';
-      const createdByEmail = inv?.createdBy?.email || inv?.createdByEmail || '';
-      const createdBy = hasCreatedBy
-        ? inv.createdBy
-        : {
-            _id: inv?.createdBy?._id || inv?.createdBy || null,
-            fullName: createdByName || null,
-            email: createdByEmail || null,
-            roll: null
-          };
+    // Attach user data
+    const finalInvoices = paginatedInvoices.map(inv => {
+      const user = inv.createdBy ? userMap.get(inv.createdBy.toString()) : null;
+      const hasCreatedBy = user && (user.fullName || user.email || user._id);
+      const createdByName = user?.fullName || inv?.createdByName || '';
+      const createdByEmail = user?.email || inv?.createdByEmail || '';
       return {
         ...inv,
-        createdBy,
+        createdBy: hasCreatedBy
+          ? { _id: user._id, fullName: user.fullName, email: user.email, roll: user.roll }
+          : { _id: inv?.createdBy || null, fullName: createdByName || null, email: createdByEmail || null, roll: null },
         createdByName,
         createdByEmail
       };
     });
 
     res.json({
-      invoices,
+      invoices: finalInvoices,
       total,
       page,
       totalPages: Math.ceil(total / limit)
@@ -259,13 +279,28 @@ router.get('/', async (req, res) => {
   }
 });
 
+const getPurchaseInvoiceWithClient = async (id) => {
+  const invoice = await Invoice.findById(id)
+    .populate('createdBy', 'fullName email roll')
+    .populate('updatedBy', 'fullName email roll');
+  if (!invoice) return null;
+  
+  let client = null;
+  if (invoice.clientType === 'Customer') {
+    client = await Customer.findById(invoice.clientId);
+  } else {
+    client = await Vendor.findById(invoice.clientId);
+  }
+  
+  const invoiceObj = invoice.toObject();
+  invoiceObj.vendorId = client;
+  return invoiceObj;
+};
+
 router.get('/detail/:id', async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid invoice id' });
-    const invoice = await Invoice.findById(req.params.id)
-      .populate('vendorId')
-      .populate('createdBy', 'fullName email roll')
-      .populate('updatedBy', 'fullName email roll');
+    const invoice = await getPurchaseInvoiceWithClient(req.params.id);
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
     if (invoice.createdBy && (!invoice.createdByName || !invoice.createdByEmail)) {
       invoice.createdByName = invoice.createdByName || invoice.createdBy?.fullName || '';
@@ -312,10 +347,7 @@ router.get('/detail/:id', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid invoice id' });
-    const invoice = await Invoice.findById(req.params.id)
-      .populate('vendorId')
-      .populate('createdBy', 'fullName email roll')
-      .populate('updatedBy', 'fullName email roll');
+    const invoice = await getPurchaseInvoiceWithClient(req.params.id);
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
     if (invoice.createdBy && (!invoice.createdByName || !invoice.createdByEmail)) {
       invoice.createdByName = invoice.createdByName || invoice.createdBy?.fullName || '';
@@ -343,8 +375,8 @@ router.post('/', async (req, res) => {
     }
 
     const authUser = await getAuthUserInfo(req);
-    if (!req.body.vendorId || !isObjectId(req.body.vendorId)) {
-      return res.status(400).json({ message: 'Valid vendor is required' });
+    if (!req.body.clientId || !isObjectId(req.body.clientId)) {
+      return res.status(400).json({ message: 'Valid client is required' });
     }
     if (!req.body.invoiceDate) {
       return res.status(400).json({ message: 'Invoice date is required' });
@@ -356,7 +388,8 @@ router.post('/', async (req, res) => {
     const invoice = new Invoice({
       invoiceNumber: generatedId,
       transactionDescription: String(req.body.transactionDescription || '').trim(),
-      vendorId: req.body.vendorId,
+      clientId: req.body.clientId,
+      clientType: req.body.clientType || 'Vendor',
       invoiceDate: req.body.invoiceDate,
       items: req.body.items,
       totalAmount: req.body.totalAmount,

@@ -153,12 +153,12 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
     const search = req.query.search || '';
+    const sortColumn = req.query.sortColumn || 'invoiceDate';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
-    // First fetch all invoices
+    // First fetch all invoices without pagination (since we need to sort after attaching clients)
     let invoices = await Invoice.find()
-      .sort({ invoiceDate: 1, createdAt: 1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ invoiceDate: 1, createdAt: 1 });
 
     // Fetch customers and vendors
     const customerIds = invoices.filter(inv => inv.clientType === 'Customer').map(inv => inv.clientId);
@@ -191,6 +191,42 @@ router.get('/', async (req, res) => {
       );
     }
 
+    // Sort the filtered invoices
+    filteredInvoices.sort((a, b) => {
+      let aVal, bVal;
+      switch(sortColumn) {
+        case 'clientId':
+        case 'customerId':
+          // Get client name for sorting
+          aVal = (a.customerId?.customerName || a.customerId?.vendorName || '').toLowerCase();
+          bVal = (b.customerId?.customerName || b.customerId?.vendorName || '').toLowerCase();
+          break;
+        case 'invoiceNumber':
+          aVal = a.invoiceNumber || '';
+          bVal = b.invoiceNumber || '';
+          break;
+        case 'invoiceDate':
+          aVal = new Date(a.invoiceDate);
+          bVal = new Date(b.invoiceDate);
+          break;
+        case 'totalAmount':
+          aVal = a.totalAmount || 0;
+          bVal = b.totalAmount || 0;
+          break;
+        case 'transactionDescription':
+          aVal = (a.transactionDescription || '').toLowerCase();
+          bVal = (b.transactionDescription || '').toLowerCase();
+          break;
+        default:
+          aVal = new Date(a.invoiceDate);
+          bVal = new Date(b.invoiceDate);
+      }
+
+      if (aVal < bVal) return -1 * sortOrder;
+      if (aVal > bVal) return 1 * sortOrder;
+      return 0;
+    });
+
     // Get total count
     let total;
     if (search) {
@@ -200,19 +236,21 @@ router.get('/', async (req, res) => {
         ]
       });
       // Since we can't easily search populated fields in count, we'll use the filtered length
-      // This is a simplification; for production you'd use aggregate with lookup
-      total = filteredInvoices.length + (invoices.length - invoicesWithClients.length);
+      total = filteredInvoices.length;
     } else {
       total = await Invoice.countDocuments();
     }
 
+    // Apply pagination after filtering and sorting
+    const paginatedInvoices = filteredInvoices.slice(skip, skip + limit);
+
     // Fetch user data for createdBy
-    const userIds = filteredInvoices.map(inv => inv.createdBy).filter(Boolean);
+    const userIds = paginatedInvoices.map(inv => inv.createdBy).filter(Boolean);
     const users = userIds.length ? await User.find({ _id: { $in: userIds } }) : [];
     const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
     // Attach user data
-    const finalInvoices = filteredInvoices.map(inv => {
+    const finalInvoices = paginatedInvoices.map(inv => {
       const user = inv.createdBy ? userMap.get(inv.createdBy.toString()) : null;
       const hasCreatedBy = user && (user.fullName || user.email || user._id);
       const createdByName = user?.fullName || inv.createdByName || '';

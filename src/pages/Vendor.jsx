@@ -116,6 +116,9 @@ function Vendor() {
     return s.slice(0, max) + '...'
   }
 
+  const formatMoney = (value) =>
+    Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
   // Function to fetch next vendor id
   const fetchNextVendorId = useCallback(async () => {
     try {
@@ -1575,7 +1578,8 @@ function Vendor() {
                     const companyName = vendor.companyName || ''
                     const mobile = vendor.contactNumber || ''
                     const email = vendor.email || ''
-                    const outstanding = vendor.outstanding || '0'
+                    const outstandingAmount = vendor.outstanding?.outstanding || 0
+                    const outstanding = formatMoney(outstandingAmount)
                     
                     return (
                       <div 
@@ -1660,7 +1664,7 @@ function Vendor() {
                           {outstanding && outstanding !== '0' && (
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Outstanding:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 800 }}>{outstanding}</div>
+                              <div style={{ fontSize: '0.875rem', color: outstandingAmount < 0 ? '#16a34a' : 'var(--danger)', fontWeight: 800 }}>{outstanding}</div>
                             </div>
                           )}
                           {/* Custom columns */}
@@ -1736,7 +1740,8 @@ function Vendor() {
                         const companyName = vendor.companyName || ''
                         const mobile = vendor.contactNumber || ''
                         const email = vendor.email || ''
-                        const outstanding = vendor.outstanding || '0'
+                        const outstandingAmount = vendor.outstanding?.outstanding || 0
+                    const outstanding = formatMoney(outstandingAmount)
                         return (
                           <tr key={vendor._id} style={{ borderBottom: '1px solid var(--border)' }}>
                             <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(companyName)}>
@@ -1751,7 +1756,7 @@ function Vendor() {
                             <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(email)}>
                               {truncateText(email)}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(outstanding)}>
+                            <td style={{ padding: '0.5rem 0.375rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)') }} title={String(outstanding)}>
                               {outstanding}
                             </td>
                             {/* Custom column cells */}

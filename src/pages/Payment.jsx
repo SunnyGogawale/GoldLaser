@@ -7,6 +7,7 @@ import { readJsonResponse } from '../utils/api'
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/payments`
 const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
+const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`
 
 function Payment() {
   // Responsive state
@@ -22,7 +23,8 @@ function Payment() {
 
   const [paymentForm, setPaymentForm] = useState({
     paymentNumber: '',
-    customerId: '',
+    clientId: '',
+    clientType: 'Customer',
     paymentDate: new Date().toISOString().split('T')[0],
     amount: 0,
     description: ''
@@ -34,11 +36,9 @@ function Payment() {
   const [formOpen, setFormOpen] = useState(false)
 
   const [customers, setCustomers] = useState([])
-  const [customerSearchText, setCustomerSearchText] = useState('')
-  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
-  // Quick create customer modal state
-  const [quickCreateCustomerOpen, setQuickCreateCustomerOpen] = useState(false)
-  const [quickCreateCustomerName, setQuickCreateCustomerName] = useState('')
+  const [vendors, setVendors] = useState([])
+  const [clientSearchText, setClientSearchText] = useState('')
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
 
   const [pendingInvoices, setPendingInvoices] = useState([])
   const [totalPending, setTotalPending] = useState(0)
@@ -109,16 +109,21 @@ function Payment() {
     return s.slice(0, max) + '...'
   }
 
-  const filteredCustomers = useMemo(() => {
-    const q = customerSearchText.trim().toLowerCase()
+  const allClients = useMemo(() => [
+    ...customers.map(c => ({ ...c, type: 'Customer', name: c.customerName })),
+    ...vendors.map(v => ({ ...v, type: 'Vendor', name: v.vendorName }))
+  ], [customers, vendors])
+  
+  const filteredClients = useMemo(() => {
+    const q = clientSearchText.trim().toLowerCase()
     if (!q) return []
-    return customers.filter(c =>
-      c.customerName?.toLowerCase().includes(q) || c.id?.toLowerCase().includes(q)
+    return allClients.filter(c =>
+      c.name?.toLowerCase().includes(q) || c.id?.toLowerCase().includes(q)
     )
-  }, [customers, customerSearchText])
+  }, [allClients, clientSearchText])
 
   useEffect(() => {
-    if (!paymentForm.customerId) {
+    if (!paymentForm.clientId) {
       setPendingInvoiceOrder([])
       return
     }
@@ -132,7 +137,7 @@ function Payment() {
       }
       return next
     })
-  }, [pendingInvoices, paymentForm.customerId])
+  }, [pendingInvoices, paymentForm.clientId])
 
   const orderedPendingInvoices = useMemo(() => {
     if (!Array.isArray(pendingInvoiceOrder) || pendingInvoiceOrder.length === 0) {
@@ -179,58 +184,7 @@ function Payment() {
     return { allocationMap, allocatedTotal, remaining: 0 }
   }, [orderedPendingInvoices, paymentForm.amount, totalPending])
 
-  // Quick create customer
-  const quickCreateCustomer = async () => {
-    if (!quickCreateCustomerName.trim()) {
-      alert('Please enter customer name!')
-      return
-    }
-    try {
-      const token = getAuthToken()
-      // First get next customer ID
-      const idResponse = await fetch(`http://localhost:5001/api/customers/next-id`)
-      const idData = await readJsonResponse(idResponse, 'Error fetching next customer id')
-      
-      // Create customer
-      const customerResponse = await fetch(`http://localhost:5001/api/customers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          id: idData.nextId,
-          customerName: quickCreateCustomerName.trim(),
-          companyName: '',
-          contactNumber: '',
-          email: '',
-          address: '',
-          note: '',
-          customFields: {}
-        })
-      })
-      
-      if (!customerResponse.ok) {
-        throw new Error('Error creating customer!')
-      }
-      
-      const newCustomer = await readJsonResponse(customerResponse, 'Error reading customer data')
-      
-      // Refresh customers list
-      await fetchCustomersList()
-      
-      // Select the new customer
-      setPaymentForm(prev => ({ ...prev, customerId: newCustomer._id }))
-      setCustomerSearchText(`${newCustomer.customerName} (${newCustomer.id})`)
-      setIsCustomerDropdownOpen(false)
-      setQuickCreateCustomerOpen(false)
-      setQuickCreateCustomerName('')
-      
-    } catch (err) {
-      console.error('Error creating customer:', err)
-      alert(err.message || 'Error creating customer!')
-    }
-  }
+
 
   const fetchNextPaymentNumber = async () => {
     try {
@@ -249,6 +203,16 @@ function Payment() {
       setCustomers(data.customers || [])
     } catch (err) {
       console.error('Error fetching customers:', err)
+    }
+  }
+  
+  const fetchVendorsList = async () => {
+    try {
+      const response = await fetch(`${VENDORS_API_URL}?limit=1000`)
+      const data = await readJsonResponse(response, 'Error fetching vendors')
+      setVendors(data.vendors || [])
+    } catch (err) {
+      console.error('Error fetching vendors:', err)
     }
   }
 
@@ -271,8 +235,8 @@ function Payment() {
     }
   }
 
-  const fetchPendingInvoices = async (customerId, excludePaymentId) => {
-    if (!customerId) {
+  const fetchPendingInvoices = async (clientId, clientType, excludePaymentId) => {
+    if (!clientId) {
       setPendingInvoices([])
       setTotalPending(0)
       return
@@ -280,7 +244,8 @@ function Payment() {
 
     try {
       const url = new URL(`${API_URL}/pending`)
-      url.searchParams.set('customerId', customerId)
+      url.searchParams.set('clientId', clientId)
+      url.searchParams.set('clientType', clientType)
       if (excludePaymentId) url.searchParams.set('excludePaymentId', excludePaymentId)
       const response = await fetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching pending invoices')
@@ -295,6 +260,7 @@ function Payment() {
 
   useEffect(() => {
     fetchCustomersList()
+    fetchVendorsList()
     fetchNextPaymentNumber()
   }, [])
 
@@ -303,13 +269,13 @@ function Payment() {
   }, [searchQuery, sortColumn, sortOrder])
 
   useEffect(() => {
-    if (!paymentForm.customerId) {
+    if (!paymentForm.clientId) {
       setPendingInvoices([])
       setTotalPending(0)
       return
     }
-    fetchPendingInvoices(paymentForm.customerId, editingPaymentId)
-  }, [paymentForm.customerId, editingPaymentId])
+    fetchPendingInvoices(paymentForm.clientId, paymentForm.clientType, editingPaymentId)
+  }, [paymentForm.clientId, paymentForm.clientType, editingPaymentId])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -325,7 +291,7 @@ function Payment() {
   const validateForm = () => {
     const newErrors = {}
 
-    if (!paymentForm.customerId) newErrors.customerId = 'Please select a customer'
+    if (!paymentForm.clientId) newErrors.clientId = 'Please select a client'
     if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
     const amount = Number(paymentForm.amount) || 0
     if (!(amount > 0)) newErrors.amount = 'Payment amount must be greater than 0'
@@ -344,7 +310,8 @@ function Payment() {
       const token = getAuthToken()
       const payload = {
         paymentNumber: paymentForm.paymentNumber,
-        customerId: paymentForm.customerId,
+        clientId: paymentForm.clientId,
+        clientType: paymentForm.clientType,
         paymentDate: paymentForm.paymentDate,
         amount: Math.min(Math.max(0, Number(paymentForm.amount) || 0), Math.max(0, Number(totalPending) || 0)),
         description: paymentForm.description || '',
@@ -370,14 +337,15 @@ function Payment() {
       setEditingPaymentId(null)
       setPaymentForm({
         paymentNumber: '',
-        customerId: '',
+        clientId: '',
+        clientType: 'Customer',
         paymentDate: new Date().toISOString().split('T')[0],
         amount: 0,
         description: ''
       })
       setPendingInvoiceOrder([])
       setDragInvoiceId(null)
-      setCustomerSearchText('')
+      setClientSearchText('')
       setErrors({})
       setFormSubmitted(false)
       setFormOpen(false)
@@ -436,14 +404,15 @@ function Payment() {
     setEditingPaymentId(null)
     setPaymentForm({
       paymentNumber: '',
-      customerId: '',
+      clientId: '',
+      clientType: 'Customer',
       paymentDate: new Date().toISOString().split('T')[0],
       amount: 0,
       description: ''
     })
     setPendingInvoiceOrder([])
     setDragInvoiceId(null)
-    setCustomerSearchText('')
+    setClientSearchText('')
     setErrors({})
     setFormSubmitted(false)
     await fetchNextPaymentNumber()
@@ -455,16 +424,21 @@ function Payment() {
     try {
       const response = await fetch(`${API_URL}/${payment._id}`)
       const data = await readJsonResponse(response, 'Error loading payment')
+      const clientType = data.clientType || 'Customer'
+      const clientId = data.clientId || data.customerId?._id || data.customerId
+      const client = data.customerId
+      const clientName = client?.customerName || client?.vendorName || ''
+      const clientIdStr = client?.id || ''
+
       setPaymentForm({
         paymentNumber: data.paymentNumber,
-        customerId: data.customerId?._id || data.customerId,
+        clientId: clientId,
+        clientType: clientType,
         paymentDate: new Date(data.paymentDate).toISOString().split('T')[0],
         amount: data.amount || 0,
         description: data.description || ''
       })
-      const custName = data.customerId?.customerName || ''
-      const custId = data.customerId?.id || ''
-      setCustomerSearchText(custName ? `${custName} (${custId})` : '')
+      setClientSearchText(clientName ? `${clientName} (${clientIdStr}) - ${clientType}` : '')
       setEditingPaymentId(data._id)
       setErrors({})
       setFormSubmitted(false)
@@ -482,15 +456,16 @@ function Payment() {
     setEditingPaymentId(null)
     setPaymentForm({
       paymentNumber: '',
-      customerId: '',
+      clientId: '',
+      clientType: 'Customer',
       paymentDate: new Date().toISOString().split('T')[0],
       amount: 0,
       description: ''
     })
     setPendingInvoiceOrder([])
     setDragInvoiceId(null)
-    setCustomerSearchText('')
-    setIsCustomerDropdownOpen(false)
+    setClientSearchText('')
+    setIsClientDropdownOpen(false)
     setErrors({})
     setFormSubmitted(false)
     await fetchNextPaymentNumber()
@@ -540,8 +515,8 @@ function Payment() {
 
       const nextPage = payments.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage
       await fetchPayments(nextPage, searchQuery)
-      if (paymentForm.customerId) {
-        await fetchPendingInvoices(paymentForm.customerId, editingPaymentId)
+      if (paymentForm.clientId) {
+        await fetchPendingInvoices(paymentForm.clientId, paymentForm.clientType, editingPaymentId)
       }
       alert('Payment deleted successfully!')
     } catch (err) {
@@ -661,36 +636,36 @@ function Payment() {
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px', position: 'relative' }}>
                   <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Customer <span style={{ color: 'var(--danger)' }}>*</span>
+                    Select Client <span style={{ color: 'var(--danger)' }}>*</span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="text"
-                      placeholder="Search customer..."
-                      value={customerSearchText}
+                      placeholder="Search client (customer or vendor)..."
+                      value={clientSearchText}
                       onChange={(e) => {
-                        setCustomerSearchText(e.target.value)
-                        setIsCustomerDropdownOpen(e.target.value.length > 0)
-                        if (paymentForm.customerId) {
-                          setPaymentForm(prev => ({ ...prev, customerId: '' }))
+                        setClientSearchText(e.target.value)
+                        setIsClientDropdownOpen(e.target.value.length > 0)
+                        if (paymentForm.clientId) {
+                          setPaymentForm(prev => ({ ...prev, clientId: '', clientType: 'Customer' }))
                         }
-                        if (formSubmitted && errors.customerId) {
+                        if (formSubmitted && errors.clientId) {
                           setErrors(prev => {
                             const newE = { ...prev }
-                            delete newE.customerId
+                            delete newE.clientId
                             return newE
                           })
                         }
                       }}
                       onFocus={(e) => {
-                        if (e.target.value.length > 0) setIsCustomerDropdownOpen(true)
+                        if (e.target.value.length > 0) setIsClientDropdownOpen(true)
                       }}
-                      onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                      onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
                       disabled={loading}
                       style={{
                         width: '100%',
                         padding: '0.5rem 0.75rem',
-                        border: `1px solid ${errors.customerId ? 'var(--danger)' : 'var(--border)'}`,
+                        border: `1px solid ${errors.clientId ? 'var(--danger)' : 'var(--border)'}`,
                         borderRadius: '6px',
                         fontSize: '0.875rem',
                         background: 'var(--bg-card)',
@@ -698,7 +673,7 @@ function Payment() {
                         outline: 'none'
                       }}
                     />
-                    {isCustomerDropdownOpen && (
+                    {isClientDropdownOpen && (
                       <ul style={{
                         position: 'absolute',
                         top: '100%',
@@ -715,13 +690,13 @@ function Payment() {
                         zIndex: 10,
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}>
-                        {filteredCustomers.map(customer => (
+                        {filteredClients.map(client => (
                           <li
-                            key={customer._id}
+                            key={client._id + client.type}
                             onClick={() => {
-                              setPaymentForm(prev => ({ ...prev, customerId: customer._id }))
-                              setCustomerSearchText(`${customer.customerName} (${customer.id})`)
-                              setIsCustomerDropdownOpen(false)
+                              setPaymentForm(prev => ({ ...prev, clientId: client._id, clientType: client.type }))
+                              setClientSearchText(`${client.name} (${client.id}) - ${client.type}`)
+                              setIsClientDropdownOpen(false)
                             }}
                             style={{
                               padding: '0.5rem 0.75rem',
@@ -734,37 +709,14 @@ function Payment() {
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                           >
-                            {customer.customerName} ({customer.id})
+                            {client.name} ({client.id}) - {client.type}
                           </li>
                         ))}
-                        <li
-                          onClick={() => {
-                            setQuickCreateCustomerName(customerSearchText)
-                            setQuickCreateCustomerOpen(true)
-                            setIsCustomerDropdownOpen(false)
-                          }}
-                          style={{
-                            padding: '0.5rem 0.75rem',
-                            cursor: 'pointer',
-                            fontSize: '0.875rem',
-                            color: 'var(--primary)',
-                            fontWeight: '600',
-                            borderTop: filteredCustomers.length > 0 ? '1px solid var(--border)' : 'none',
-                            transition: 'background 0.2s',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                        >
-                          + Create new customer
-                        </li>
                       </ul>
                     )}
                   </div>
-                  {formSubmitted && errors.customerId && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.customerId}</p>
+                  {formSubmitted && errors.clientId && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.clientId}</p>
                   )}
                 </div>
 
@@ -881,7 +833,7 @@ function Payment() {
                       {orderedPendingInvoices.length === 0 ? (
                         <tr>
                           <td colSpan={8} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                            {paymentForm.customerId ? 'No pending invoices for this customer.' : 'Select a customer to view pending invoices.'}
+                            {paymentForm.clientId ? 'No pending invoices for this client.' : 'Select a client to view pending invoices.'}
                           </td>
                         </tr>
                       ) : (
@@ -991,14 +943,15 @@ function Payment() {
                     onClick={async () => {
                       setPaymentForm({
                         paymentNumber: '',
-                        customerId: '',
+                        clientId: '',
+                        clientType: 'Customer',
                         paymentDate: new Date().toISOString().split('T')[0],
                         amount: 0,
                         description: ''
                       })
                       setPendingInvoiceOrder([])
                       setDragInvoiceId(null)
-                      setCustomerSearchText('')
+                      setClientSearchText('')
                       setErrors({})
                       setFormSubmitted(false)
                       await fetchNextPaymentNumber()
@@ -1092,6 +1045,7 @@ function Payment() {
                   {payments.map((payment) => {
                     const name =
                       payment.customerId?.customerName ||
+                      payment.customerId?.vendorName ||
                       `${payment.customerId?.firstName || ''} ${payment.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                       'Unknown'
                     const customerLabel = payment.customerId?.id ? `${name} (${payment.customerId.id})` : name
@@ -1227,6 +1181,7 @@ function Payment() {
                       {payments.map((payment) => {
                         const name =
                           payment.customerId?.customerName ||
+                          payment.customerId?.vendorName ||
                           `${payment.customerId?.firstName || ''} ${payment.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                           'Unknown'
                         const customerLabel = payment.customerId?.id ? `${name} (${payment.customerId.id})` : name
@@ -1698,95 +1653,8 @@ function Payment() {
           )}
         </div>
       )}
-      
-      {/* Quick Create Customer Modal */}
-      {quickCreateCustomerOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onClick={() => setQuickCreateCustomerOpen(false)}
-        >
-          <div
-            className="card"
-            style={{
-              width: 'min(400px, 96vw)',
-              padding: '1.5rem'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-header)' }}>Create New Customer</h3>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: 'var(--text-header)' }}>
-                Customer Name <span style={{ color: 'var(--danger)' }}>*</span>
-              </label>
-              <input
-                autoFocus
-                type="text"
-                value={quickCreateCustomerName}
-                onChange={(e) => setQuickCreateCustomerName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    quickCreateCustomer()
-                  } else if (e.key === 'Escape') {
-                    setQuickCreateCustomerOpen(false)
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem 0.75rem',
-                  border: '1px solid var(--border)',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  background: 'var(--bg-card)',
-                  color: 'var(--text-header)',
-                  outline: 'none'
-                }}
-              />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button
-                type="button"
-                onClick={() => setQuickCreateCustomerOpen(false)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: 'transparent',
-                  color: 'var(--text-header)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={quickCreateCustomer}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: 'var(--primary)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                Create Customer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-  )
+  );
 }
 
 export default Payment
