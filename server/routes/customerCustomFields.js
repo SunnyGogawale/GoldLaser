@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const CustomerCustomField = require('../models/CustomerCustomField')
 const Customer = require('../models/Customer')
+const CustomerFormSettings = require('../models/CustomerFormSettings')
 
 // Get all custom fields
 router.get('/', async (req, res) => {
@@ -93,6 +94,32 @@ router.delete('/:fieldName', async (req, res) => {
     }
     
     res.json({ message: 'Custom field deleted successfully' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// Get customer form field order
+router.get('/field-order', async (req, res) => {
+  try {
+    const settings = await CustomerFormSettings.getSettings()
+    res.json({ fieldOrder: settings.fieldOrder })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
+
+// Update customer form field order (admin only)
+router.put('/field-order', async (req, res) => {
+  try {
+    const { fieldOrder } = req.body
+    if (!Array.isArray(fieldOrder)) {
+      return res.status(400).json({ message: 'fieldOrder must be an array' })
+    }
+    let settings = await CustomerFormSettings.getSettings()
+    settings.fieldOrder = fieldOrder
+    await settings.save()
+    res.json({ fieldOrder: settings.fieldOrder })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }

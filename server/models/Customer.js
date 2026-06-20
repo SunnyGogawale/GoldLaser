@@ -53,6 +53,10 @@ const customerSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  alternateNumber: {
+    type: String,
+    default: ''
+  },
   email: {
     type: String,
     default: ''

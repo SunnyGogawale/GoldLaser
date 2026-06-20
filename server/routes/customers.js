@@ -288,6 +288,7 @@ router.post('/', async (req, res) => {
       customerName,
       companyName,
       contactNumber: req.body.contactNumber,
+      alternateNumber: req.body.alternateNumber || '',
       email: req.body.email,
       address: req.body.address,
       note: req.body.note,

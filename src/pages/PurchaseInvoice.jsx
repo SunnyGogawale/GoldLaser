@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, RotateCcw, Trash2, Edit2, X, Plus, Search, Info, Eye, MoreHorizontal } from 'lucide-react';
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus } from 'lucide-react';
 import EmptyDataCard from '../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../utils/authStorage';
 
@@ -78,6 +78,27 @@ function PurchaseInvoice() {
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoNowMs, setInfoNowMs] = useState(0);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [dropdownPurchaseInvoice, setDropdownPurchaseInvoice] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [dropdownUp, setDropdownUp] = useState(false);
+  const dropdownRefs = useRef({});
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openDropdownId) {
+        const dropdownEl = dropdownRefs.current[openDropdownId];
+        if (dropdownEl && !dropdownEl.contains(event.target)) {
+          setOpenDropdownId(null);
+          setDropdownPurchaseInvoice(null);
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdownId]);
 
   const formatTimeAgo = (dateValue) => {
     const d = dateValue ? new Date(dateValue) : null
@@ -104,11 +125,67 @@ function PurchaseInvoice() {
   // Vendor dropdown autocomplete state
   const [vendorSearchText, setVendorSearchText] = useState('');
   const [isVendorDropdownOpen, setIsVendorDropdownOpen] = useState(false);
+  // Quick create vendor modal state
+  const [quickCreateVendorOpen, setQuickCreateVendorOpen] = useState(false);
+  const [quickCreateVendorName, setQuickCreateVendorName] = useState('');
 
   const filteredVendors = vendors.filter(c => 
     c.vendorName?.toLowerCase().includes(vendorSearchText.toLowerCase()) || 
     c.id?.toLowerCase().includes(vendorSearchText.toLowerCase())
   );
+
+  // Quick create vendor
+  const quickCreateVendor = async () => {
+    if (!quickCreateVendorName.trim()) {
+      alert('Please enter vendor name!');
+      return;
+    }
+    try {
+      const token = getAuthToken();
+      // First get next vendor ID
+      const idResponse = await fetch(`http://localhost:5001/api/vendors/next-id`);
+      const idData = await readJsonResponse(idResponse, 'Error fetching next vendor id');
+      
+      // Create vendor
+      const vendorResponse = await fetch(`http://localhost:5001/api/vendors`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          id: idData.nextId,
+          vendorName: quickCreateVendorName.trim(),
+          companyName: '',
+          contactNumber: '',
+          email: '',
+          address: '',
+          note: '',
+          customFields: {}
+        })
+      });
+      
+      if (!vendorResponse.ok) {
+        throw new Error('Error creating vendor!');
+      }
+      
+      const newVendor = await readJsonResponse(vendorResponse, 'Error reading vendor data');
+      
+      // Refresh vendors list
+      await fetchVendorsList();
+      
+      // Select the new vendor
+      setInvoiceForm(prev => ({ ...prev, vendorId: newVendor._id }));
+      setVendorSearchText(`${newVendor.vendorName} (${newVendor.id})`);
+      setIsVendorDropdownOpen(false);
+      setQuickCreateVendorOpen(false);
+      setQuickCreateVendorName('');
+      
+    } catch (err) {
+      console.error('Error creating vendor:', err);
+      alert(err.message || 'Error creating vendor!');
+    }
+  };
 
   // Fetch next invoice number
   const fetchNextInvoiceNumber = async () => {
@@ -617,13 +694,13 @@ function PurchaseInvoice() {
                         outline: 'none'
                       }}
                     />
-                    {isVendorDropdownOpen && filteredVendors.length > 0 && (
+                    {isVendorDropdownOpen && (
                       <ul style={{
                         position: 'absolute',
                         top: '100%',
                         left: 0,
                         right: 0,
-                        maxHeight: '200px',
+                        maxHeight: '250px',
                         overflowY: 'auto',
                         background: 'var(--bg-card)',
                         border: '1px solid var(--border)',
@@ -656,6 +733,29 @@ function PurchaseInvoice() {
                             {vendor.vendorName} ({vendor.id})
                           </li>
                         ))}
+                        <li
+                          onClick={() => {
+                            setQuickCreateVendorName(vendorSearchText);
+                            setQuickCreateVendorOpen(true);
+                            setIsVendorDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                            color: 'var(--primary)',
+                            fontWeight: '600',
+                            borderTop: filteredVendors.length > 0 ? '1px solid var(--border)' : 'none',
+                            transition: 'background 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
+                          onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                        >
+                          + Create new vendor
+                        </li>
                       </ul>
                     )}
                   </div>
@@ -985,34 +1085,49 @@ function PurchaseInvoice() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenDropdownId(openDropdownId === invoice._id ? null : invoice._id);
+                                if (openDropdownId === invoice._id) {
+                                  setOpenDropdownId(null);
+                                  setDropdownPurchaseInvoice(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const dropdownHeight = isAdmin ? 160 : 120;
+                                  const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
+                                  setDropdownPosition({
+                                    top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
+                                    left: rect.right - 140
+                                  });
+                                  setDropdownUp(shouldOpenUp);
+                                  setDropdownPurchaseInvoice(invoice);
+                                  setOpenDropdownId(invoice._id);
+                                }
                               }}
                               style={{
-                                padding: '0.35rem',
-                                background: 'var(--bg-main)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px',
+                                padding: '0.25rem',
+                                background: 'transparent',
+                                border: 'none',
+                                borderRadius: '6px',
                                 cursor: 'pointer',
                                 color: 'var(--text-muted)',
                                 transition: 'all 0.2s'
                               }}
                               title="Actions"
                             >
-                              <MoreHorizontal size={16} />
+                              <MoreVertical size={16} />
                             </button>
                             {openDropdownId === invoice._id && (
                               <div 
+                                ref={(el) => { if (el) dropdownRefs.current[invoice._id] = el; }}
                                 style={{
                                   position: 'absolute',
-                                  right: 0,
-                                  top: '100%',
-                                  marginTop: '0.25rem',
-                                  background: 'var(--bg-card)',
-                                  border: '1px solid var(--border)',
-                                  borderRadius: '8px',
-                                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                                  zIndex: 9999,
-                                  minWidth: '120px'
+                                right: 0,
+                                top: '100%',
+                                marginTop: '0.25rem',
+                                background: 'var(--bg-card)',
+                                border: '1px solid var(--border)',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                zIndex: 99999,
+                                minWidth: '140px'
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                               >
@@ -1025,7 +1140,7 @@ function PurchaseInvoice() {
                                   style={{
                                     width: '100%',
                                     textAlign: 'left',
-                                    padding: '0.5rem 1rem',
+                                    padding: '0.375rem 0.75rem',
                                     background: 'transparent',
                                     border: 'none',
                                     cursor: 'pointer',
@@ -1049,7 +1164,7 @@ function PurchaseInvoice() {
                                   style={{
                                     width: '100%',
                                     textAlign: 'left',
-                                    padding: '0.5rem 1rem',
+                                    padding: '0.375rem 0.75rem',
                                     background: 'transparent',
                                     border: 'none',
                                     cursor: 'pointer',
@@ -1064,6 +1179,30 @@ function PurchaseInvoice() {
                                   <Edit2 size={14} />
                                   Edit
                                 </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    alert('PDF feature coming soon!');
+                                    setOpenDropdownId(null);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    padding: '0.375rem 0.75rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.875rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  <span>📄</span>
+                                  PDF
+                                </button>
                                 {isAdmin && (
                                   <button
                                     onClick={(e) => {
@@ -1074,7 +1213,7 @@ function PurchaseInvoice() {
                                     style={{
                                       width: '100%',
                                       textAlign: 'left',
-                                      padding: '0.5rem 1rem',
+                                      padding: '0.375rem 0.75rem',
                                       background: 'transparent',
                                       border: 'none',
                                       cursor: 'pointer',
@@ -1185,53 +1324,141 @@ function PurchaseInvoice() {
                               {amountLabel}
                             </td>
                             <td style={{ padding: '0.5rem 0.375rem' }}>
-                              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                              <div style={{ position: 'relative' }}>
                                 <button
-                                  onClick={() => openInfo(invoice)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenDropdownId(openDropdownId === invoice._id ? null : invoice._id);
+                                  }}
                                   style={{
                                     padding: '0.25rem',
                                     background: 'transparent',
                                     border: 'none',
+                                    borderRadius: '6px',
                                     cursor: 'pointer',
                                     color: 'var(--text-muted)',
-                                    borderRadius: '6px',
                                     transition: 'all 0.2s'
                                   }}
-                                  title="View"
+                                  title="Actions"
                                 >
-                                  <Eye size={14} />
+                                  <MoreVertical size={16} />
                                 </button>
-                                <button
-                                  onClick={() => handleEditInvoice(invoice)}
-                                  style={{
-                                    padding: '0.25rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-muted)',
-                                    borderRadius: '6px',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  title="Edit"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                                {isAdmin && (
-                                  <button
-                                    onClick={() => handleDeleteInvoice(invoice._id)}
+                                {openDropdownId === invoice._id && (
+                                  <div 
+                                    ref={(el) => { if (el) dropdownRefs.current[invoice._id] = el; }}
                                     style={{
-                                      padding: '0.25rem',
-                                      background: 'transparent',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                      color: 'var(--danger)',
-                                      borderRadius: '6px',
-                                      transition: 'all 0.2s'
+                                      position: 'absolute',
+                                      right: 0,
+                                      top: '100%',
+                                      marginTop: '0.25rem',
+                                      background: 'var(--bg-card)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: '8px',
+                                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                      zIndex: 9999,
+                                      minWidth: '120px'
                                     }}
-                                    title="Delete"
+                                    onClick={(e) => e.stopPropagation()}
                                   >
-                                    <Trash2 size={14} />
-                                  </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openInfo(invoice);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      style={{
+                                        width: '100%',
+                                        textAlign: 'left',
+                                        padding: '0.375rem 0.75rem',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-header)',
+                                        fontSize: '0.875rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        transition: 'all 0.2s'
+                                      }}
+                                    >
+                                      <Eye size={14} />
+                                      View
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditInvoice(invoice);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      style={{
+                                        width: '100%',
+                                        textAlign: 'left',
+                                        padding: '0.375rem 0.75rem',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-header)',
+                                        fontSize: '0.875rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        transition: 'all 0.2s'
+                                      }}
+                                    >
+                                      <Edit2 size={14} />
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        alert('PDF feature coming soon!');
+                                        setOpenDropdownId(null);
+                                      }}
+                                      style={{
+                                        width: '100%',
+                                        textAlign: 'left',
+                                        padding: '0.375rem 0.75rem',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-header)',
+                                        fontSize: '0.875rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        transition: 'all 0.2s'
+                                      }}
+                                    >
+                                      <span>📄</span>
+                                      PDF
+                                    </button>
+                                    {isAdmin && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteInvoice(invoice._id);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        style={{
+                                          width: '100%',
+                                          textAlign: 'left',
+                                          padding: '0.375rem 0.75rem',
+                                          background: 'transparent',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          color: 'var(--danger)',
+                                          fontSize: '0.875rem',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '0.5rem',
+                                          transition: 'all 0.2s'
+                                        }}
+                                      >
+                                        <Trash2 size={14} />
+                                        Delete
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -1521,6 +1748,93 @@ function PurchaseInvoice() {
                 </div>
               )
             })()}
+          </div>
+        </div>
+      )}
+      
+      {/* Quick Create Vendor Modal */}
+      {quickCreateVendorOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={() => setQuickCreateVendorOpen(false)}
+        >
+          <div
+            className="card"
+            style={{
+              width: 'min(400px, 96vw)',
+              padding: '1.5rem'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-header)' }}>Create New Vendor</h3>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: 'var(--text-header)' }}>
+                Vendor Name <span style={{ color: 'var(--danger)' }}>*</span>
+              </label>
+              <input
+                autoFocus
+                type="text"
+                value={quickCreateVendorName}
+                onChange={(e) => setQuickCreateVendorName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    quickCreateVendor()
+                  } else if (e.key === 'Escape') {
+                    setQuickCreateVendorOpen(false)
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid var(--border)',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-header)',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setQuickCreateVendorOpen(false)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: 'transparent',
+                  color: 'var(--text-header)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={quickCreateVendor}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: 'var(--primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Create Vendor
+              </button>
+            </div>
           </div>
         </div>
       )}

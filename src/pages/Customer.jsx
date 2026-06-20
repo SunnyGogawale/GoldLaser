@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreHorizontal } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
@@ -75,6 +75,24 @@ function Customer() {
   const [infoLoading, setInfoLoading] = useState(false)
   const [infoNowMs, setInfoNowMs] = useState(0)
   const [openDropdownId, setOpenDropdownId] = useState(null)
+  const [dropdownCustomer, setDropdownCustomer] = useState(null)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
+  const [dropdownUp, setDropdownUp] = useState(false)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openDropdownId && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpenDropdownId(null)
+        setDropdownCustomer(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openDropdownId])
 
   const formatTimeAgo = (dateValue) => {
     const d = dateValue ? new Date(dateValue) : null
@@ -1593,114 +1611,37 @@ function Customer() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setOpenDropdownId(openDropdownId === customer._id ? null : customer._id);
+                                if (openDropdownId === customer._id) {
+                                  setOpenDropdownId(null);
+                                  setDropdownCustomer(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const dropdownHeight = isAdmin ? 160 : 120; // Approximate height
+                                  const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
+                                  
+                                  setDropdownPosition({
+                                    top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
+                                    left: rect.right - 140
+                                  });
+                                  setDropdownUp(shouldOpenUp);
+                                  setDropdownCustomer(customer);
+                                  setOpenDropdownId(customer._id);
+                                }
                               }}
                               style={{
-                                padding: '0.35rem',
-                                background: 'var(--bg-main)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px',
+                                padding: '0.25rem',
+                                background: 'transparent',
+                                border: 'none',
+                                borderRadius: '6px',
                                 cursor: 'pointer',
                                 color: 'var(--text-muted)',
                                 transition: 'all 0.2s'
                               }}
                               title="Actions"
                             >
-                              <MoreHorizontal size={16} />
+                              <MoreVertical size={16} />
                             </button>
-                            {openDropdownId === customer._id && (
-                              <div 
-                                style={{
-                                  position: 'absolute',
-                                  right: 0,
-                                  top: '100%',
-                                  marginTop: '0.25rem',
-                                  background: 'var(--bg-card)',
-                                  border: '1px solid var(--border)',
-                                  borderRadius: '8px',
-                                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                                  zIndex: 9999,
-                                  minWidth: '120px'
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setInfoCustomer(customer);
-                                    setInfoOpen(true);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    textAlign: 'left',
-                                    padding: '0.5rem 1rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-header)',
-                                    fontSize: '0.875rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    transition: 'all 0.2s'
-                                  }}
-                                >
-                                  <Eye size={14} />
-                                  View
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditCustomer(customer);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    textAlign: 'left',
-                                    padding: '0.5rem 1rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-header)',
-                                    fontSize: '0.875rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    transition: 'all 0.2s'
-                                  }}
-                                >
-                                  <Edit2 size={14} />
-                                  Edit
-                                </button>
-                                {isAdmin && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteCustomer(customer._id);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    style={{
-                                      width: '100%',
-                                      textAlign: 'left',
-                                      padding: '0.5rem 1rem',
-                                      background: 'transparent',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                      color: 'var(--danger)',
-                                      fontSize: '0.875rem',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '0.5rem',
-                                      transition: 'all 0.2s'
-                                    }}
-                                  >
-                                    <Trash2 size={14} />
-                                    Delete
-                                  </button>
-                                )}
-                              </div>
-                            )}
+
                           </div>
                         </div>
                         
@@ -1821,62 +1762,40 @@ function Customer() {
                               </td>
                             ))}
                             <td style={{ padding: '0.5rem 0.375rem' }}>
-                              <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                {/* View Button */}
+                              <div style={{ position: 'relative' }}>
                                 <button
-                                  onClick={() => {
-                                    setInfoCustomer(customer);
-                                    setInfoOpen(true);
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (openDropdownId === customer._id) {
+                                      setOpenDropdownId(null);
+                                      setDropdownCustomer(null);
+                                    } else {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const dropdownHeight = isAdmin ? 160 : 120; // Approximate height
+                                      const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
+                                      
+                                      setDropdownPosition({
+                                        top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
+                                        left: rect.right - 140
+                                      });
+                                      setDropdownUp(shouldOpenUp);
+                                      setDropdownCustomer(customer);
+                                      setOpenDropdownId(customer._id);
+                                    }
                                   }}
                                   style={{
                                     padding: '0.25rem',
                                     background: 'transparent',
                                     border: 'none',
+                                    borderRadius: '6px',
                                     cursor: 'pointer',
                                     color: 'var(--text-muted)',
-                                    borderRadius: '6px',
                                     transition: 'all 0.2s'
                                   }}
-                                  title="View"
+                                  title="Actions"
                                 >
-                                  <Eye size={14} />
+                                  <MoreVertical size={16} />
                                 </button>
-
-                                {/* Edit Button */}
-                                <button
-                                  onClick={() => handleEditCustomer(customer)}
-                                  style={{
-                                    padding: '0.25rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-muted)',
-                                    borderRadius: '6px',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  title="Edit"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-
-                                {/* Delete Button (Admin Only) */}
-                                {isAdmin && (
-                                  <button
-                                    onClick={() => handleDeleteCustomer(customer._id)}
-                                    style={{
-                                      padding: '0.25rem',
-                                      background: 'transparent',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                      color: 'var(--danger)',
-                                      borderRadius: '6px',
-                                      transition: 'all 0.2s'
-                                    }}
-                                    title="Delete"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                )}
                               </div>
                             </td>
                           </tr>
@@ -2211,6 +2130,129 @@ function Customer() {
             )}
 
           </div>
+        </div>
+      )}
+
+      {/* Dropdown Menu */}
+      {openDropdownId && dropdownCustomer && (
+        <div 
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 99999,
+            minWidth: '140px'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setInfoCustomer(dropdownCustomer);
+              setInfoOpen(true);
+              setOpenDropdownId(null);
+              setDropdownCustomer(null);
+            }}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Eye size={14} />
+            View
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditCustomer(dropdownCustomer);
+              setOpenDropdownId(null);
+              setDropdownCustomer(null);
+            }}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Edit2 size={14} />
+            Edit
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              alert('PDF feature coming soon!');
+              setOpenDropdownId(null);
+              setDropdownCustomer(null);
+            }}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>📄</span>
+            PDF
+          </button>
+          {isAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteCustomer(dropdownCustomer._id);
+                setOpenDropdownId(null);
+                setDropdownCustomer(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--danger)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          )}
         </div>
       )}
     </div>
