@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus } from 'lucide-react';
 import EmptyDataCard from '../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../utils/authStorage';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/purchase-invoices`;
@@ -492,6 +494,157 @@ function PurchaseInvoice() {
     setFormOpen(false);
   };
 
+  const generatePurchaseInvoicePDF = (invoice) => {
+    const doc = new jsPDF({
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginLeft = 12;
+    const marginRight = 12;
+    let y = 15;
+
+    // --- Header ---
+    doc.setFillColor(34, 197, 94);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PURCHASE INVOICE', pageWidth / 2, 16, { align: 'center' });
+
+    // --- Reset Text Color ---
+    doc.setTextColor(31, 41, 55);
+    y = 32;
+
+    // --- Client & Invoice Details ---
+    const client = invoice.vendorId;
+    const clientName = client?.customerName || client?.vendorName || 'N/A';
+    const clientType = invoice.clientType || 'N/A';
+    const clientId = client?.id || 'N/A';
+    const invoiceNo = invoice.invoiceNumber || 'N/A';
+    const invoiceDate = invoice.invoiceDate 
+      ? new Date(invoice.invoiceDate).toLocaleDateString('en-IN', { 
+          day: '2-digit', 
+          month: 'short', 
+          year: 'numeric' 
+        })
+      : 'N/A';
+    const createdByName = invoice.createdByName || 'N/A';
+
+    // --- Left Column: Client Details ---
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bill To:', marginLeft, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(clientName, marginLeft + 20, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Type:', marginLeft, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(clientType, marginLeft + 20, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('ID:', marginLeft, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(clientId, marginLeft + 20, y);
+
+    // --- Right Column: Invoice Info ---
+    const rightColX = pageWidth - marginRight - 75;
+    y = 32;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Invoice No:', rightColX, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoiceNo, rightColX + 32, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Date:', rightColX, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoiceDate, rightColX + 32, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Created By:', rightColX, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(createdByName, rightColX + 32, y);
+
+    // --- Separator ---
+    y += 8;
+    doc.setDrawColor(229, 231, 235);
+    doc.line(marginLeft, y, pageWidth - marginRight, y);
+    y += 8;
+
+    // --- Transaction Description ---
+    if (invoice.transactionDescription) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'italic');
+      doc.text(`Description: ${invoice.transactionDescription}`, marginLeft, y);
+      y += 8;
+    }
+
+    // --- Items Table ---
+    const items = invoice.items || [];
+    const tableData = items.map((item, idx) => [
+      idx + 1,
+      item.product?.toString().trim() || '-',
+      item.description?.toString().trim() || '-',
+      `₹${(parseFloat(item.amount) || 0).toLocaleString('en-IN', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      })}`
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Sr No', 'Product', 'Description', 'Amount (₹)']],
+      body: tableData,
+      theme: 'grid',
+      margin: { left: marginLeft, right: marginRight },
+      headStyles: {
+        fillColor: [248, 250, 252],
+        textColor: [31, 41, 55],
+        fontStyle: 'bold',
+        fontSize: 9,
+        cellPadding: 3
+      },
+      bodyStyles: {
+        fontSize: 9,
+        cellPadding: 3
+      },
+      alternateRowStyles: { fillColor: [255, 255, 255] },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 'auto' },
+        3: { cellWidth: 30, halign: 'right' }
+      }
+    });
+
+    // --- Total Amount ---
+    const finalY = doc.lastAutoTable?.finalY || y + 40;
+    y = finalY + 10;
+    const totalAmt = parseFloat(invoice.totalAmount) || 0;
+    const totalAmtStr = totalAmt.toLocaleString('en-IN', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    });
+
+    doc.setFillColor(34, 197, 94);
+    doc.roundedRect(pageWidth - marginRight - 85, y - 6, 85, 18, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL', pageWidth - marginRight - 80, y + 6);
+    doc.text(`₹${totalAmtStr}`, pageWidth - marginRight - 5, y + 6, { align: 'right' });
+
+    // --- Footer ---
+    doc.setTextColor(156, 163, 175);
+    doc.setFontSize(8);
+    doc.text('This is a computer-generated invoice.', pageWidth / 2, pageHeight - 12, { align: 'center' });
+
+    doc.save(`purchase_invoice_${invoice.invoiceNumber || 'unknown'}.pdf`);
+  };
+
   const handleDeleteInvoice = async (id) => {
     if (!isAdmin) {
       alert('Only admin can delete.');
@@ -581,21 +734,6 @@ function PurchaseInvoice() {
                 >
                   Invoice No : {invoiceForm.invoiceNumber || 'xxxx'}
                 </div>
-                {editingInvoiceId && (
-                  <button
-                    onClick={handleCancelEdit}
-                    disabled={loading}
-                    className="btn btn-secondary"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}
-                  >
-                    <X size={16} />
-                    Cancel
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={closeInvoiceForm}
@@ -1504,7 +1642,7 @@ function PurchaseInvoice() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              alert('PDF feature coming soon!');
+              generatePurchaseInvoicePDF(dropdownInvoice);
               setOpenDropdownId(null);
               setDropdownInvoice(null);
             }}

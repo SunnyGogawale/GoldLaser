@@ -594,7 +594,7 @@ function Payment() {
                 >
                   Payment No : {paymentForm.paymentNumber || 'xxxx'}
                 </div>
-                {editingPaymentId && (
+                {/* {editingPaymentId && (
                   <button
                     onClick={handleCancelEdit}
                     disabled={loading}
@@ -604,7 +604,7 @@ function Payment() {
                     <X size={16} />
                     Cancel
                   </button>
-                )}
+                )} */}
                 <button
                   type="button"
                   onClick={closePaymentForm}

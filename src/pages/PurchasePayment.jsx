@@ -608,17 +608,6 @@ function PurchasePayment() {
                 >
                   Payment No : {paymentForm.paymentNumber || 'xxxx'}
                 </div>
-                {editingPaymentId && (
-                  <button
-                    onClick={handleCancelEdit}
-                    disabled={loading}
-                    className="btn btn-secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    <X size={16} />
-                    Cancel
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={closePaymentForm}
