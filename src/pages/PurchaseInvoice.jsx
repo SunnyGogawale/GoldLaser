@@ -87,6 +87,9 @@ function PurchaseInvoice() {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [dropdownUp, setDropdownUp] = useState(false);
   const dropdownRef = useRef(null);
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [pdfFileName, setPdfFileName] = useState('purchase_invoice.pdf');
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -507,9 +510,11 @@ function PurchaseInvoice() {
     let y = 15;
 
     // --- Header ---
-    doc.setFillColor(34, 197, 94);
-    doc.rect(0, 0, pageWidth, 25, 'F');
-    doc.setTextColor(255, 255, 255);
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(229, 231, 235);
+    doc.setFillColor(248, 250, 252);
+    doc.rect(0, 0, pageWidth, 25, 'FD');
+    doc.setTextColor(31, 41, 55);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.text('PURCHASE INVOICE', pageWidth / 2, 16, { align: 'center' });
@@ -604,19 +609,19 @@ function PurchaseInvoice() {
         fillColor: [248, 250, 252],
         textColor: [31, 41, 55],
         fontStyle: 'bold',
-        fontSize: 9,
-        cellPadding: 3
+        fontSize: 8,
+        cellPadding: 2
       },
       bodyStyles: {
-        fontSize: 9,
-        cellPadding: 3
+        fontSize: 8,
+        cellPadding: 2
       },
       alternateRowStyles: { fillColor: [255, 255, 255] },
       columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 'auto' },
-        2: { cellWidth: 'auto' },
-        3: { cellWidth: 30, halign: 'right' }
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 50, halign: 'left' },
+        2: { cellWidth: 80, halign: 'left' },
+        3: { cellWidth: 35, halign: 'right' }
       }
     });
 
@@ -629,9 +634,11 @@ function PurchaseInvoice() {
       maximumFractionDigits: 2 
     });
 
-    doc.setFillColor(34, 197, 94);
-    doc.roundedRect(pageWidth - marginRight - 85, y - 6, 85, 18, 2, 2, 'F');
-    doc.setTextColor(255, 255, 255);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(pageWidth - marginRight - 85, y - 6, 85, 18, 2, 2, 'FD');
+    doc.setTextColor(31, 41, 55);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.text('TOTAL', pageWidth - marginRight - 80, y + 6);
@@ -642,7 +649,20 @@ function PurchaseInvoice() {
     doc.setFontSize(8);
     doc.text('This is a computer-generated invoice.', pageWidth / 2, pageHeight - 12, { align: 'center' });
 
-    doc.save(`purchase_invoice_${invoice.invoiceNumber || 'unknown'}.pdf`);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    setPdfBlobUrl(url);
+    setPdfFileName(`purchase_invoice_${invoice.invoiceNumber || 'unknown'}.pdf`);
+    setPdfViewerOpen(true);
+  };
+
+  const handleDownloadPdf = () => {
+    const a = document.createElement('a');
+    a.href = pdfBlobUrl;
+    a.download = pdfFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const handleDeleteInvoice = async (id) => {
@@ -1691,6 +1711,92 @@ function PurchaseInvoice() {
               Delete
             </button>
           )}
+        </div>
+      )}
+
+      {/* PDF Viewer Modal */}
+      {pdfViewerOpen && pdfBlobUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 100000,
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+          onClick={() => setPdfViewerOpen(false)}
+        >
+          {/* Header */}
+          <div
+            style={{
+              background: '#f8fafc',
+              borderBottom: '1px solid #e5e7eb',
+              padding: '1rem 1.5rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              color: '#1f2937',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button
+                onClick={() => setPdfViewerOpen(false)}
+                style={{
+                  background: 'rgba(0,0,0,0.05)',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '0.5rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                  color: '#1f2937'
+                }}
+              >
+                <X size={24} />
+              </button>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
+              </div>
+            </div>
+            <button
+              onClick={handleDownloadPdf}
+              style={{
+                background: 'rgba(0,0,0,0.05)',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '0.5rem 1rem',
+                color: '#1f2937',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <span>⬇️</span>
+              Download
+            </button>
+          </div>
+
+          {/* PDF Viewer */}
+          <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+            <iframe
+              src={pdfBlobUrl}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none'
+              }}
+              title={pdfFileName}
+            />
+          </div>
         </div>
       )}
 
