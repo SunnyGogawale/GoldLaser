@@ -170,13 +170,13 @@ router.get('/', async (req, res) => {
     const customerMap = new Map(customers.map(c => [c._id.toString(), c]));
     const vendorMap = new Map(vendors.map(v => [v._id.toString(), v]));
 
-    // Attach client data
+    // Attach client data as vendorId (consistent with purchase invoices)
     const invoicesWithClients = invoices.map(inv => {
       const invObj = inv.toObject();
       if (invObj.clientType === 'Customer') {
-        invObj.customerId = customerMap.get(invObj.clientId?.toString()) || null;
+        invObj.vendorId = customerMap.get(invObj.clientId?.toString()) || null;
       } else {
-        invObj.customerId = vendorMap.get(invObj.clientId?.toString()) || null;
+        invObj.vendorId = vendorMap.get(invObj.clientId?.toString()) || null;
       }
       return invObj;
     });
@@ -186,8 +186,8 @@ router.get('/', async (req, res) => {
     if (search) {
       filteredInvoices = invoicesWithClients.filter(inv =>
         inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-        (inv.customerId?.customerName?.toLowerCase().includes(search.toLowerCase())) ||
-        (inv.customerId?.vendorName?.toLowerCase().includes(search.toLowerCase()))
+        (inv.vendorId?.customerName?.toLowerCase().includes(search.toLowerCase())) ||
+        (inv.vendorId?.vendorName?.toLowerCase().includes(search.toLowerCase()))
       );
     }
 
@@ -196,10 +196,10 @@ router.get('/', async (req, res) => {
       let aVal, bVal;
       switch(sortColumn) {
         case 'clientId':
-        case 'customerId':
+        case 'vendorId':
           // Get client name for sorting
-          aVal = (a.customerId?.customerName || a.customerId?.vendorName || '').toLowerCase();
-          bVal = (b.customerId?.customerName || b.customerId?.vendorName || '').toLowerCase();
+          aVal = (a.vendorId?.vendorName || a.vendorId?.customerName || '').toLowerCase();
+          bVal = (b.vendorId?.vendorName || b.vendorId?.customerName || '').toLowerCase();
           break;
         case 'invoiceNumber':
           aVal = a.invoiceNumber || '';
@@ -291,7 +291,7 @@ const getInvoiceWithClient = async (id) => {
   }
   
   const invoiceObj = invoice.toObject();
-  invoiceObj.customerId = client;
+  invoiceObj.vendorId = client;
   return invoiceObj;
 };
 

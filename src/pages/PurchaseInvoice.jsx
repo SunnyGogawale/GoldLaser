@@ -81,20 +81,17 @@ function PurchaseInvoice() {
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoNowMs, setInfoNowMs] = useState(0);
   const [openDropdownId, setOpenDropdownId] = useState(null);
-  const [dropdownPurchaseInvoice, setDropdownPurchaseInvoice] = useState(null);
+  const [dropdownInvoice, setDropdownInvoice] = useState(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [dropdownUp, setDropdownUp] = useState(false);
-  const dropdownRefs = useRef({});
+  const dropdownRef = useRef(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (openDropdownId) {
-        const dropdownEl = dropdownRefs.current[openDropdownId];
-        if (dropdownEl && !dropdownEl.contains(event.target)) {
-          setOpenDropdownId(null);
-          setDropdownPurchaseInvoice(null);
-        }
+      if (openDropdownId && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpenDropdownId(null);
+        setDropdownInvoice(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1038,7 +1035,7 @@ function PurchaseInvoice() {
                                 e.stopPropagation();
                                 if (openDropdownId === invoice._id) {
                                   setOpenDropdownId(null);
-                                  setDropdownPurchaseInvoice(null);
+                                  setDropdownInvoice(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
                                   const dropdownHeight = isAdmin ? 160 : 120;
@@ -1048,7 +1045,7 @@ function PurchaseInvoice() {
                                     left: rect.right - 140
                                   });
                                   setDropdownUp(shouldOpenUp);
-                                  setDropdownPurchaseInvoice(invoice);
+                                  setDropdownInvoice(invoice);
                                   setOpenDropdownId(invoice._id);
                                 }
                               }}
@@ -1065,123 +1062,6 @@ function PurchaseInvoice() {
                             >
                               <MoreVertical size={16} />
                             </button>
-                            {openDropdownId === invoice._id && (
-                              <div 
-                                ref={(el) => { if (el) dropdownRefs.current[invoice._id] = el; }}
-                                style={{
-                                  position: 'absolute',
-                                right: 0,
-                                top: '100%',
-                                marginTop: '0.25rem',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '8px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                zIndex: 99999,
-                                minWidth: '140px'
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openInfo(invoice);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    textAlign: 'left',
-                                    padding: '0.375rem 0.75rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-header)',
-                                    fontSize: '0.875rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    transition: 'all 0.2s'
-                                  }}
-                                >
-                                  <Eye size={14} />
-                                  View
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditInvoice(invoice);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    textAlign: 'left',
-                                    padding: '0.375rem 0.75rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-header)',
-                                    fontSize: '0.875rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    transition: 'all 0.2s'
-                                  }}
-                                >
-                                  <Edit2 size={14} />
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    alert('PDF feature coming soon!');
-                                    setOpenDropdownId(null);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    textAlign: 'left',
-                                    padding: '0.375rem 0.75rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-header)',
-                                    fontSize: '0.875rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    transition: 'all 0.2s'
-                                  }}
-                                >
-                                  <span>📄</span>
-                                  PDF
-                                </button>
-                                {isAdmin && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteInvoice(invoice._id);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    style={{
-                                      width: '100%',
-                                      textAlign: 'left',
-                                      padding: '0.375rem 0.75rem',
-                                      background: 'transparent',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                      color: 'var(--danger)',
-                                      fontSize: '0.875rem',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '0.5rem',
-                                      transition: 'all 0.2s'
-                                    }}
-                                  >
-                                    <Trash2 size={14} />
-                                    Delete
-                                  </button>
-                                )}
-                              </div>
-                            )}
                           </div>
                         </div>
 
@@ -1280,7 +1160,21 @@ function PurchaseInvoice() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setOpenDropdownId(openDropdownId === invoice._id ? null : invoice._id);
+                                    if (openDropdownId === invoice._id) {
+                                      setOpenDropdownId(null);
+                                      setDropdownInvoice(null);
+                                    } else {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const dropdownHeight = isAdmin ? 160 : 120;
+                                      const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
+                                      setDropdownPosition({
+                                        top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
+                                        left: rect.right - 140
+                                      });
+                                      setDropdownUp(shouldOpenUp);
+                                      setDropdownInvoice(invoice);
+                                      setOpenDropdownId(invoice._id);
+                                    }
                                   }}
                                   style={{
                                     padding: '0.25rem',
@@ -1295,123 +1189,6 @@ function PurchaseInvoice() {
                                 >
                                   <MoreVertical size={16} />
                                 </button>
-                                {openDropdownId === invoice._id && (
-                                  <div 
-                                    ref={(el) => { if (el) dropdownRefs.current[invoice._id] = el; }}
-                                    style={{
-                                      position: 'absolute',
-                                      right: 0,
-                                      top: '100%',
-                                      marginTop: '0.25rem',
-                                      background: 'var(--bg-card)',
-                                      border: '1px solid var(--border)',
-                                      borderRadius: '8px',
-                                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                                      zIndex: 9999,
-                                      minWidth: '120px'
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openInfo(invoice);
-                                        setOpenDropdownId(null);
-                                      }}
-                                      style={{
-                                        width: '100%',
-                                        textAlign: 'left',
-                                        padding: '0.375rem 0.75rem',
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: 'var(--text-header)',
-                                        fontSize: '0.875rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        transition: 'all 0.2s'
-                                      }}
-                                    >
-                                      <Eye size={14} />
-                                      View
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleEditInvoice(invoice);
-                                        setOpenDropdownId(null);
-                                      }}
-                                      style={{
-                                        width: '100%',
-                                        textAlign: 'left',
-                                        padding: '0.375rem 0.75rem',
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: 'var(--text-header)',
-                                        fontSize: '0.875rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        transition: 'all 0.2s'
-                                      }}
-                                    >
-                                      <Edit2 size={14} />
-                                      Edit
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        alert('PDF feature coming soon!');
-                                        setOpenDropdownId(null);
-                                      }}
-                                      style={{
-                                        width: '100%',
-                                        textAlign: 'left',
-                                        padding: '0.375rem 0.75rem',
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        color: 'var(--text-header)',
-                                        fontSize: '0.875rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        transition: 'all 0.2s'
-                                      }}
-                                    >
-                                      <span>📄</span>
-                                      PDF
-                                    </button>
-                                    {isAdmin && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteInvoice(invoice._id);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        style={{
-                                          width: '100%',
-                                          textAlign: 'left',
-                                          padding: '0.375rem 0.75rem',
-                                          background: 'transparent',
-                                          border: 'none',
-                                          cursor: 'pointer',
-                                          color: 'var(--danger)',
-                                          fontSize: '0.875rem',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: '0.5rem',
-                                          transition: 'all 0.2s'
-                                        }}
-                                      >
-                                        <Trash2 size={14} />
-                                        Delete
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
                               </div>
                             </td>
                           </tr>
@@ -1703,7 +1480,129 @@ function PurchaseInvoice() {
           </div>
         </div>
       )}
-      
+
+      {/* Dropdown Menu */}
+      {openDropdownId && dropdownInvoice && (
+        <div 
+          ref={dropdownRef}
+          style={{
+            position: 'fixed',
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 99999,
+            minWidth: '140px'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setInfoInvoice(dropdownInvoice);
+              setInfoOpen(true);
+              setOpenDropdownId(null);
+              setDropdownInvoice(null);
+            }}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Eye size={14} />
+            View
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditInvoice(dropdownInvoice);
+              setOpenDropdownId(null);
+              setDropdownInvoice(null);
+            }}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Edit2 size={14} />
+            Edit
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              alert('PDF feature coming soon!');
+              setOpenDropdownId(null);
+              setDropdownInvoice(null);
+            }}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>📄</span>
+            PDF
+          </button>
+          {isAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteInvoice(dropdownInvoice._id);
+                setOpenDropdownId(null);
+                setDropdownInvoice(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--danger)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          )}
+        </div>
+      )}
 
     </div>
   );

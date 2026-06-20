@@ -1032,7 +1032,7 @@ function PurchasePayment() {
               <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
               <input
                 type="text"
-                placeholder="Search by payment no or vendor..."
+                placeholder="Search by payment no or client..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -1168,7 +1168,7 @@ function PurchasePayment() {
                           onClick={() => handleSort('vendorId')}
                           style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                         >
-                          Vendor {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          Client {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('paymentDate')}
@@ -1195,6 +1195,7 @@ function PurchasePayment() {
                       {payments.map((payment) => {
                         const name =
                           payment.vendorId?.vendorName ||
+                          payment.vendorId?.customerName ||
                           `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                           'Unknown'
                         const vendorLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name

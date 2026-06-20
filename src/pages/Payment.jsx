@@ -425,8 +425,8 @@ function Payment() {
       const response = await fetch(`${API_URL}/${payment._id}`)
       const data = await readJsonResponse(response, 'Error loading payment')
       const clientType = data.clientType || 'Customer'
-      const clientId = data.clientId || data.customerId?._id || data.customerId
-      const client = data.customerId
+      const clientId = data.clientId || data.vendorId?._id || data.vendorId
+    const client = data.vendorId
       const clientName = client?.customerName || client?.vendorName || ''
       const clientIdStr = client?.id || ''
 
@@ -1018,7 +1018,7 @@ function Payment() {
               <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
               <input
                 type="text"
-                placeholder="Search by payment no or customer..."
+                placeholder="Search by payment no or client..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -1044,11 +1044,11 @@ function Payment() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {payments.map((payment) => {
                     const name =
-                      payment.customerId?.customerName ||
-                      payment.customerId?.vendorName ||
-                      `${payment.customerId?.firstName || ''} ${payment.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                      payment.vendorId?.customerName ||
+                      payment.vendorId?.vendorName ||
+                      `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                       'Unknown'
-                    const customerLabel = payment.customerId?.id ? `${name} (${payment.customerId.id})` : name
+                    const customerLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
                     const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
                     const amountLabel = `₹${formatMoney(payment.amount)}`
                     const descriptionLabel = payment.description ? String(payment.description) : '-'
@@ -1151,10 +1151,10 @@ function Payment() {
                           Payment No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
-                          onClick={() => handleSort('customerId')}
+                          onClick={() => handleSort('vendorId')}
                           style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                         >
-                          Customer {sortColumn === 'customerId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          Client {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('paymentDate')}
@@ -1180,11 +1180,11 @@ function Payment() {
                     <tbody>
                       {payments.map((payment) => {
                         const name =
-                          payment.customerId?.customerName ||
-                          payment.customerId?.vendorName ||
-                          `${payment.customerId?.firstName || ''} ${payment.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                          payment.vendorId?.customerName ||
+                          payment.vendorId?.vendorName ||
+                          `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                           'Unknown'
-                        const customerLabel = payment.customerId?.id ? `${name} (${payment.customerId.id})` : name
+                        const customerLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
                         const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
                         const amountLabel = `₹${formatMoney(payment.amount)}`
                         const descriptionLabel = payment.description ? String(payment.description) : '-'

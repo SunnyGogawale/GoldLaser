@@ -269,12 +269,12 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
     const search = req.query.search || '';
+    const sortColumn = req.query.sortColumn || 'paymentNumber';
+    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
-    // First fetch all payments
+    // First fetch all payments without pagination
     let payments = await Payment.find()
-      .sort({ paymentNumber: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ paymentNumber: -1 });
 
     // Fetch customers and vendors
     const customerIds = payments.filter(p => p.clientType === 'Customer').map(p => p.clientId);
@@ -307,6 +307,42 @@ router.get('/', async (req, res) => {
       );
     }
 
+    // Sort the filtered payments
+    filteredPayments.sort((a, b) => {
+      let aVal, bVal;
+      switch(sortColumn) {
+        case 'clientId':
+        case 'vendorId':
+          // Get client name for sorting
+          aVal = (a.vendorId?.vendorName || a.vendorId?.customerName || '').toLowerCase();
+          bVal = (b.vendorId?.vendorName || b.vendorId?.customerName || '').toLowerCase();
+          break;
+        case 'paymentNumber':
+          aVal = a.paymentNumber || '';
+          bVal = b.paymentNumber || '';
+          break;
+        case 'paymentDate':
+          aVal = new Date(a.paymentDate);
+          bVal = new Date(b.paymentDate);
+          break;
+        case 'amount':
+          aVal = a.amount || 0;
+          bVal = b.amount || 0;
+          break;
+        case 'description':
+          aVal = (a.description || '').toLowerCase();
+          bVal = (b.description || '').toLowerCase();
+          break;
+        default:
+          aVal = a.paymentNumber || '';
+          bVal = b.paymentNumber || '';
+      }
+
+      if (aVal < bVal) return -1 * sortOrder;
+      if (aVal > bVal) return 1 * sortOrder;
+      return 0;
+    });
+
     // Get total count
     let total;
     if (search) {
@@ -316,18 +352,21 @@ router.get('/', async (req, res) => {
         ]
       });
       // Since we can't easily search populated fields in count, use filtered length
-      total = filteredPayments.length + (payments.length - paymentsWithClients.length);
+      total = filteredPayments.length;
     } else {
       total = await Payment.countDocuments();
     }
 
+    // Apply pagination after filtering and sorting
+    const paginatedPayments = filteredPayments.slice(skip, skip + limit);
+
     // Fetch user data for createdBy
-    const userIds = filteredPayments.map(p => p.createdBy).filter(Boolean);
+    const userIds = paginatedPayments.map(p => p.createdBy).filter(Boolean);
     const users = userIds.length ? await User.find({ _id: { $in: userIds } }) : [];
     const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
     // Attach user data
-    const finalPayments = filteredPayments.map(p => {
+    const finalPayments = paginatedPayments.map(p => {
       const user = p.createdBy ? userMap.get(p.createdBy.toString()) : null;
       const hasCreatedBy = user && (user.fullName || user.email || user._id);
       const createdByName = user?.fullName || p?.createdByName || '';

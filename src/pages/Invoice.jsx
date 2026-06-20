@@ -411,8 +411,8 @@ function Invoice() {
 
   const handleEditInvoice = (invoice) => {
     const clientType = invoice.clientType || 'Customer';
-    const clientId = invoice.clientId || invoice.customerId?._id || invoice.customerId;
-    const client = invoice.customerId;
+    const clientId = invoice.clientId || invoice.vendorId?._id || invoice.vendorId;
+    const client = invoice.vendorId;
     const clientName = client?.customerName || client?.vendorName || '';
     const clientIdStr = client?.id || '';
 
@@ -429,7 +429,7 @@ function Invoice() {
       })),
       totalAmount: invoice.totalAmount
     });
-    setClientSearchText(clientName ? `${clientName} (${clientIdStr})` : '');
+    setClientSearchText(clientName ? `${clientName} (${clientIdStr}) - ${clientType}` : '');
     setEditingInvoiceId(invoice._id);
     setErrors({});
     setFormSubmitted(false);
@@ -983,11 +983,11 @@ function Invoice() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {invoices.map((invoice) => {
                     const name =
-                      invoice.customerId?.customerName ||
-                      invoice.customerId?.vendorName ||
-                      `${invoice.customerId?.firstName || ''} ${invoice.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                      invoice.vendorId?.customerName ||
+                      invoice.vendorId?.vendorName ||
+                      `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                       'Unknown'
-                    const label = invoice.customerId?.id ? `${name} (${invoice.customerId.id})` : name
+                    const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name
                     
                     return (
                       <div 
@@ -1118,10 +1118,11 @@ function Invoice() {
                     <tbody>
                       {invoices.map((invoice) => {
                         const name =
-                          invoice.customerId?.customerName ||
-                          `${invoice.customerId?.firstName || ''} ${invoice.customerId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                          invoice.vendorId?.customerName ||
+                          invoice.vendorId?.vendorName ||
+                          `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                           'Unknown'
-                        const label = invoice.customerId?.id ? `${name} (${invoice.customerId.id})` : name
+                        const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name
                         
                         return (
                           <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
