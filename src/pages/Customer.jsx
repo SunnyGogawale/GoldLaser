@@ -959,7 +959,7 @@ function Customer() {
       autoTable(doc, {
         startY: y + 3,
         margin: { left: marginLeft, right: marginRight },
-        theme: 'grid',
+        // theme: 'grid',
         head: [['Particular', 'Amount']],
         body: [
           ['Opening Balance', formatPdfMoney(summary.openingBalance || 0)],
@@ -971,19 +971,21 @@ function Customer() {
           fillColor: [255, 255, 255],
           textColor: [17, 24, 39],
           fontStyle: 'bold',
-          lineColor: [0, 0, 0],
-          lineWidth: 0.2
+          fillColor: [255, 255, 255],
+          bottomlineColor: [0, 0, 0],
+          lineWidth: 0.2,
+          halign: 'center',
         },
         bodyStyles: {
           font: 'helvetica',
           fontStyle: 'normal',
           textColor: [17, 24, 39],
-          lineColor: [0, 0, 0],
+          bottomlineColor: [0, 0, 0],
           lineWidth: 0.15
         },
         columnStyles: {
           0: { cellWidth: 115, halign: 'left' },
-          1: { cellWidth: 65, halign: 'right', fontStyle: 'normal' }
+          1: { cellWidth: 65, halign: 'left', fontStyle: 'normal' }
         }
       })
 
@@ -995,7 +997,7 @@ function Customer() {
       autoTable(doc, {
         startY: y + 3,
         margin: { left: marginLeft, right: marginRight },
-        theme: 'grid',
+        // theme: 'grid',
         head: [['Date', 'Transaction No', 'Transaction Type', 'Description', 'Debit (Invoice)', 'Credit (Payment)', 'Balance']],
         body: transactions.length > 0
           ? transactions.map((row) => [
@@ -1013,26 +1015,27 @@ function Customer() {
           textColor: [17, 24, 39],
           fontStyle: 'bold',
           fontSize: 8,
-          lineColor: [0, 0, 0],
-          lineWidth: 0.2
+          bottomLineColor: [0, 0, 0],
+          lineWidth: 0.2,
+          halign: 'center',
         },
         bodyStyles: {
           fontSize: 8,
           font: 'helvetica',
           fontStyle: 'normal',
           textColor: [17, 24, 39],
-          lineColor: [0, 0, 0],
+          bottomLineColor: [0, 0, 0],
           lineWidth: 0.15,
           cellPadding: { top: 2, right: 1.2, bottom: 2, left: 1.2 }
         },
         columnStyles: {
-          0: { cellWidth: 20, halign: 'left' },
-          1: { cellWidth: 24, halign: 'left' },
+          0: { cellWidth: 20, halign: 'center' },
+          1: { cellWidth: 24, halign: 'center' },
           2: { cellWidth: 34, halign: 'left' },
           3: { cellWidth: 28, halign: 'left' },
-          4: { cellWidth: 28, halign: 'right', fontStyle: 'normal' },
-          5: { cellWidth: 27, halign: 'right', fontStyle: 'normal' },
-          6: { cellWidth: 29, halign: 'right', fontStyle: 'normal' }
+          4: { cellWidth: 28, halign: 'left', fontStyle: 'normal' },
+          5: { cellWidth: 27, halign: 'left', fontStyle: 'normal' },
+          6: { cellWidth: 29, halign: 'left', fontStyle: 'normal' }
         },
         didParseCell: (hookData) => {
           if (hookData.section !== 'body') return
@@ -1040,7 +1043,7 @@ function Customer() {
           hookData.cell.styles.fontStyle = 'normal'
           hookData.cell.styles.font = 'helvetica'
           hookData.cell.styles.fontSize = 8
-          hookData.cell.styles.halign = 'right'
+          hookData.cell.styles.halign = 'center'
         },
         didDrawPage: () => {
           doc.setFontSize(8)
