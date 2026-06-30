@@ -65,6 +65,10 @@ const customerSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  shippingAddress: {
+    type: String,
+    default: ''
+  },
   note: {
     type: String,
     default: ''

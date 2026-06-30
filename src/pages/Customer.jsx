@@ -13,7 +13,7 @@ function Customer() {
   // Responsive state
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   
-  useEffect(() => {
+  useEffect(() => { 
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
     }
@@ -28,8 +28,10 @@ function Customer() {
     customerName: '',
     companyName: '',
     contactNumber: '',
+    alternateNumber: '',
     email: '',
     address: '',
+    shippingAddress: '',
     note: '',
     customFields: {}
   })
@@ -474,8 +476,10 @@ function Customer() {
         customerName: String(customerForm.customerName || '').trim(),
         companyName: String(customerForm.companyName || '').trim(),
         contactNumber: String(customerForm.contactNumber || '').trim(),
+        alternateNumber: String(customerForm.alternateNumber || '').trim(),
         email: String(customerForm.email || '').trim(),
         address: String(customerForm.address || '').trim(),
+        shippingAddress: String(customerForm.shippingAddress || '').trim(),
         note: String(customerForm.note || '').trim()
       }
 
@@ -544,8 +548,10 @@ function Customer() {
         customerName: '',
         companyName: '',
         contactNumber: '',
+        alternateNumber:  '',
         email: '',
         address: '',
+        shippingAddress:  '',
         note: '',
         customFields: initialCustomFields
       });
@@ -580,8 +586,10 @@ function Customer() {
       customerName: '',
       companyName: '',
       contactNumber: '',
+      alternateNumber:'',
       email: '',
       address: '',
+      shippingAddress:'',
       note: '',
       customFields: initialCustomFields
     })
@@ -620,8 +628,10 @@ function Customer() {
         customerName: fullCustomer.customerName || '',
         companyName: fullCustomer.companyName || '',
         contactNumber: fullCustomer.contactNumber,
+        alternateNumber: fullCustomer.alternateNumber || '',
         email: fullCustomer.email,
         address: fullCustomer.address,
+        shippingAddress: fullCustomer.shippingAddress || '',
         note: fullCustomer.note,
         customFields
       })
@@ -653,8 +663,10 @@ function Customer() {
       customerName: '',
       companyName: '',
       contactNumber: '',
-      email: '',
-      address: '',
+      alternateNumber:'',
+      email:'',
+      address:'',
+      shippingAddress:'',
       note: '',
       customFields: initialCustomFields
     });
@@ -970,7 +982,52 @@ function Customer() {
                   )}
                 </div>
 
+
                 <div style={{ flex: '1 1 280px' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Alternate Number <span style={{ color: 'var(--danger)' }}>*</span></span>
+                  </label>
+                  <input
+                    type="tel"
+                    name="alternateNumber"
+                    value={customerForm.alternateNumber}
+                    onChange={handleCustomerInputChange}
+                    disabled={loading}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      border: `2px solid ${errors.alternateNumber ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
+                      fontSize: '0.9375rem',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-header)',
+                      transition: 'all 0.2s ease',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.alternateNumber ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                    }}
+                    placeholder="Enter alternate number"
+                  />
+                  {formSubmitted && errors.alternateNumber && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.alternateNumber}
+                    </p>
+                  )}
+                </div>
+
+                
+
+                {/* <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
                     <span>Email <span style={{ color: 'var(--danger)' }}>*</span></span>
                   </label>
@@ -1009,7 +1066,7 @@ function Customer() {
                       {errors.email}
                     </p>
                   )}
-                </div>
+                </div> */}
               </div>
 
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
@@ -1055,6 +1112,178 @@ function Customer() {
                   )}
                 </div>
 
+                {/* <div style={{ flex: '1 1 280px' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Shipping Address <span style={{ color: 'var(--danger)' }}></span></span>
+                  </label>
+                  <textarea
+                    name="shippingAddress"
+                    value={customerForm.shippingAddress}
+                    onChange={handleCustomerInputChange}
+                    rows={3}
+                    disabled={loading}
+                    autoComplete="shippingaddress"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      border: `2px solid ${errors.shippingAddress ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
+                      fontSize: '0.9375rem',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-header)',
+                      transition: 'all 0.2s ease',
+                      resize: 'vertical',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.shippingAddress ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                    }}
+                    placeholder="Enter Shipping address"
+                  ></textarea>
+                  {formSubmitted && errors.shippingAddress && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.shippingAddress}
+                    </p>
+                  )}
+                </div> */}
+
+                <div style={{ flex: '1 1 280px' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Email <span style={{ color: 'var(--danger)' }}>*</span></span>
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={customerForm.email}
+                    onChange={handleCustomerInputChange}
+                    disabled={loading}
+                    autoComplete="email"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      border: `2px solid ${errors.email ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
+                      fontSize: '0.9375rem',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-header)',
+                      transition: 'all 0.2s ease',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.email ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                    }}
+                    placeholder="Enter email address"
+                  />
+                  {formSubmitted && errors.email && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              
+
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+
+                <div style={{ flex: '1 1 280px' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Shipping Address <span style={{ color: 'var(--danger)' }}></span></span>
+                  </label>
+                  <textarea
+                    name="shippingAddress"
+                    value={customerForm.shippingAddress}
+                    onChange={handleCustomerInputChange}
+                    rows={3}
+                    disabled={loading}
+                    autoComplete="shippingaddress"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      border: `2px solid ${errors.shippingAddress ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
+                      fontSize: '0.9375rem',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-header)',
+                      transition: 'all 0.2s ease',
+                      resize: 'vertical',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.shippingAddress ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                    }}
+                    placeholder="Enter Shipping address"
+                  ></textarea>
+                  {formSubmitted && errors.shippingAddress && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.shippingAddress}
+                    </p>
+                  )}
+                </div>
+
+
+                {/* <div style={{ flex: '1 1 280px' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Email <span style={{ color: 'var(--danger)' }}>*</span></span>
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={customerForm.email}
+                    onChange={handleCustomerInputChange}
+                    disabled={loading}
+                    autoComplete="email"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      border: `2px solid ${errors.email ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
+                      fontSize: '0.9375rem',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-header)',
+                      transition: 'all 0.2s ease',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.email ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                    }}
+                    placeholder="Enter email address"
+                  />
+                  {formSubmitted && errors.email && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.email}
+                    </p>
+                  )}
+                </div> */}
+
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
                     Note
@@ -1080,6 +1309,11 @@ function Customer() {
                     placeholder="Add any notes"
                   ></textarea>
                 </div>
+
+
+
+
+
               </div>
 
               {/* Custom Fields Section */}
@@ -1240,8 +1474,10 @@ function Customer() {
                         customerName: '',
                         companyName: '',
                         contactNumber: '',
+                        alternateNumber:'',
                         email: '',
                         address: '',
+                        shippingAddress:'',
                         note: '',
                         customFields: initialCustomFields
                       });

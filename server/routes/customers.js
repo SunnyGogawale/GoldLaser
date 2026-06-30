@@ -359,6 +359,7 @@ router.post('/', async (req, res) => {
       alternateNumber: req.body.alternateNumber || '',
       email: req.body.email,
       address: req.body.address,
+      shippingAddress: req.body.shippingAddress || '',
       note: req.body.note,
       customFields: req.body.customFields || {},
       createdBy: authUser?.id || null,
