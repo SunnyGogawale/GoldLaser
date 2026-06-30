@@ -3,6 +3,8 @@ import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical } fr
 import EmptyDataCard from '../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../utils/authStorage'
 import MotionButton from '../components/MotionButton'
+import ActionMenuPortal from '../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../utils/dropdownPosition'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/purchase-payments`
@@ -291,17 +293,6 @@ function PurchasePayment() {
     }
     fetchPendingInvoices(paymentForm.clientId, paymentForm.clientType, editingPaymentId)
   }, [paymentForm.clientId, paymentForm.clientType, editingPaymentId])
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenDropdownId(null)
-    }
-    document.addEventListener('click', handleClickOutside)
-    return () => {
-      document.removeEventListener('click', handleClickOutside)
-    }
-  }, [])
 
   const validateForm = () => {
     const newErrors = {}
@@ -1094,12 +1085,11 @@ function PurchasePayment() {
                                   setDropdownPurchasePayment(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  const dropdownHeight = isAdmin ? 160 : 120;
-                                  const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                  setDropdownPosition({
-                                    top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                    left: rect.right - 140
+                                  const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                    rect,
+                                    dropdownHeight: isAdmin ? 160 : 120
                                   });
+                                  setDropdownPosition({ top, left });
                                   setDropdownUp(shouldOpenUp);
                                   setDropdownPurchasePayment(payment);
                                   setOpenDropdownId(payment._id);
@@ -1229,10 +1219,12 @@ function PurchasePayment() {
                                       setDropdownPurchasePayment(null);
                                     } else {
                                       const rect = e.currentTarget.getBoundingClientRect();
-                                      setDropdownPosition({
-                                        top: rect.bottom + 4,
-                                        left: rect.right - 140
+                                      const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                        rect,
+                                        dropdownHeight: isAdmin ? 160 : 120
                                       });
+                                      setDropdownPosition({ top, left });
+                                      setDropdownUp(shouldOpenUp);
                                       setDropdownPurchasePayment(payment);
                                       setOpenDropdownId(payment._id);
                                     }
@@ -1512,21 +1504,22 @@ function PurchasePayment() {
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownPurchasePayment && (
-        <div 
-          ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: dropdownPosition.top,
-            left: dropdownPosition.left,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 99999,
-            minWidth: '140px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <ActionMenuPortal>
+          <div 
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 99999,
+              minWidth: '140px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
           <MotionButton
             onClick={(e) => {
               e.stopPropagation();
@@ -1630,7 +1623,8 @@ function PurchasePayment() {
               Delete
             </MotionButton>
           )}
-        </div>
+          </div>
+        </ActionMenuPortal>
       )}
       
 

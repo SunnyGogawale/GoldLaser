@@ -6,6 +6,8 @@ import { readJsonResponse } from '../utils/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import MotionButton from '../components/MotionButton'
+import ActionMenuPortal from '../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../utils/dropdownPosition'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/invoices`;
@@ -192,17 +194,6 @@ function Invoice() {
     fetchCustomersList();
     fetchVendorsList();
     fetchNextInvoiceNumber();
-  }, []);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenDropdownId(null);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
   }, []);
 
   // Calculate total amount whenever items change
@@ -1185,12 +1176,11 @@ function Invoice() {
                                   setDropdownInvoice(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  const dropdownHeight = isAdmin ? 160 : 120;
-                                  const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                  setDropdownPosition({
-                                    top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                    left: rect.right - 140
+                                  const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                    rect,
+                                    dropdownHeight: isAdmin ? 160 : 120
                                   });
+                                  setDropdownPosition({ top, left });
                                   setDropdownUp(shouldOpenUp);
                                   setDropdownInvoice(invoice);
                                   setOpenDropdownId(invoice._id);
@@ -1310,12 +1300,11 @@ function Invoice() {
                                       setDropdownInvoice(null);
                                     } else {
                                       const rect = e.currentTarget.getBoundingClientRect();
-                                      const dropdownHeight = isAdmin ? 160 : 120;
-                                      const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                      setDropdownPosition({
-                                        top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                        left: rect.right - 140
+                                      const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                        rect,
+                                        dropdownHeight: isAdmin ? 160 : 120
                                       });
+                                      setDropdownPosition({ top, left });
                                       setDropdownUp(shouldOpenUp);
                                       setDropdownInvoice(invoice);
                                       setOpenDropdownId(invoice._id);
@@ -1581,21 +1570,22 @@ function Invoice() {
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownInvoice && (
-        <div 
-          ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: dropdownPosition.top,
-            left: dropdownPosition.left,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 99999,
-            minWidth: '140px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <ActionMenuPortal>
+          <div
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 99999,
+              minWidth: '140px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
           <MotionButton
             onClick={(e) => {
               e.stopPropagation();
@@ -1699,7 +1689,8 @@ function Invoice() {
               Delete
             </MotionButton>
           )}
-        </div>
+          </div>
+        </ActionMenuPortal>
       )}
 
       {/* PDF Viewer Modal */}

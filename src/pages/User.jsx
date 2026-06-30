@@ -3,6 +3,8 @@ import { Edit2, Trash2, X, MoreVertical } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 import MotionButton from '../components/MotionButton'
+import ActionMenuPortal from '../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../utils/dropdownPosition'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -242,12 +244,11 @@ function User() {
                                 setDropdownUser(null);
                               } else {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                const dropdownHeight = 120;
-                                const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                setDropdownPosition({
-                                  top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                  left: rect.right - 140
+                                const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                  rect,
+                                  dropdownHeight: 120
                                 });
+                                setDropdownPosition({ top, left });
                                 setDropdownUp(shouldOpenUp);
                                 setDropdownUser(u);
                                 setOpenDropdownId(u._id);
@@ -315,12 +316,11 @@ function User() {
                                     setDropdownUser(null);
                                   } else {
                                     const rect = e.currentTarget.getBoundingClientRect();
-                                    const dropdownHeight = 120;
-                                    const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                    setDropdownPosition({
-                                      top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                      left: rect.right - 140
+                                    const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                      rect,
+                                      dropdownHeight: 120
                                     });
+                                    setDropdownPosition({ top, left });
                                     setDropdownUp(shouldOpenUp);
                                     setDropdownUser(u);
                                     setOpenDropdownId(u._id);
@@ -568,21 +568,22 @@ function User() {
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownUser && (
-        <div 
-          ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: dropdownPosition.top,
-            left: dropdownPosition.left,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 99999,
-            minWidth: '140px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
+        <ActionMenuPortal>
+          <div
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 99999,
+              minWidth: '140px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
           <MotionButton
             type="button"
             onClick={(e) => {
@@ -637,7 +638,8 @@ function User() {
             <Trash2 size={14} />
             Delete
           </MotionButton>
-        </div>
+          </div>
+        </ActionMenuPortal>
       )}
     </div>
   )

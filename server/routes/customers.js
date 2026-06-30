@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
 const SaleInvoice = require('../models/SaleInvoice');
 const SalePayment = require('../models/SalePayment');
@@ -285,6 +286,101 @@ router.get('/', async (req, res) => {
       total,
       page,
       totalPages: Math.ceil(total / limit)
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get('/:id/statement', async (req, res) => {
+  try {
+    const customerId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(customerId)) {
+      return res.status(400).json({ message: 'Invalid customer id' });
+    }
+
+    const customer = await Customer.findById(customerId)
+      .populate('createdBy', 'fullName email roll')
+      .populate('updatedBy', 'fullName email roll');
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+
+    const [invoices, payments] = await Promise.all([
+      SaleInvoice.find({
+        $or: [
+          { clientId: customer._id, clientType: 'Customer' },
+          { customerId: customer._id }
+        ]
+      }).sort({ invoiceDate: 1, createdAt: 1 }),
+      SalePayment.find({
+        $or: [
+          { clientId: customer._id, clientType: 'Customer' },
+          { customerId: customer._id }
+        ]
+      }).sort({ paymentDate: 1, createdAt: 1 })
+    ]);
+
+    const statementRows = [
+      ...invoices.map((invoice) => ({
+        date: invoice.invoiceDate || invoice.createdAt,
+        createdAt: invoice.createdAt || invoice.invoiceDate,
+        transactionNo: invoice.invoiceNumber || '-',
+        transactionType: 'Sales Invoice',
+        description: String(invoice.transactionDescription || '').trim() || 'Invoice',
+        debit: Number(invoice.totalAmount) || 0,
+        credit: 0
+      })),
+      ...payments.map((payment) => ({
+        date: payment.paymentDate || payment.createdAt,
+        createdAt: payment.createdAt || payment.paymentDate,
+        transactionNo: payment.paymentNumber || '-',
+        transactionType: 'Sales Payment',
+        description: String(payment.description || '').trim() || 'Payment Received',
+        debit: 0,
+        credit: Number(payment.amount) || 0
+      }))
+    ]
+      .sort((a, b) => {
+        const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        const typeDiff = (a.credit > 0 ? 1 : 0) - (b.credit > 0 ? 1 : 0);
+        if (typeDiff !== 0) return typeDiff;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      })
+      .map((row) => {
+        return row;
+      });
+
+    let runningBalance = 0;
+    const transactions = statementRows.map((row) => {
+      runningBalance += row.debit - row.credit;
+      return {
+        date: row.date,
+        transactionNo: row.transactionNo,
+        transactionType: row.transactionType,
+        description: row.description,
+        debit: row.debit,
+        credit: row.credit,
+        balance: runningBalance
+      };
+    });
+
+    const totalInvoice = invoices.reduce((sum, invoice) => sum + (Number(invoice.totalAmount) || 0), 0);
+    const totalPayment = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const openingBalance = 0;
+    const closingBalance = openingBalance + totalInvoice - totalPayment;
+
+    const customerObj = customer.toObject();
+    customerObj.outstanding = await getCustomerOutstanding(customer._id);
+
+    res.json({
+      customer: customerObj,
+      summary: {
+        openingBalance,
+        totalInvoice,
+        totalPayment,
+        closingBalance
+      },
+      transactions
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
