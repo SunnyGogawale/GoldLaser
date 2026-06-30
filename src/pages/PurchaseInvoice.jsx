@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import EmptyDataCard from '../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../utils/authStorage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import MotionButton from '../components/MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/purchase-invoices`;
@@ -90,6 +92,16 @@ function PurchaseInvoice() {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [pdfFileName, setPdfFileName] = useState('purchase_invoice.pdf');
+  const overlayMotion = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 }
+  };
+  const modalMotion = {
+    initial: { opacity: 0, y: 24, scale: 0.98 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: 16, scale: 0.98 }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -689,7 +701,7 @@ function PurchaseInvoice() {
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
-        <button
+        <MotionButton
           type="button"
           onClick={openCreateInvoice}
           disabled={loading}
@@ -707,11 +719,12 @@ function PurchaseInvoice() {
           }}
         >
           Add Invoice
-        </button>
+        </MotionButton>
       </div>
 
-      {formOpen && (
-        <div
+      <AnimatePresence>
+        {formOpen && (
+        <motion.div
           style={{
             position: 'fixed',
             inset: 0,
@@ -722,11 +735,15 @@ function PurchaseInvoice() {
             justifyContent: 'center',
             padding: '1rem'
           }}
+          initial={overlayMotion.initial}
+          animate={overlayMotion.animate}
+          exit={overlayMotion.exit}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeInvoiceForm()
           }}
         >
-          <div
+          <motion.div
             className="card"
             style={{
               width: 'min(1100px, 96vw)',
@@ -734,6 +751,10 @@ function PurchaseInvoice() {
               overflow: 'auto',
               padding: '1.5rem'
             }}
+            initial={modalMotion.initial}
+            animate={modalMotion.animate}
+            exit={modalMotion.exit}
+            transition={{ duration: 0.24, ease: 'easeOut' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
@@ -754,7 +775,7 @@ function PurchaseInvoice() {
                 >
                   Invoice No : {invoiceForm.invoiceNumber || 'xxxx'}
                 </div>
-                <button
+                <MotionButton
                   type="button"
                   onClick={closeInvoiceForm}
                   disabled={loading}
@@ -777,7 +798,7 @@ function PurchaseInvoice() {
                 >
                   <X size={16} />
                   {/* Close */}
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -921,7 +942,7 @@ function PurchaseInvoice() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Invoice Items</h3>
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={addItemRow}
                     disabled={loading}
@@ -940,7 +961,7 @@ function PurchaseInvoice() {
                     }}
                   >
                     <Plus size={14} /> Add Row
-                  </button>
+                  </MotionButton>
                 </div>
 
                 <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
@@ -1012,7 +1033,7 @@ function PurchaseInvoice() {
                             />
                           </td>
                           <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                            <button
+                            <MotionButton
                               type="button"
                               onClick={() => removeItemRow(index)}
                               disabled={invoiceForm.items.length === 1}
@@ -1025,7 +1046,7 @@ function PurchaseInvoice() {
                               }}
                             >
                               <Trash2 size={16} />
-                            </button>
+                            </MotionButton>
                           </td>
                         </tr>
                       ))}
@@ -1055,7 +1076,7 @@ function PurchaseInvoice() {
 
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   {!editingInvoiceId && (
-                    <button
+                    <MotionButton
                       type="button"
                       onClick={handleCancelEdit}
                       disabled={loading}
@@ -1074,9 +1095,9 @@ function PurchaseInvoice() {
                       }}
                     >
                       <RotateCcw size={14} /> Reset
-                    </button>
+                    </MotionButton>
                   )}
-                  <button
+                  <MotionButton
                     type="submit"
                     disabled={loading}
                     style={{
@@ -1095,13 +1116,14 @@ function PurchaseInvoice() {
                   >
                     <Save size={14} />
                     {loading ? 'Saving...' : editingInvoiceId ? 'Update Invoice' : 'Save Invoice'}
-                  </button>
+                  </MotionButton>
                 </div>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Invoice List */}
       {(
@@ -1188,7 +1210,7 @@ function PurchaseInvoice() {
                             </div>
                           </div>
                           <div style={{ position: 'relative' }}>
-                            <button
+                            <MotionButton
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (openDropdownId === invoice._id) {
@@ -1219,7 +1241,7 @@ function PurchaseInvoice() {
                               title="Actions"
                             >
                               <MoreVertical size={16} />
-                            </button>
+                            </MotionButton>
                           </div>
                         </div>
 
@@ -1315,7 +1337,7 @@ function PurchaseInvoice() {
                             </td>
                             <td style={{ padding: '0.5rem 0.375rem' }}>
                               <div style={{ position: 'relative' }}>
-                                <button
+                                <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (openDropdownId === invoice._id) {
@@ -1346,7 +1368,7 @@ function PurchaseInvoice() {
                                   title="Actions"
                                 >
                                   <MoreVertical size={16} />
-                                </button>
+                                </MotionButton>
                               </div>
                             </td>
                           </tr>
@@ -1367,7 +1389,7 @@ function PurchaseInvoice() {
                   marginTop: '1.5rem',
                   flexWrap: 'wrap'
                 }}>
-                  <button
+                  <MotionButton
                     onClick={() => fetchInvoices(currentPage - 1, searchQuery)}
                     disabled={currentPage === 1}
                     style={{
@@ -1382,10 +1404,10 @@ function PurchaseInvoice() {
                     }}
                   >
                     Previous
-                  </button>
+                  </MotionButton>
                   
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
+                    <MotionButton
                       key={page}
                       onClick={() => fetchInvoices(page, searchQuery)}
                       disabled={page === currentPage}
@@ -1401,10 +1423,10 @@ function PurchaseInvoice() {
                       }}
                     >
                       {page}
-                    </button>
+                    </MotionButton>
                   ))}
                   
-                  <button
+                  <MotionButton
                     onClick={() => fetchInvoices(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
                     style={{
@@ -1419,7 +1441,7 @@ function PurchaseInvoice() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>
@@ -1427,8 +1449,9 @@ function PurchaseInvoice() {
         </div>
       )}
 
-      {infoOpen && (
-        <div
+      <AnimatePresence>
+        {infoOpen && (
+        <motion.div
           style={{
             position: 'fixed',
             inset: 0,
@@ -1439,11 +1462,15 @@ function PurchaseInvoice() {
             justifyContent: 'center',
             padding: '1rem'
           }}
+          initial={overlayMotion.initial}
+          animate={overlayMotion.animate}
+          exit={overlayMotion.exit}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeInfo()
           }}
         >
-          <div
+          <motion.div
             className="card"
             style={{
               width: 'min(700px, 96vw)',
@@ -1451,6 +1478,10 @@ function PurchaseInvoice() {
               overflow: 'auto',
               padding: '1.25rem'
             }}
+            initial={modalMotion.initial}
+            animate={modalMotion.animate}
+            exit={modalMotion.exit}
+            transition={{ duration: 0.24, ease: 'easeOut' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
               <div>
@@ -1460,7 +1491,7 @@ function PurchaseInvoice() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={refreshInfo}
                   disabled={infoLoading}
@@ -1476,15 +1507,15 @@ function PurchaseInvoice() {
                   title="Refresh"
                 >
                   <RotateCcw size={18} />
-                </button>
-                <button
+                </MotionButton>
+                <MotionButton
                   type="button"
                   onClick={closeInfo}
                   style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                   title="Close"
                 >
                   <X size={18} />
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -1587,9 +1618,10 @@ function PurchaseInvoice() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownInvoice && (
@@ -1608,7 +1640,7 @@ function PurchaseInvoice() {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               setInfoInvoice(dropdownInvoice);
@@ -1633,8 +1665,8 @@ function PurchaseInvoice() {
           >
             <Eye size={14} />
             View
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               handleEditInvoice(dropdownInvoice);
@@ -1658,8 +1690,8 @@ function PurchaseInvoice() {
           >
             <Edit2 size={14} />
             Edit
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               generatePurchaseInvoicePDF(dropdownInvoice);
@@ -1683,9 +1715,9 @@ function PurchaseInvoice() {
           >
             <span>📄</span>
             PDF
-          </button>
+          </MotionButton>
           {isAdmin && (
-            <button
+            <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteInvoice(dropdownInvoice._id);
@@ -1709,14 +1741,15 @@ function PurchaseInvoice() {
             >
               <Trash2 size={14} />
               Delete
-            </button>
+            </MotionButton>
           )}
         </div>
       )}
 
       {/* PDF Viewer Modal */}
-      {pdfViewerOpen && pdfBlobUrl && (
-        <div
+      <AnimatePresence>
+        {pdfViewerOpen && pdfBlobUrl && (
+        <motion.div
           style={{
             position: 'fixed',
             inset: 0,
@@ -1725,10 +1758,14 @@ function PurchaseInvoice() {
             display: 'flex',
             flexDirection: 'column'
           }}
+          initial={overlayMotion.initial}
+          animate={overlayMotion.animate}
+          exit={overlayMotion.exit}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
           onClick={() => setPdfViewerOpen(false)}
         >
           {/* Header */}
-          <div
+          <motion.div
             style={{
               background: '#f8fafc',
               borderBottom: '1px solid #e5e7eb',
@@ -1739,10 +1776,14 @@ function PurchaseInvoice() {
               color: '#1f2937',
               boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
             }}
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <button
+              <MotionButton
                 onClick={() => setPdfViewerOpen(false)}
                 style={{
                   background: 'rgba(0,0,0,0.05)',
@@ -1758,12 +1799,12 @@ function PurchaseInvoice() {
                 }}
               >
                 <X size={24} />
-              </button>
+              </MotionButton>
               <div>
                 <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
               </div>
             </div>
-            <button
+            <MotionButton
               onClick={handleDownloadPdf}
               style={{
                 background: 'rgba(0,0,0,0.05)',
@@ -1782,11 +1823,18 @@ function PurchaseInvoice() {
             >
               <span>⬇️</span>
               Download
-            </button>
-          </div>
+            </MotionButton>
+          </motion.div>
 
           {/* PDF Viewer */}
-          <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+          <motion.div
+            style={{ flex: 1, overflow: 'hidden' }}
+            initial={{ opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.985 }}
+            transition={{ duration: 0.24, ease: 'easeOut' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <iframe
               src={pdfBlobUrl}
               style={{
@@ -1796,9 +1844,10 @@ function PurchaseInvoice() {
               }}
               title={pdfFileName}
             />
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
     </div>
   );

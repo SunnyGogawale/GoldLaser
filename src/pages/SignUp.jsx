@@ -12,6 +12,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+import MotionButton from '../components/MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
@@ -60,9 +61,9 @@ const SignUp = ({ theme, toggleTheme }) => {
   return (
     <div className="login-page-container">
       {/* Theme Toggle Button */}
-      <button className="theme-toggle-btn" onClick={toggleTheme}>
+      <MotionButton className="theme-toggle-btn" onClick={toggleTheme}>
         {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-      </button>
+      </MotionButton>
 
       <div className="login-bg-blur">
         <div className="blur-circle primary"></div>
@@ -125,13 +126,13 @@ const SignUp = ({ theme, toggleTheme }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   required 
                 />
-                <button 
+                <MotionButton 
                   type="button" 
                   className="password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -145,26 +146,26 @@ const SignUp = ({ theme, toggleTheme }) => {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required 
                 />
-                <button 
+                <MotionButton 
                   type="button" 
                   className="password-toggle"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                </MotionButton>
               </div>
               {confirmPassword && password !== confirmPassword && (
                 <span className="error-message">Passwords do not match</span>
               )}
             </div>
 
-            <button 
+            <MotionButton 
               type="submit" 
               className="login-submit-btn"
               disabled={!isPasswordMatch || loading}
             >
               {loading ? 'Creating Account...' : 'Create Account'}
-            </button>
+            </MotionButton>
 
             <div className="login-footer">
               <span>Already have an account?</span>

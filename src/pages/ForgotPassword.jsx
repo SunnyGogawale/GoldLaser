@@ -8,6 +8,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+import MotionButton from '../components/MotionButton'
 
 const ForgotPassword = ({ theme, toggleTheme }) => {
   const navigate = useNavigate();
@@ -22,9 +23,9 @@ const ForgotPassword = ({ theme, toggleTheme }) => {
   return (
     <div className="login-page-container">
       {/* Theme Toggle Button */}
-      <button className="theme-toggle-btn" onClick={toggleTheme}>
+      <MotionButton className="theme-toggle-btn" onClick={toggleTheme}>
         {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-      </button>
+      </MotionButton>
 
       <div className="login-bg-blur">
         <div className="blur-circle primary"></div>
@@ -52,9 +53,9 @@ const ForgotPassword = ({ theme, toggleTheme }) => {
               </div>
             </div>
 
-            <button type="submit" className="login-submit-btn">
+            <MotionButton type="submit" className="login-submit-btn">
               Send Reset Link
-            </button>
+            </MotionButton>
 
             <div className="login-footer">
               <Link to="/login" className="signup-link" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>

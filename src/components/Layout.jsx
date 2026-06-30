@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react'
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import { Outlet, useNavigate, useLocation, useOutlet } from 'react-router-dom'
 import { 
   LayoutDashboard, 
   FileText, 
   Users, 
-  HandCoins, 
   User,
   LogOut,
   Moon,
@@ -17,12 +17,15 @@ import {
   ClipboardCheck
 } from 'lucide-react'
 import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue } from '../utils/authStorage'
+import { modalMotionProps, overlayMotionProps } from './PageTransition'
+import MotionButton from './MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
 function Layout({ setIsLoggedIn, theme, toggleTheme }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const outlet = useOutlet()
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
@@ -333,7 +336,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     <div className="app-container">
       <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-show' : ''}`} aria-label="Sidebar Navigation">
         <div className="sidebar-header">
-          <button
+          <MotionButton
             type="button"
             className={`nav-item sidebar-toggle-btn sidebar-brand ${isSidebarCollapsed ? 'is-collapsed' : ''}`}
             onClick={() => {
@@ -348,7 +351,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
           >
             <div className="logo-icon">G</div>
             {!isSidebarCollapsed && <span className="sidebar-brand-text">GoldFlow</span>}
-          </button>
+          </MotionButton>
         </div>
 
         <nav className="sidebar-nav" aria-label="Primary">
@@ -358,7 +361,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                 <div className="nav-section-label">{section.label}</div>
               )}
               {section.items.map((item) => (
-                <button
+                <MotionButton
                   key={item.id}
                   type="button"
                   className={`nav-item ${location.pathname === item.id ? 'active' : ''}`}
@@ -370,14 +373,14 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                 >
                   {item.icon}
                   {!isSidebarCollapsed && <span>{item.label}</span>}
-                </button>
+                </MotionButton>
               ))}
             </div>
           ))}
         </nav>
 
         <div className="sidebar-footer">
-          <button
+          <MotionButton
             type="button"
             className="nav-item logout-btn"
             onClick={() => {
@@ -389,11 +392,19 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
           >
             <LogOut size={20} />
             {!isSidebarCollapsed && <span>Logout</span>}
-          </button>
+          </MotionButton>
         </div>
       </aside>
 
-      {isMobileMenuOpen && <div className="mobile-overlay" onClick={() => setIsMobileMenuOpen(false)} />}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            className="mobile-overlay"
+            onClick={() => setIsMobileMenuOpen(false)}
+            {...overlayMotionProps}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Main Content Container */}
       <div className="main-content">
@@ -401,7 +412,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         <header className="header">
           <div className="header-title">
             {/* Mobile menu toggle */}
-            <button 
+            <MotionButton 
               className="menu-toggle mobile-only"
               onClick={() => {
                 setIsMobileMenuOpen((v) => {
@@ -414,7 +425,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
               aria-label="Toggle menu"
             >
               <Menu size={24} />
-            </button>
+            </MotionButton>
             <h2 style={{ color: 'var(--text-header)', margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>
               {pageTitle}
             </h2>
@@ -422,7 +433,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
           
           <div className="header-actions">
             {/* Theme Toggle */}
-            <button 
+            <MotionButton 
               onClick={toggleTheme}
               title="Toggle theme"
               style={{
@@ -440,10 +451,10 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
               onMouseOut={(e) => e.currentTarget.style.background = 'none'}
             >
               {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
+            </MotionButton>
             
             <div style={{ position: 'relative' }}>
-              <button
+              <MotionButton
                 type="button"
                 className="user-avatar-btn"
                 title="Account"
@@ -467,10 +478,11 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                 }}
               >
                 {userAvatarLetter}
-              </button>
+              </MotionButton>
 
-              {isProfileMenuOpen && (
-                <div
+              <AnimatePresence>
+                {isProfileMenuOpen && (
+                <motion.div
                   className="user-avatar-menu"
                   style={{
                     position: 'absolute',
@@ -484,8 +496,12 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                     padding: '0.5rem',
                     zIndex: 1000
                   }}
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
                 >
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={() => {
                       openSettings()
@@ -509,8 +525,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                   >
                     <Settings size={16} />
                     Setting
-                  </button>
-                  <button
+                  </MotionButton>
+                  <MotionButton
                     type="button"
                     onClick={() => {
           clearAuthSession()
@@ -537,15 +553,17 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                   >
                     <LogOut size={16} />
                     Logout
-                  </button>
-                </div>
+                  </MotionButton>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
           </div>
         </header>
 
-        {isSettingsOpen && (
-          <div
+        <AnimatePresence>
+          {isSettingsOpen && (
+          <motion.div
             style={{
               position: 'fixed',
               inset: 0,
@@ -556,11 +574,12 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
               justifyContent: 'center',
               padding: '1rem'
             }}
+            {...overlayMotionProps}
             onClick={(e) => {
               if (e.target === e.currentTarget) closeSettings()
             }}
           >
-            <div
+            <motion.div
               className="card"
               style={{
                 width: 'min(520px, 96vw)',
@@ -569,17 +588,18 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                 padding: '1rem',
                 fontSize: '0.875rem'
               }}
+              {...modalMotionProps}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ fontSize: '0.95rem', fontWeight: 900, color: 'var(--text-header)' }}>Settings</div>
-                <button
+                <MotionButton
                   type="button"
                   onClick={closeSettings}
                   style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 8, padding: '0.35rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                   title="Close"
                 >
                   <X size={18} />
-                </button>
+                </MotionButton>
               </div>
 
               <div style={{ marginTop: '1rem' }}>
@@ -627,7 +647,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                 </div>
 
                 <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={saveProfile}
                     disabled={settingsLoading || profileSaving}
@@ -645,7 +665,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                     }}
                   >
                     {profileSaving ? 'Saving...' : 'Save'}
-                  </button>
+                  </MotionButton>
                 </div>
               </div>
 
@@ -712,7 +732,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                 </div>
 
                 <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={closeSettings}
                     disabled={passwordSaving}
@@ -730,8 +750,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                     }}
                   >
                     Cancel
-                  </button>
-                  <button
+                  </MotionButton>
+                  <MotionButton
                     type="button"
                     onClick={changePassword}
                     disabled={passwordSaving}
@@ -749,16 +769,28 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                     }}
                   >
                     {passwordSaving ? 'Saving...' : 'Update Password'}
-                  </button>
+                  </MotionButton>
                 </div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Page Content */}
         <div className="page-content">
-          <Outlet />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -12, filter: 'blur(4px)' }}
+              transition={{ duration: 0.24, ease: 'easeOut' }}
+              style={{ minHeight: '100%' }}
+            >
+              {outlet || <Outlet />}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </div>

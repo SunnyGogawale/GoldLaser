@@ -3,6 +3,7 @@ import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical } fr
 import EmptyDataCard from '../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
+import MotionButton from '../components/MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/payments`
@@ -537,7 +538,7 @@ function Payment() {
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
-        <button
+        <MotionButton
           type="button"
           onClick={openCreatePayment}
           disabled={loading}
@@ -555,7 +556,7 @@ function Payment() {
           }}
         >
           Add Payment
-        </button>
+        </MotionButton>
       </div>
 
       {formOpen && (
@@ -595,7 +596,7 @@ function Payment() {
                   Payment No : {paymentForm.paymentNumber || 'xxxx'}
                 </div>
                 {/* {editingPaymentId && (
-                  <button
+                  <MotionButton
                     onClick={handleCancelEdit}
                     disabled={loading}
                     className="btn btn-secondary"
@@ -603,9 +604,9 @@ function Payment() {
                   >
                     <X size={16} />
                     Cancel
-                  </button>
+                  </MotionButton>
                 )} */}
-                <button
+                <MotionButton
                   type="button"
                   onClick={closePaymentForm}
                   disabled={loading}
@@ -628,7 +629,7 @@ function Payment() {
                 >
                   <X size={16} />
                   {/* Close */}
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -938,7 +939,7 @@ function Payment() {
 
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                 {!editingPaymentId && (
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={async () => {
                       setPaymentForm({
@@ -972,9 +973,9 @@ function Payment() {
                     }}
                   >
                     <RotateCcw size={14} /> Reset
-                  </button>
+                  </MotionButton>
                 )}
-                <button
+                <MotionButton
                   type="submit"
                   disabled={loading}
                   style={{
@@ -993,7 +994,7 @@ function Payment() {
                 >
                   <Save size={14} />
                   {loading ? 'Saving...' : editingPaymentId ? 'Update Payment' : 'Save Payment'}
-                </button>
+                </MotionButton>
               </div>
             </form>
           </div>
@@ -1082,7 +1083,7 @@ function Payment() {
                             </div>
                           </div>
                           <div style={{ position: 'relative' }}>
-                            <button
+                            <MotionButton
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (openDropdownId === payment._id) {
@@ -1113,7 +1114,7 @@ function Payment() {
                               title="Actions"
                             >
                               <MoreVertical size={16} />
-                            </button>
+                            </MotionButton>
 
                           </div>
                         </div>
@@ -1208,7 +1209,7 @@ function Payment() {
                             </td>
                             <td style={{ padding: '0.5rem 0.375rem' }}>
                               <div style={{ position: 'relative' }}>
-                                <button
+                                <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (openDropdownId === payment._id) {
@@ -1239,7 +1240,7 @@ function Payment() {
                                   title="Actions"
                                 >
                                   <MoreVertical size={16} />
-                                </button>
+                                </MotionButton>
 
                               </div>
                             </td>
@@ -1261,7 +1262,7 @@ function Payment() {
                   marginTop: '1.5rem',
                   flexWrap: 'wrap'
                 }}>
-                  <button
+                  <MotionButton
                     onClick={() => fetchPayments(currentPage - 1, searchQuery)}
                     disabled={currentPage === 1}
                     style={{
@@ -1276,10 +1277,10 @@ function Payment() {
                     }}
                   >
                     Previous
-                  </button>
+                  </MotionButton>
 
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
+                    <MotionButton
                       key={page}
                       onClick={() => fetchPayments(page, searchQuery)}
                       disabled={page === currentPage}
@@ -1295,10 +1296,10 @@ function Payment() {
                       }}
                     >
                       {page}
-                    </button>
+                    </MotionButton>
                   ))}
 
-                  <button
+                  <MotionButton
                     onClick={() => fetchPayments(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
                     style={{
@@ -1313,7 +1314,7 @@ function Payment() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>
@@ -1354,7 +1355,7 @@ function Payment() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={refreshInfo}
                   disabled={infoLoading}
@@ -1370,15 +1371,15 @@ function Payment() {
                   title="Refresh"
                 >
                   <RotateCcw size={18} />
-                </button>
-                <button
+                </MotionButton>
+                <MotionButton
                   type="button"
                   onClick={closeInfo}
                   style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                   title="Close"
                 >
                   <X size={18} />
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -1517,7 +1518,7 @@ function Payment() {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               setInfoPayment(dropdownPayment);
@@ -1542,8 +1543,8 @@ function Payment() {
           >
             <Eye size={14} />
             View
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               handleEditPayment(dropdownPayment);
@@ -1567,8 +1568,8 @@ function Payment() {
           >
             <Edit2 size={14} />
             Edit
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               alert('PDF feature coming soon!');
@@ -1592,9 +1593,9 @@ function Payment() {
           >
             <span>📄</span>
             PDF
-          </button>
+          </MotionButton>
           {isAdmin && (
-            <button
+            <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeletePayment(dropdownPayment._id);
@@ -1618,7 +1619,7 @@ function Payment() {
             >
               <Trash2 size={14} />
               Delete
-            </button>
+            </MotionButton>
           )}
         </div>
       )}

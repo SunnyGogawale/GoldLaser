@@ -30,6 +30,7 @@ import {
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
+import MotionButton from '../components/MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -686,14 +687,14 @@ function Dashboard() {
                     </td>
                     <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        <button
+                        <MotionButton
                           type="button"
                           onClick={() => openCustomerModal(c)}
                           style={{ padding: '0.35rem', border: '1px solid var(--border)', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
                           title="View"
                         >
                           <Eye size={16} />
-                        </button>
+                        </MotionButton>
                       </div>
                     </td>
                   </tr>
@@ -733,14 +734,14 @@ function Dashboard() {
               <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 Profile Summary
               </div>
-              <button
+              <MotionButton
                 type="button"
                 onClick={closeCustomerModal}
                 style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 8, padding: '0.35rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                 title="Close"
               >
                 <X size={18} />
-              </button>
+              </MotionButton>
             </div>
 
             <div style={{ marginTop: '1rem' }}>
@@ -851,7 +852,7 @@ function Dashboard() {
 
               {customerModalSalesTotalPages > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.9rem', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button
+                  <MotionButton
                     type="button"
                     disabled={customerModalSalesPage <= 1 || customerModalSalesLoading}
                     onClick={() => {
@@ -870,8 +871,8 @@ function Dashboard() {
                     }}
                   >
                     Previous
-                  </button>
-                  <button
+                  </MotionButton>
+                  <MotionButton
                     type="button"
                     disabled={customerModalSalesPage >= customerModalSalesTotalPages || customerModalSalesLoading}
                     onClick={() => {
@@ -890,7 +891,7 @@ function Dashboard() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>

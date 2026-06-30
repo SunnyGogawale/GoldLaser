@@ -3,6 +3,7 @@ import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical } fr
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
+import MotionButton from '../components/MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/customers`
@@ -751,7 +752,7 @@ function Customer() {
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
-        <button
+        <MotionButton
           type="button"
           onClick={openCreateCustomer}
           disabled={loading}
@@ -769,7 +770,7 @@ function Customer() {
           }}
         >
           Add Customer
-        </button>
+        </MotionButton>
       </div>
 
       {formOpen && (
@@ -816,7 +817,7 @@ function Customer() {
                 >
                   Customer ID : {customerForm.id || 'xxxx'}
                 </div>
-                <button
+                <MotionButton
                   type="button"
                   onClick={closeCustomerForm}
                   disabled={loading}
@@ -838,7 +839,7 @@ function Customer() {
                 >
                   <X size={16} />
                   {/* Close */}
-                </button>
+                </MotionButton>
               </div>
             </div>
             <form onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1088,7 +1089,7 @@ function Customer() {
                 {isAdmin && !editingCustomerId && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1rem' }}>Custom Fields</h3>
-                    <button
+                    <MotionButton
                       type="button"
                       onClick={addCustomField}
                       disabled={loading}
@@ -1106,7 +1107,7 @@ function Customer() {
                       }}
                     >
                       Add Field
-                    </button>
+                    </MotionButton>
                   </div>
                 )}
                 
@@ -1121,7 +1122,7 @@ function Customer() {
                         {/* Only show edit/delete buttons for custom fields when NOT editing customer */}
                         {isAdmin && !editingCustomerId && (
                           <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                            <button
+                            <MotionButton
                               type="button"
                               onClick={() => {
                                 setEditingFieldIndex(index)
@@ -1147,8 +1148,8 @@ function Customer() {
                               }}
                             >
                               <Edit2 size={16} />
-                            </button>
-                            <button
+                            </MotionButton>
+                            <MotionButton
                               type="button"
                               onClick={() => removeCustomField(index, field.key)}
                               disabled={loading}
@@ -1169,7 +1170,7 @@ function Customer() {
                               }}
                             >
                               <X size={18} />
-                            </button>
+                            </MotionButton>
                           </div>
                         )}
                       </div>
@@ -1198,7 +1199,7 @@ function Customer() {
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-                <button
+                <MotionButton
                   type="submit"
                   disabled={loading}
                   style={{
@@ -1219,9 +1220,9 @@ function Customer() {
                 >
                   <Save size={16} />
                   {loading ? 'Saving...' : editingCustomerId ? 'Update Customer' : 'Save Customer'}
-                </button>
+                </MotionButton>
                 {!editingCustomerId && (
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={async () => {
                       // Reset custom fields array with permanent field names
@@ -1268,7 +1269,7 @@ function Customer() {
                   >
                     <RotateCcw size={16} />
                     Reset
-                  </button>
+                  </MotionButton>
                 )}
               </div>
             </form>
@@ -1304,7 +1305,7 @@ function Customer() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, color: 'var(--text-header)' }}>Add Custom Field</h3>
-              <button
+              <MotionButton
                 type="button"
                 onClick={() => setAddFieldPopupOpen(false)}
                 style={{
@@ -1316,7 +1317,7 @@ function Customer() {
                 }}
               >
                 <X size={20} />
-              </button>
+              </MotionButton>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1371,7 +1372,7 @@ function Customer() {
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={() => setAddFieldPopupOpen(false)}
                   style={{
@@ -1387,8 +1388,8 @@ function Customer() {
                   }}
                 >
                   Cancel
-                </button>
-                <button
+                </MotionButton>
+                <MotionButton
                   type="button"
                   onClick={saveNewCustomField}
                   disabled={!newFieldName.trim()}
@@ -1406,7 +1407,7 @@ function Customer() {
                   }}
                 >
                   Add Field
-                </button>
+                </MotionButton>
               </div>
             </div>
           </div>
@@ -1441,7 +1442,7 @@ function Customer() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, color: 'var(--text-header)' }}>Edit Custom Field</h3>
-              <button
+              <MotionButton
                 type="button"
                 onClick={() => setEditFieldPopupOpen(false)}
                 style={{
@@ -1453,7 +1454,7 @@ function Customer() {
                 }}
               >
                 <X size={20} />
-              </button>
+              </MotionButton>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1484,7 +1485,7 @@ function Customer() {
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={() => setEditFieldPopupOpen(false)}
                   style={{
@@ -1500,8 +1501,8 @@ function Customer() {
                   }}
                 >
                   Cancel
-                </button>
-                <button
+                </MotionButton>
+                <MotionButton
                   type="button"
                   onClick={renameCustomField}
                   disabled={!editingFieldNewName.trim() || editingFieldNewName.trim() === editingFieldOldName}
@@ -1519,7 +1520,7 @@ function Customer() {
                   }}
                 >
                   Rename
-                </button>
+                </MotionButton>
               </div>
             </div>
           </div>
@@ -1612,7 +1613,7 @@ function Customer() {
                             )}
                           </div>
                           <div style={{ position: 'relative' }}>
-                            <button
+                            <MotionButton
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (openDropdownId === customer._id) {
@@ -1644,7 +1645,7 @@ function Customer() {
                               title="Actions"
                             >
                               <MoreVertical size={16} />
-                            </button>
+                            </MotionButton>
 
                           </div>
                         </div>
@@ -1768,7 +1769,7 @@ function Customer() {
                             ))}
                             <td style={{ padding: '0.5rem 0.375rem' }}>
                               <div style={{ position: 'relative' }}>
-                                <button
+                                <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (openDropdownId === customer._id) {
@@ -1800,7 +1801,7 @@ function Customer() {
                                   title="Actions"
                                 >
                                   <MoreVertical size={16} />
-                                </button>
+                                </MotionButton>
                               </div>
                             </td>
                           </tr>
@@ -1821,7 +1822,7 @@ function Customer() {
                   marginTop: '1.5rem',
                   flexWrap: 'wrap'
                 }}>
-                  <button
+                  <MotionButton
                     onClick={() => fetchCustomers(currentPage - 1, searchQuery)}
                     disabled={currentPage === 1}
                     style={{
@@ -1836,10 +1837,10 @@ function Customer() {
                     }}
                   >
                     Previous
-                  </button>
+                  </MotionButton>
 
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
+                    <MotionButton
                       key={page}
                       onClick={() => fetchCustomers(page, searchQuery)}
                       disabled={page === currentPage}
@@ -1855,10 +1856,10 @@ function Customer() {
                       }}
                     >
                       {page}
-                    </button>
+                    </MotionButton>
                   ))}
 
-                  <button
+                  <MotionButton
                     onClick={() => fetchCustomers(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
                     style={{
@@ -1873,7 +1874,7 @@ function Customer() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>
@@ -1914,14 +1915,14 @@ function Customer() {
                 </div> */}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={closeInfo}
                   style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                   title="Close"
                 >
                   <X size={18} />
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -2155,7 +2156,7 @@ function Customer() {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               setInfoCustomer(dropdownCustomer);
@@ -2180,8 +2181,8 @@ function Customer() {
           >
             <Eye size={14} />
             View
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               handleEditCustomer(dropdownCustomer);
@@ -2205,8 +2206,8 @@ function Customer() {
           >
             <Edit2 size={14} />
             Edit
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               alert('PDF feature coming soon!');
@@ -2230,9 +2231,9 @@ function Customer() {
           >
             <span>📄</span>
             PDF
-          </button>
+          </MotionButton>
           {isAdmin && (
-            <button
+            <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteCustomer(dropdownCustomer._id);
@@ -2256,7 +2257,7 @@ function Customer() {
             >
               <Trash2 size={14} />
               Delete
-            </button>
+            </MotionButton>
           )}
         </div>
       )}
