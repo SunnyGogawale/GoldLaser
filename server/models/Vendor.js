@@ -53,11 +53,19 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  alternateNumber: {
+    type: String,
+    default: ''
+  },
   email: {
     type: String,
     default: ''
   },
   address: {
+    type: String,
+    default: ''
+  },
+  shippingAddress: {
     type: String,
     default: ''
   },

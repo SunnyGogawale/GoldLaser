@@ -448,8 +448,10 @@ router.post('/', async (req, res) => {
       vendorName,
       companyName,
       contactNumber: req.body.contactNumber,
+      alternateNumber: req.body.alternateNumber,
       email: req.body.email,
       address: req.body.address,
+      shippingAddress: req.body.shippingAddress,
       note: req.body.note,
       customFields: req.body.customFields || {},
       createdBy: authUser?.id || null,
@@ -518,7 +520,7 @@ router.put('/:id', async (req, res) => {
       recordChange(key, existing[key], update[key]);
     }
 
-    const updateOp = {
+    const updateOp = { 
       $set: update,
       $push: {
         activity: {
