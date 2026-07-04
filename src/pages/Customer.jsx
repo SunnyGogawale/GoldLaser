@@ -1031,12 +1031,7 @@ function Customer() {
 
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                 
-
-
                 
-
-                
-
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
                     <span>Email <span style={{ color: 'var(--danger)' }}>*</span></span>
@@ -2091,16 +2086,30 @@ function Customer() {
                   <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer?.contactNumber || '-'}</div>
                 </div>
                 <div style={{ flex: '1 1 200px' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Alternate Contact Number</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer?.alternateNumber || '-'}</div>
+                </div>
+
+                <div style={{ flex: '1 1 200px' }}>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Email</div>
                   <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer?.email || '-'}</div>
                 </div>
               </div>
+
+
               {infoCustomer?.address && (
                 <div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Address</div>
                   <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer.address}</div>
                 </div>
               )}
+              {infoCustomer?.shippingAddress && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Shipping Address</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoCustomer.shippingAddress}</div>
+                </div>
+              )}
+
               {infoCustomer?.note && (
                 <div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Note</div>

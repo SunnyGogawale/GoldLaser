@@ -628,10 +628,10 @@ function Vendor() {
         vendorName: fullVendor.vendorName || '',
         companyName: fullVendor.companyName || '',
         contactNumber: fullVendor.contactNumber,
-        alternateNumber: fullVendor.alternateNumber || '',
+        alternateNumber: fullVendor.alternateNumber,
         email: fullVendor.email,
         address: fullVendor.address,
-        shippingAddress: fullVendor.shippingAddress || '',
+        shippingAddress: fullVendor.shippingAddress,
         note: fullVendor.note,
         customFields
       })
@@ -940,6 +940,7 @@ function Vendor() {
               </div>
 
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
                     <span>Contact Number <span style={{ color: 'var(--danger)' }}>*</span></span>
@@ -984,11 +985,11 @@ function Vendor() {
 
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Alternate Contact Number<span style={{ color: 'var(--danger)' }}></span></span>
+                    <span>Alternate Number <span style={{ color: 'var(--danger)' }}>*</span></span>
                   </label>
                   <input
                     type="tel"
-                    name="alternatecontactNumber"
+                    name="alternateNumber"
                     value={vendorForm.alternateNumber}
                     onChange={handleVendorInputChange}
                     disabled={loading}
@@ -1007,7 +1008,7 @@ function Vendor() {
                       outline: 'none',
                       boxShadow: errors.alternateNumber ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
                     }}
-                    placeholder="Enter alternate contact number"
+                    placeholder="Enter contact number"
                   />
                   {formSubmitted && errors.alternateNumber && (
                     <p style={{
@@ -1025,9 +1026,12 @@ function Vendor() {
                 </div>
 
                 
+
+                
               </div>
 
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+
 
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
@@ -1104,6 +1108,8 @@ function Vendor() {
 
 
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+
+
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
                     <span>Address <span style={{ color: 'var(--danger)' }}>*</span></span>
@@ -1146,17 +1152,18 @@ function Vendor() {
                   )}
                 </div>
 
+
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Shipping Address<span style={{ color: 'var(--danger)' }}></span></span>
+                    <span>Shipping Address <span style={{ color: 'var(--danger)' }}></span></span>
                   </label>
                   <textarea
-                    name="Shipping address"
+                    name="shippingAddress"
                     value={vendorForm.shippingAddress}
                     onChange={handleVendorInputChange}
                     rows={3}
                     disabled={loading}
-                    autoComplete="shipping-address"
+                    autoComplete="shipp-address"
                     style={{
                       width: '100%',
                       padding: '0.75rem 1rem',
@@ -1171,7 +1178,7 @@ function Vendor() {
                       outline: 'none',
                       boxShadow: errors.shippingAddress ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
                     }}
-                    placeholder="Enter vendor shipping address"
+                    placeholder="Enter Shipping address"
                   ></textarea>
                   {formSubmitted && errors.shippingAddress && (
                     <p style={{
@@ -1188,6 +1195,9 @@ function Vendor() {
                   )}
                 </div>
 
+
+
+                
                 
               </div>
 
@@ -1349,8 +1359,10 @@ function Vendor() {
                         vendorName: '',
                         companyName: '',
                         contactNumber: '',
+                        alternateNumber: '',
                         email: '',
                         address: '',
+                        shippingAddress: '',
                         note: '',
                         customFields: initialCustomFields
                       });
@@ -2051,6 +2063,11 @@ function Vendor() {
                   <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.contactNumber || '-'}</div>
                 </div>
                 <div style={{ flex: '1 1 200px' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Alternate Contact Number</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.alternateNumber || '-'}</div>
+                </div>
+                
+                <div style={{ flex: '1 1 200px' }}>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Email</div>
                   <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.email || '-'}</div>
                 </div>
@@ -2059,6 +2076,13 @@ function Vendor() {
                 <div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Address</div>
                   <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor.address}</div>
+                </div>
+              )}
+
+              {infoVendor?.shippingAddress && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Shipping Address</div>
+                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor.shippingAddress}</div>
                 </div>
               )}
               {infoVendor?.note && (
