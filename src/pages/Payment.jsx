@@ -6,6 +6,8 @@ import { readJsonResponse } from '../utils/api'
 import MotionButton from '../components/MotionButton'
 import ActionMenuPortal from '../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../utils/dropdownPosition'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/payments`
@@ -75,6 +77,21 @@ function Payment() {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [dropdownUp, setDropdownUp] = useState(false)
   const dropdownRef = useRef(null)
+  const [companySettings, setCompanySettings] = useState({
+    companyName: '',
+    companyAddress: '',
+    companyEmail: '',
+    companyContactNumber: '',
+    bankDetails: {
+      bankName: '',
+      bankAddress: '',
+      accountNumber: '',
+      ifscCode: ''
+    }
+  })
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
+  const [pdfFileName, setPdfFileName] = useState('payment.pdf')
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -260,6 +277,21 @@ function Payment() {
       setTotalPending(0)
     }
   }
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/company-settings`)
+        if (res.ok) {
+          const data = await res.json()
+          setCompanySettings(data.settings)
+        }
+      } catch (err) {
+        console.error('Error fetching company settings:', err)
+      }
+    }
+    fetchSettings()
+  }, [])
 
   useEffect(() => {
     fetchCustomersList()
@@ -515,6 +547,276 @@ function Payment() {
       console.error('Error deleting payment:', err)
       alert(err.message || 'Error deleting payment!')
     }
+  }
+
+  const generatePaymentPDF = (payment) => {
+    const doc = new jsPDF({
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    })
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const pageHeight = doc.internal.pageSize.getHeight()
+    const marginLeft = 15
+    const marginRight = 15
+    let y = 20
+
+    // --- Header ---
+    doc.setLineWidth(0.5)
+    doc.setDrawColor(0, 0, 0) // Black border
+    doc.setFillColor(255, 255, 255)
+    doc.setTextColor(0, 0, 0)
+    
+    // --- Top Section (Company Info & Logo) ---
+    doc.setFontSize(20)
+    doc.setFont('helvetica', 'bold')
+    doc.text('PAYMENT', marginLeft, y)
+    
+    // Company Info (Left)
+    y += 8
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text(companySettings.companyName || 'Company Name', marginLeft, y)
+    y += 5
+    doc.setFont('helvetica', 'normal')
+    doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y)
+    y += 5
+    doc.setFont('helvetica', 'bold')
+    doc.text(companySettings.companyEmail || 'Email', marginLeft, y)
+    y += 5
+    doc.setFont('helvetica', 'normal')
+    doc.text(companySettings.companyContactNumber || 'Contact No', marginLeft, y)
+    
+    // Logo Placeholder (Right)
+    const logoX = pageWidth - marginRight - 50
+    doc.setLineWidth(0.5)
+    doc.setDrawColor(0, 0, 0)
+    doc.rect(logoX, 20, 50, 30) // Logo box
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Company', logoX + 25, 32, { align: 'center' })
+    doc.text('Logo', logoX + 25, 42, { align: 'center' })
+    
+    // --- Bill To Section ---
+    y = 65
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Bill To:', marginLeft, y)
+    y += 6
+    const client = payment.vendorId
+    const isCustomer = client?.customerName
+    
+    const rightColX = pageWidth - marginRight - 80
+    // Client Name
+    doc.setFont('helvetica', 'bold')
+    doc.text('Name:', marginLeft, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(isCustomer ? client.customerName : (client?.vendorName || 'N/A'), marginLeft + 20, y)
+    
+    // Email in the same row on the right
+    if (isCustomer && client.email || !isCustomer && client?.email) {
+      doc.setFont('helvetica', 'bold')
+      doc.text('Email:', rightColX, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(isCustomer ? client.email : (client?.email || ''), rightColX + 15, y)
+    }
+    y += 5
+    
+    if (isCustomer) {
+      // Display customer details with bold titles
+      let hasCompanyOrPhone = false
+      if (client.companyName) {
+        doc.setFont('helvetica', 'bold')
+        doc.text('Company:', marginLeft, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(client.companyName, marginLeft + 20, y)
+        hasCompanyOrPhone = true
+      }
+      if (client.contactNumber) {
+        doc.setFont('helvetica', 'bold')
+        doc.text('Phone:', rightColX, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(client.contactNumber, rightColX + 15, y)
+        hasCompanyOrPhone = true
+      }
+      if (hasCompanyOrPhone) y += 5
+      
+      if (client.address) {
+        doc.setFont('helvetica', 'bold')
+        doc.text('Address:', marginLeft, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(client.address, marginLeft + 20, y)
+        y += 5
+      }
+      
+      if (client.alternateNumber) {
+        doc.setFont('helvetica', 'bold')
+        doc.text('Alt:', marginLeft, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(client.alternateNumber, marginLeft + 10, y)
+        y += 5
+      }
+    } else {
+      // Display vendor details with bold titles
+      let hasCompanyOrPhone = false
+      if (client?.companyName) {
+        doc.setFont('helvetica', 'bold')
+        doc.text('Company:', marginLeft, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(client.companyName, marginLeft + 20, y)
+        hasCompanyOrPhone = true
+      }
+      if (client?.contactNumber) {
+        doc.setFont('helvetica', 'bold')
+        doc.text('Phone:', rightColX, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(client.contactNumber, rightColX + 10, y)
+        hasCompanyOrPhone = true
+      }
+      if (hasCompanyOrPhone) y += 5
+      
+      if (client?.address) {
+        doc.setFont('helvetica', 'bold')
+        doc.text('Address:', marginLeft, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(client.address, marginLeft + 20, y)
+        y += 5
+      }
+    }
+    
+    // --- Payment Details ---
+    y += 5 // Add space before payment details
+    doc.setLineWidth(0.3)
+    doc.setDrawColor(150, 150, 150)
+    doc.line(marginLeft, y, pageWidth - marginRight, y)
+    y += 8
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Payment Details', marginLeft, y)
+    
+    const paymentNo = payment.paymentNumber || 'SP00001'
+    const formatDate = (dateStr) => {
+      const date = new Date(dateStr)
+      const day = String(date.getDate()).padStart(2, '0')
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const month = monthNames[date.getMonth()]
+      const year = date.getFullYear()
+      return `${day}-${month}-${year}`
+    }
+
+    const paymentDate = payment.paymentDate 
+      ? formatDate(payment.paymentDate)
+      : '05-Nov-2026'
+      
+    // Payment No
+    doc.setFont('helvetica', 'bold')
+    doc.text('Payment No:', marginLeft, y + 6)
+    doc.setFont('helvetica', 'normal')
+    doc.text(paymentNo, marginLeft + 25, y + 6)
+    
+    // Payment Date on next line
+    y += 5
+    doc.setFont('helvetica', 'bold')
+    doc.text('Payment Date:', marginLeft, y + 6)
+    doc.setFont('helvetica', 'normal')
+    doc.text(paymentDate, marginLeft + 25, y + 6)
+    
+    // --- Allocations Table ---
+    y += 15
+    const allocations = payment.allocations || []
+    const tableData = allocations.map((alloc, idx) => [
+      idx + 1,
+      alloc.invoiceNumber || '-',
+      (alloc.invoiceDate ? formatDate(alloc.invoiceDate) : '-'),
+      `${(parseFloat(alloc.amount) || 0).toLocaleString('en-IN')}/-`
+    ])
+    
+    autoTable(doc, {
+      startY: y,
+      head: [['Sr No', 'Invoice Number', 'Invoice Date', 'Amount']],
+      body: tableData,
+      theme: 'grid',
+      margin: { left: marginLeft, right: marginRight },
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold',
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3
+      },
+      bodyStyles: {
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3
+      },
+      alternateRowStyles: { fillColor: [255, 255, 255] },
+      columnStyles: {
+        0: { cellWidth: 15, halign: 'center' },
+        1: { cellWidth: 45, halign: 'left' },
+        2: { cellWidth: 45, halign: 'left' },
+        3: { cellWidth: 35, halign: 'right' }
+      }
+    })
+    
+    // --- Total ---
+    const finalY = doc.lastAutoTable?.finalY || y + 40
+    y = finalY + 5
+    const totalAmt = parseFloat(payment.amount) || 0
+    const totalAmtStr = totalAmt.toLocaleString('en-IN')
+    
+    doc.setLineWidth(0.5)
+    doc.setDrawColor(0, 0, 0)
+    doc.line(marginLeft, y, pageWidth - marginRight, y)
+    y += 8
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Total', pageWidth - marginRight - 60, y)
+    doc.text(`${totalAmtStr}/-`, pageWidth - marginRight, y, { align: 'right' })
+    
+    // --- Company Footer ---
+    y += 20
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text(companySettings.companyName || 'Company Name', marginLeft, y)
+    y += 5
+    doc.setFont('helvetica', 'normal')
+    doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y)
+    
+    // --- Bank Details ---
+    y += 20
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Bank Details', marginLeft, y)
+    y += 5
+    doc.setFont('helvetica', 'bold')
+    doc.text(companySettings.bankDetails?.bankName || 'Bank Name', marginLeft, y)
+    y += 4
+    doc.setFont('helvetica', 'normal')
+    doc.text(companySettings.bankDetails?.bankAddress || 'Bank Address', marginLeft, y)
+    y += 4
+    doc.setFont('helvetica', 'bold')
+    doc.text(companySettings.bankDetails?.accountNumber || 'A/c Number', marginLeft, y)
+    y += 4
+    doc.setFont('helvetica', 'normal')
+    doc.text(companySettings.bankDetails?.ifscCode || 'IFSC Code', marginLeft, y)
+
+    const blob = doc.output('blob')
+    const url = URL.createObjectURL(blob)
+    setPdfBlobUrl(url)
+    setPdfFileName(`payment_${payment.paymentNumber || 'unknown'}.pdf`)
+    setPdfViewerOpen(true)
+  }
+
+  const handleDownloadPdf = () => {
+    const a = document.createElement('a')
+    a.href = pdfBlobUrl
+    a.download = pdfFileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   const formatMoney = (value) =>
@@ -1531,8 +1833,33 @@ function Payment() {
               transition: 'all 0.2s'
             }}
           >
-            <Eye size={14} />
+            <Info size={14} />
             View
+          </MotionButton>
+          <MotionButton
+            onClick={(e) => {
+              e.stopPropagation();
+              generatePaymentPDF(dropdownPayment);
+              setOpenDropdownId(null);
+              setDropdownPayment(null);
+            }}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Eye size={14} />
+            View PDF
           </MotionButton>
           <MotionButton
             onClick={(e) => {
@@ -1613,6 +1940,95 @@ function Payment() {
           )}
           </div>
         </ActionMenuPortal>
+      )}
+
+      {/* PDF Viewer Modal */}
+      {pdfViewerOpen && pdfBlobUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 100000,
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+          onClick={() => setPdfViewerOpen(false)}
+        >
+          {/* Header */}
+          <div
+            style={{
+              background: '#f8fafc',
+              borderBottom: '1px solid #e5e7eb',
+              padding: '1rem 1.5rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: 0, color: '#1e293b' }}>{pdfFileName}</h3>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <MotionButton
+                onClick={handleDownloadPdf}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Download
+              </MotionButton>
+              <MotionButton
+                onClick={() => setPdfViewerOpen(false)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#e5e7eb',
+                  color: '#1e293b',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </MotionButton>
+            </div>
+          </div>
+
+          {/* PDF Content */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '1.5rem',
+              overflow: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={pdfBlobUrl}
+              style={{
+                width: '100%',
+                maxWidth: '900px',
+                height: '100%',
+                minHeight: '600px',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.25)'
+              }}
+              title="PDF Viewer"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

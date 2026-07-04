@@ -36,8 +36,21 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
   const [profileSaving, setProfileSaving] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordSaving, setPasswordSaving] = useState(false)
+  const [companyForm, setCompanyForm] = useState({ 
+    companyName: '', 
+    companyAddress: '', 
+    companyEmail: '', 
+    companyContactNumber: '',
+    bankDetails: {
+      bankName: '',
+      bankAddress: '',
+      accountNumber: '',
+      ifscCode: ''
+    } 
+  })
+  const [companySaving, setCompanySaving] = useState(false);
 
-  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
+  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin';
   const userFullName = (getAuthValue('userFullName') || '').trim()
   const userEmail = (getAuthValue('userEmail') || '').trim()
   const userRoleLabel = isAdmin ? 'Admin' : 'User'
@@ -147,39 +160,112 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     setProfileForm({ fullName: userFullName || '', email: userEmail || '' })
 
     const token = getAuthToken()
-    if (!token) return
 
     setSettingsLoading(true)
     try {
-      let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/api/users/me`, {
+      // Fetch user profile
+      if (token) {
+        let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
           headers: { Authorization: `Bearer ${token}` }
         })
-      }
-      if (!response.ok) {
-        if (response.status === 401) {
-          clearAuthSession()
-          setIsLoggedIn(false)
-          navigate('/login', { replace: true })
-          return
+        if (response.status === 404) {
+          response = await fetch(`${API_BASE_URL}/api/users/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
         }
-        const data = await response.json().catch(() => null)
-        throw new Error(data?.message || `Request failed (${response.status})`)
+        if (!response.ok) {
+          if (response.status === 401) {
+            clearAuthSession()
+            setIsLoggedIn(false)
+            navigate('/login', { replace: true })
+            return
+          }
+          const data = await response.json().catch(() => null)
+          throw new Error(data?.message || `Request failed (${response.status})`)
+        }
+        const data = await response.json()
+        const u = data?.user || null
+        setSettingsUser(u)
+        setProfileForm({
+          fullName: String(u?.fullName || userFullName || '').trim(),
+          email: String(u?.email || userEmail || '').trim()
+        })
       }
-      const data = await response.json()
-      const u = data?.user || null
-      setSettingsUser(u)
-      setProfileForm({
-        fullName: String(u?.fullName || userFullName || '').trim(),
-        email: String(u?.email || userEmail || '').trim()
-      })
-    } catch {
+      
+      // Fetch company settings
+      const settingsRes = await fetch(`${API_BASE_URL}/api/company-settings`)
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json()
+        setCompanyForm({
+          companyName: settingsData.settings?.companyName || '',
+          companyAddress: settingsData.settings?.companyAddress || '',
+          companyEmail: settingsData.settings?.companyEmail || '',
+          companyContactNumber: settingsData.settings?.companyContactNumber || '',
+          bankDetails: {
+            bankName: settingsData.settings?.bankDetails?.bankName || '',
+            bankAddress: settingsData.settings?.bankDetails?.bankAddress || '',
+            accountNumber: settingsData.settings?.bankDetails?.accountNumber || '',
+            ifscCode: settingsData.settings?.bankDetails?.ifscCode || ''
+          }
+        })
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err)
       setSettingsUser(null)
     } finally {
       setSettingsLoading(false)
+    }
+  }
+  
+  const saveCompanySettings = async () => {
+    if (companySaving) return
+
+    const token = getAuthToken()
+    if (!token) {
+      alert('Please login again.')
+      clearAuthSession()
+      setIsLoggedIn(false)
+      navigate('/login', { replace: true })
+      return
+    }
+
+    setCompanySaving(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/company-settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(companyForm)
+      })
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => null)
+        throw new Error(data?.message || 'Failed to update company settings')
+      }
+      
+      const data = await response.json()
+      
+      // Update the form with the saved data
+      setCompanyForm({
+        companyName: data.settings?.companyName || '',
+        companyAddress: data.settings?.companyAddress || '',
+        companyEmail: data.settings?.companyEmail || '',
+        companyContactNumber: data.settings?.companyContactNumber || '',
+        bankDetails: {
+          bankName: data.settings?.bankDetails?.bankName || '',
+          bankAddress: data.settings?.bankDetails?.bankAddress || '',
+          accountNumber: data.settings?.bankDetails?.accountNumber || '',
+          ifscCode: data.settings?.bankDetails?.ifscCode || ''
+        }
+      })
+      
+      alert('Company settings updated successfully!')
+    } catch (err) {
+      alert(err?.message || 'Failed to update company settings')
+    } finally {
+      setCompanySaving(false)
     }
   }
 
@@ -668,6 +754,173 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                   </MotionButton>
                 </div>
               </div>
+              
+              {isAdmin && (
+                <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Company Settings</div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Company Name</div>
+                      <input
+                        value={companyForm.companyName}
+                        onChange={(e) => setCompanyForm((p) => ({ ...p, companyName: e.target.value }))}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.7rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Company Address</div>
+                      <input
+                        value={companyForm.companyAddress}
+                        onChange={(e) => setCompanyForm((p) => ({ ...p, companyAddress: e.target.value }))}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.7rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Company Email</div>
+                      <input
+                        value={companyForm.companyEmail}
+                        onChange={(e) => setCompanyForm((p) => ({ ...p, companyEmail: e.target.value }))}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.7rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Company Contact</div>
+                      <input
+                        value={companyForm.companyContactNumber}
+                        onChange={(e) => setCompanyForm((p) => ({ ...p, companyContactNumber: e.target.value }))}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.7rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Bank Name</div>
+                      <input
+                        value={companyForm.bankDetails.bankName}
+                        onChange={(e) => setCompanyForm((p) => ({ ...p, bankDetails: { ...p.bankDetails, bankName: e.target.value } }))}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.7rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Bank Address</div>
+                      <input
+                        value={companyForm.bankDetails.bankAddress}
+                        onChange={(e) => setCompanyForm((p) => ({ ...p, bankDetails: { ...p.bankDetails, bankAddress: e.target.value } }))}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.7rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Account Number</div>
+                      <input
+                        value={companyForm.bankDetails.accountNumber}
+                        onChange={(e) => setCompanyForm((p) => ({ ...p, bankDetails: { ...p.bankDetails, accountNumber: e.target.value } }))}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.7rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>IFSC Code</div>
+                      <input
+                        value={companyForm.bankDetails.ifscCode}
+                        onChange={(e) => setCompanyForm((p) => ({ ...p, bankDetails: { ...p.bankDetails, ifscCode: e.target.value } }))}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.55rem 0.7rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                    <MotionButton
+                      type="button"
+                      onClick={saveCompanySettings}
+                      disabled={settingsLoading || companySaving}
+                      style={{
+                        ...primaryButtonStyle,
+                        opacity: settingsLoading || companySaving ? 0.6 : 1,
+                        cursor: settingsLoading || companySaving ? 'not-allowed' : 'pointer'
+                      }}
+                      onMouseOver={(e) => {
+                        if (settingsLoading || companySaving) return
+                        e.currentTarget.style.filter = 'brightness(0.95)'
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.filter = 'none'
+                      }}
+                    >
+                      {companySaving ? 'Saving...' : 'Save Company Settings'}
+                    </MotionButton>
+                  </div>
+                </div>
+              )}
 
               <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                 <div style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-header)' }}>Change Password</div>

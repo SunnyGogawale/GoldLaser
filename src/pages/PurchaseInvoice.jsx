@@ -94,6 +94,34 @@ function PurchaseInvoice() {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [pdfFileName, setPdfFileName] = useState('purchase_invoice.pdf');
+  const [companySettings, setCompanySettings] = useState({
+    companyName: '',
+    companyAddress: '',
+    companyEmail: '',
+    companyContactNumber: '',
+    bankDetails: {
+      bankName: '',
+      bankAddress: '',
+      accountNumber: '',
+      ifscCode: ''
+    }
+  });
+
+  // Fetch company settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/company-settings`);
+        if (res.ok) {
+          const data = await res.json();
+          setCompanySettings(data.settings);
+        }
+      } catch (err) {
+        console.error('Error fetching company settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
   const overlayMotion = {
     initial: { opacity: 0 },
     animate: { opacity: 1 },
@@ -508,149 +536,251 @@ function PurchaseInvoice() {
     });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const marginLeft = 12;
-    const marginRight = 12;
-    let y = 15;
+    const marginLeft = 15;
+    const marginRight = 15;
+    let y = 20;
 
     // --- Header ---
     doc.setLineWidth(0.5);
-    doc.setDrawColor(229, 231, 235);
-    doc.setFillColor(248, 250, 252);
-    doc.rect(0, 0, pageWidth, 25, 'FD');
-    doc.setTextColor(31, 41, 55);
-    doc.setFontSize(16);
+    doc.setDrawColor(0, 0, 0); // Black border
+    doc.setFillColor(255, 255, 255);
+    doc.setTextColor(0, 0, 0);
+    
+    // --- Top Section (Company Info & Logo) ---
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text('PURCHASE INVOICE', pageWidth / 2, 16, { align: 'center' });
-
-    // --- Reset Text Color ---
-    doc.setTextColor(31, 41, 55);
-    y = 32;
-
-    // --- Client & Invoice Details ---
-    const client = invoice.vendorId;
-    const clientName = client?.customerName || client?.vendorName || 'N/A';
-    const clientType = invoice.clientType || 'N/A';
-    const clientId = client?.id || 'N/A';
-    const invoiceNo = invoice.invoiceNumber || 'N/A';
-    const invoiceDate = invoice.invoiceDate 
-      ? new Date(invoice.invoiceDate).toLocaleDateString('en-IN', { 
-          day: '2-digit', 
-          month: 'short', 
-          year: 'numeric' 
-        })
-      : 'N/A';
-    const createdByName = invoice.createdByName || 'N/A';
-
-    // --- Left Column: Client Details ---
+    doc.text('PURCHASE INVOICE', marginLeft, y);
+    
+    // Company Info (Left)
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companySettings.companyName || 'Company Name', marginLeft, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text(companySettings.companyEmail || 'Email', marginLeft, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.text(companySettings.companyContactNumber || 'Contact No', marginLeft, y);
+    
+    // Logo Placeholder (Right)
+    const logoX = pageWidth - marginRight - 50;
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(logoX, 20, 50, 30); // Logo box
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Company', logoX + 25, 32, { align: 'center' });
+    doc.text('Logo', logoX + 25, 42, { align: 'center' });
+    
+    // --- Bill To Section ---
+    y = 65;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('Bill To:', marginLeft, y);
+    y += 6;
+    const client = invoice.vendorId;
+    const isCustomer = client?.customerName;
+    
+    const rightColX = pageWidth - marginRight - 80;
+    // Customer/Vendor Name
+    doc.setFont('helvetica', 'bold');
+    doc.text('Name:', marginLeft, y);
     doc.setFont('helvetica', 'normal');
-    doc.text(clientName, marginLeft + 20, y);
+    doc.text(isCustomer ? client.customerName : (client?.vendorName || 'N/A'), marginLeft + 20, y);
+    
+    // Email in the same row on the right
+    if (isCustomer && client.email || !isCustomer && client?.email) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Email:', rightColX, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(isCustomer ? client.email : (client?.email || ''), rightColX + 15, y);
+    }
     y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Type:', marginLeft, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(clientType, marginLeft + 20, y);
-    y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text('ID:', marginLeft, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(clientId, marginLeft + 20, y);
-
-    // --- Right Column: Invoice Info ---
-    const rightColX = pageWidth - marginRight - 75;
-    y = 32;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Invoice No:', rightColX, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(invoiceNo, rightColX + 32, y);
-    y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Date:', rightColX, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(invoiceDate, rightColX + 32, y);
-    y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Created By:', rightColX, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(createdByName, rightColX + 32, y);
-
-    // --- Separator ---
-    y += 8;
-    doc.setDrawColor(229, 231, 235);
+    
+    if (isCustomer) {
+      // Display customer details with bold titles
+      let hasCompanyOrPhone = false;
+      if (client.companyName) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Company:', marginLeft, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(client.companyName, marginLeft + 20, y);
+        hasCompanyOrPhone = true;
+      }
+      if (client.contactNumber) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Phone:', rightColX, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(client.contactNumber, rightColX + 15, y);
+        hasCompanyOrPhone = true;
+      }
+      if (hasCompanyOrPhone) y += 5;
+      
+      if (client.address) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Address:', marginLeft, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(client.address, marginLeft + 20, y);
+        y += 5;
+      }
+      
+      if (client.alternateNumber) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Alt:', marginLeft, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(client.alternateNumber, marginLeft + 10, y);
+        y += 5;
+      }
+    } else {
+      // Display vendor details with bold titles
+      let hasCompanyOrPhone = false;
+      if (client?.companyName) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Company:', marginLeft, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(client.companyName, marginLeft + 20, y);
+        hasCompanyOrPhone = true;
+      }
+      if (client?.contactNumber) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Phone:', rightColX, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(client.contactNumber, rightColX + 10, y);
+        hasCompanyOrPhone = true;
+      }
+      if (hasCompanyOrPhone) y += 5;
+      
+      if (client?.address) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Address:', marginLeft, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(client.address, marginLeft + 20, y);
+        y += 5;
+      }
+    }
+    
+    // --- Invoice Details ---
+    y += 5; // Add space before invoice details
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(150, 150, 150);
     doc.line(marginLeft, y, pageWidth - marginRight, y);
     y += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Invoice details', marginLeft, y);
+    
+    const invoiceNo = invoice.invoiceNumber || 'PI00001';
+    const formatDate = (dateStr) => {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[date.getMonth()];
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
 
-    // --- Transaction Description ---
-    if (invoice.transactionDescription) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'italic');
-      doc.text(`Description: ${invoice.transactionDescription}`, marginLeft, y);
-      y += 8;
-    }
-
+    const invoiceDate = invoice.invoiceDate 
+      ? formatDate(invoice.invoiceDate)
+      : '05-Nov-2026';
+      
+    // Invoice No
+    doc.setFont('helvetica', 'bold');
+    doc.text('Invoice No:', marginLeft, y + 6);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoiceNo, marginLeft + 25, y + 6);
+    
+    // Invoice Date on next line
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Invoice Date:', marginLeft, y + 6);
+    doc.setFont('helvetica', 'normal');
+    doc.text(invoiceDate, marginLeft + 25, y + 6);
+    
     // --- Items Table ---
+    y += 15;
     const items = invoice.items || [];
     const tableData = items.map((item, idx) => [
       idx + 1,
       item.product?.toString().trim() || '-',
       item.description?.toString().trim() || '-',
-      `₹${(parseFloat(item.amount) || 0).toLocaleString('en-IN', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
-      })}`
+      `${(parseFloat(item.amount) || 0).toLocaleString('en-IN')}/-`
     ]);
-
+    
     autoTable(doc, {
       startY: y,
-      head: [['Sr No', 'Product', 'Description', 'Amount (₹)']],
+      head: [['Sr No', 'Product', 'Description', 'Amount']],
       body: tableData,
       theme: 'grid',
       margin: { left: marginLeft, right: marginRight },
       headStyles: {
-        fillColor: [248, 250, 252],
-        textColor: [31, 41, 55],
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
         fontStyle: 'bold',
-        fontSize: 8,
-        cellPadding: 2
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3
       },
       bodyStyles: {
-        fontSize: 8,
-        cellPadding: 2
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.3
       },
       alternateRowStyles: { fillColor: [255, 255, 255] },
       columnStyles: {
-        0: { cellWidth: 12, halign: 'center' },
-        1: { cellWidth: 50, halign: 'left' },
-        2: { cellWidth: 80, halign: 'left' },
+        0: { cellWidth: 15, halign: 'center' },
+        1: { cellWidth: 45, halign: 'left' },
+        2: { cellWidth: 90, halign: 'left' },
         3: { cellWidth: 35, halign: 'right' }
       }
     });
-
-    // --- Total Amount ---
+    
+    // --- Total ---
     const finalY = doc.lastAutoTable?.finalY || y + 40;
-    y = finalY + 10;
+    y = finalY + 5;
     const totalAmt = parseFloat(invoice.totalAmount) || 0;
-    const totalAmtStr = totalAmt.toLocaleString('en-IN', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    });
-
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(229, 231, 235);
+    const totalAmtStr = totalAmt.toLocaleString('en-IN');
+    
     doc.setLineWidth(0.5);
-    doc.roundedRect(pageWidth - marginRight - 85, y - 6, 85, 18, 2, 2, 'FD');
-    doc.setTextColor(31, 41, 55);
-    doc.setFontSize(11);
+    doc.setDrawColor(0, 0, 0);
+    doc.line(marginLeft, y, pageWidth - marginRight, y);
+    y += 8;
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL', pageWidth - marginRight - 80, y + 6);
-    doc.text(`₹${totalAmtStr}`, pageWidth - marginRight - 5, y + 6, { align: 'right' });
-
-    // --- Footer ---
-    doc.setTextColor(156, 163, 175);
-    doc.setFontSize(8);
-    doc.text('This is a computer-generated invoice.', pageWidth / 2, pageHeight - 12, { align: 'center' });
+    doc.text('Total', pageWidth - marginRight - 60, y);
+    doc.text(`${totalAmtStr}/-`, pageWidth - marginRight, y, { align: 'right' });
+    
+    // --- Company Footer ---
+    y += 20;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companySettings.companyName || 'Company Name', marginLeft, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y);
+    
+    // --- Bank Details ---
+    y += 20;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Bank Details', marginLeft, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text(companySettings.bankDetails?.bankName || 'Bank Name', marginLeft, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.text(companySettings.bankDetails?.bankAddress || 'Bank Address', marginLeft, y);
+    y += 4;
+    doc.setFont('helvetica', 'bold');
+    doc.text(companySettings.bankDetails?.accountNumber || 'A/c Number', marginLeft, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.text(companySettings.bankDetails?.ifscCode || 'IFSC Code', marginLeft, y);
 
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
