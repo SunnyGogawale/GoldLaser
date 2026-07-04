@@ -5,6 +5,9 @@ import { getAuthToken, getAuthValue } from '../utils/authStorage';
 import { readJsonResponse } from '../utils/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import MotionButton from '../components/MotionButton'
+import ActionMenuPortal from '../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../utils/dropdownPosition'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/invoices`;
@@ -191,17 +194,6 @@ function Invoice() {
     fetchCustomersList();
     fetchVendorsList();
     fetchNextInvoiceNumber();
-  }, []);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenDropdownId(null);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
   }, []);
 
   // Calculate total amount whenever items change
@@ -680,7 +672,7 @@ function Invoice() {
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
-        <button
+        <MotionButton
           type="button"
           onClick={openCreateInvoice}
           disabled={loading}
@@ -698,7 +690,7 @@ function Invoice() {
           }}
         >
           Add Invoice
-        </button>
+        </MotionButton>
       </div>
 
       {formOpen && (
@@ -745,7 +737,7 @@ function Invoice() {
                 >
                   Invoice No : {invoiceForm.invoiceNumber || 'xxxx'}
                 </div>
-                <button
+                <MotionButton
                   type="button"
                   onClick={closeInvoiceForm}
                   disabled={loading}
@@ -768,7 +760,7 @@ function Invoice() {
                 >
                   <X size={16} />
                   {/* Close */}
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -912,7 +904,7 @@ function Invoice() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Invoice Items</h3>
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={addItemRow}
                     disabled={loading}
@@ -931,7 +923,7 @@ function Invoice() {
                     }}
                   >
                     <Plus size={14} /> Add Row
-                  </button>
+                  </MotionButton>
                 </div>
 
                 <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
@@ -1003,7 +995,7 @@ function Invoice() {
                             />
                           </td>
                           <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                            <button
+                            <MotionButton
                               type="button"
                               onClick={() => removeItemRow(index)}
                               disabled={invoiceForm.items.length === 1}
@@ -1016,7 +1008,7 @@ function Invoice() {
                               }}
                             >
                               <Trash2 size={16} />
-                            </button>
+                            </MotionButton>
                           </td>
                         </tr>
                       ))}
@@ -1046,7 +1038,7 @@ function Invoice() {
 
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   {!editingInvoiceId && (
-                    <button
+                    <MotionButton
                       type="button"
                       onClick={handleCancelEdit}
                       disabled={loading}
@@ -1065,9 +1057,9 @@ function Invoice() {
                       }}
                     >
                       <RotateCcw size={14} /> Reset
-                    </button>
+                    </MotionButton>
                   )}
-                  <button
+                  <MotionButton
                     type="submit"
                     disabled={loading}
                     style={{
@@ -1086,7 +1078,7 @@ function Invoice() {
                   >
                     <Save size={14} />
                     {loading ? 'Saving...' : editingInvoiceId ? 'Update Invoice' : 'Save Invoice'}
-                  </button>
+                  </MotionButton>
                 </div>
               </div>
             </form>
@@ -1176,7 +1168,7 @@ function Invoice() {
                             </div>
                           </div>
                           <div style={{ position: 'relative' }}>
-                            <button
+                            <MotionButton
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (openDropdownId === invoice._id) {
@@ -1184,12 +1176,11 @@ function Invoice() {
                                   setDropdownInvoice(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  const dropdownHeight = isAdmin ? 160 : 120;
-                                  const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                  setDropdownPosition({
-                                    top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                    left: rect.right - 140
+                                  const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                    rect,
+                                    dropdownHeight: isAdmin ? 160 : 120
                                   });
+                                  setDropdownPosition({ top, left });
                                   setDropdownUp(shouldOpenUp);
                                   setDropdownInvoice(invoice);
                                   setOpenDropdownId(invoice._id);
@@ -1207,7 +1198,7 @@ function Invoice() {
                               title="Actions"
                             >
                               <MoreVertical size={16} />
-                            </button>
+                            </MotionButton>
 
                           </div>
                         </div>
@@ -1301,7 +1292,7 @@ function Invoice() {
                             </td>
                             <td style={{ padding: '0.5rem 0.375rem' }}>
                               <div style={{ position: 'relative' }}>
-                                <button
+                                <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (openDropdownId === invoice._id) {
@@ -1309,12 +1300,11 @@ function Invoice() {
                                       setDropdownInvoice(null);
                                     } else {
                                       const rect = e.currentTarget.getBoundingClientRect();
-                                      const dropdownHeight = isAdmin ? 160 : 120;
-                                      const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                      setDropdownPosition({
-                                        top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                        left: rect.right - 140
+                                      const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                        rect,
+                                        dropdownHeight: isAdmin ? 160 : 120
                                       });
+                                      setDropdownPosition({ top, left });
                                       setDropdownUp(shouldOpenUp);
                                       setDropdownInvoice(invoice);
                                       setOpenDropdownId(invoice._id);
@@ -1332,7 +1322,7 @@ function Invoice() {
                                   title="Actions"
                                 >
                                   <MoreVertical size={16} />
-                                </button>
+                                </MotionButton>
 
                               </div>
                             </td>
@@ -1354,7 +1344,7 @@ function Invoice() {
                   marginTop: '1.5rem',
                   flexWrap: 'wrap'
                 }}>
-                  <button
+                  <MotionButton
                     onClick={() => fetchInvoices(currentPage - 1, searchQuery)}
                     disabled={currentPage === 1}
                     style={{
@@ -1369,10 +1359,10 @@ function Invoice() {
                     }}
                   >
                     Previous
-                  </button>
+                  </MotionButton>
 
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
+                    <MotionButton
                       key={page}
                       onClick={() => fetchInvoices(page, searchQuery)}
                       disabled={page === currentPage}
@@ -1388,10 +1378,10 @@ function Invoice() {
                       }}
                     >
                       {page}
-                    </button>
+                    </MotionButton>
                   ))}
 
-                  <button
+                  <MotionButton
                     onClick={() => fetchInvoices(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
                     style={{
@@ -1406,7 +1396,7 @@ function Invoice() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>
@@ -1447,7 +1437,7 @@ function Invoice() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={refreshInfo}
                   disabled={infoLoading}
@@ -1463,15 +1453,15 @@ function Invoice() {
                   title="Refresh"
                 >
                   <RotateCcw size={18} />
-                </button>
-                <button
+                </MotionButton>
+                <MotionButton
                   type="button"
                   onClick={closeInfo}
                   style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                   title="Close"
                 >
                   <X size={18} />
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -1580,22 +1570,23 @@ function Invoice() {
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownInvoice && (
-        <div 
-          ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: dropdownPosition.top,
-            left: dropdownPosition.left,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 99999,
-            minWidth: '140px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
+        <ActionMenuPortal>
+          <div
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 99999,
+              minWidth: '140px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               setInfoInvoice(dropdownInvoice);
@@ -1620,8 +1611,8 @@ function Invoice() {
           >
             <Eye size={14} />
             View
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               handleEditInvoice(dropdownInvoice);
@@ -1645,8 +1636,8 @@ function Invoice() {
           >
             <Edit2 size={14} />
             Edit
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               generateInvoicePDF(dropdownInvoice);
@@ -1670,9 +1661,9 @@ function Invoice() {
           >
             <span>📄</span>
             PDF
-          </button>
+          </MotionButton>
           {isAdmin && (
-            <button
+            <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteInvoice(dropdownInvoice._id);
@@ -1696,9 +1687,10 @@ function Invoice() {
             >
               <Trash2 size={14} />
               Delete
-            </button>
+            </MotionButton>
           )}
-        </div>
+          </div>
+        </ActionMenuPortal>
       )}
 
       {/* PDF Viewer Modal */}
@@ -1729,7 +1721,7 @@ function Invoice() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <button
+              <MotionButton
                 onClick={() => setPdfViewerOpen(false)}
                 style={{
                   background: 'rgba(0,0,0,0.05)',
@@ -1745,12 +1737,12 @@ function Invoice() {
                 }}
               >
                 <X size={24} />
-              </button>
+              </MotionButton>
               <div>
                 <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
               </div>
             </div>
-            <button
+            <MotionButton
               onClick={handleDownloadPdf}
               style={{
                 background: 'rgba(0,0,0,0.05)',
@@ -1769,7 +1761,7 @@ function Invoice() {
             >
               <span>⬇️</span>
               Download
-            </button>
+            </MotionButton>
           </div>
 
           {/* PDF Viewer */}

@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Edit2, Trash2, X, MoreVertical } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
+import MotionButton from '../components/MotionButton'
+import ActionMenuPortal from '../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../utils/dropdownPosition'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -233,7 +236,7 @@ function User() {
                           </div>
                         </div>
                         <div style={{ position: 'relative' }}>
-                          <button
+                          <MotionButton
                             onClick={(e) => {
                               e.stopPropagation();
                               if (openDropdownId === u._id) {
@@ -241,12 +244,11 @@ function User() {
                                 setDropdownUser(null);
                               } else {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                const dropdownHeight = 120;
-                                const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                setDropdownPosition({
-                                  top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                  left: rect.right - 140
+                                const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                  rect,
+                                  dropdownHeight: 120
                                 });
+                                setDropdownPosition({ top, left });
                                 setDropdownUp(shouldOpenUp);
                                 setDropdownUser(u);
                                 setOpenDropdownId(u._id);
@@ -265,7 +267,7 @@ function User() {
                             disabled={saving}
                           >
                             <MoreVertical size={16} />
-                          </button>
+                          </MotionButton>
 
                         </div>
                       </div>
@@ -306,7 +308,7 @@ function User() {
                           </td>
                           <td style={{ padding: '0.5rem 0.375rem' }}>
                             <div style={{ position: 'relative' }}>
-                              <button
+                              <MotionButton
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (openDropdownId === u._id) {
@@ -314,12 +316,11 @@ function User() {
                                     setDropdownUser(null);
                                   } else {
                                     const rect = e.currentTarget.getBoundingClientRect();
-                                    const dropdownHeight = 120;
-                                    const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                    setDropdownPosition({
-                                      top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                      left: rect.right - 140
+                                    const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                      rect,
+                                      dropdownHeight: 120
                                     });
+                                    setDropdownPosition({ top, left });
                                     setDropdownUp(shouldOpenUp);
                                     setDropdownUser(u);
                                     setOpenDropdownId(u._id);
@@ -338,7 +339,7 @@ function User() {
                                 disabled={saving}
                               >
                                 <MoreVertical size={16} />
-                              </button>
+                              </MotionButton>
 
                             </div>
                           </td>
@@ -380,14 +381,14 @@ function User() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
               <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-header)' }}>Edit User</div>
-              <button
+              <MotionButton
                 type="button"
                 onClick={closeEdit}
                 style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 8, padding: '0.35rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                 title="Close"
               >
                 <X size={18} />
-              </button>
+              </MotionButton>
             </div>
 
             <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
@@ -428,7 +429,7 @@ function User() {
               <div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-header)', marginBottom: '0.35rem' }}>Role</div>
                 <div style={{ display: 'flex', gap: '0.5rem', border: '1px solid var(--border)', borderRadius: 10, padding: '0.35rem', background: 'var(--bg-main)' }}>
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={() => setEditForm((p) => ({ ...p, roll: 'user' }))}
                     disabled={saving}
@@ -444,8 +445,8 @@ function User() {
                     }}
                   >
                     User
-                  </button>
-                  <button
+                  </MotionButton>
+                  <MotionButton
                     type="button"
                     onClick={() => setEditForm((p) => ({ ...p, roll: 'admin' }))}
                     disabled={saving}
@@ -461,7 +462,7 @@ function User() {
                     }}
                   >
                     Admin
-                  </button>
+                  </MotionButton>
                 </div>
               </div>
             </div>
@@ -469,7 +470,7 @@ function User() {
             <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)' }}>Change Password</div>
-                <button
+                <MotionButton
                   type="button"
                   onClick={() => setPasswordOpen((v) => !v)}
                   disabled={saving}
@@ -484,7 +485,7 @@ function User() {
                   }}
                 >
                   {passwordOpen ? 'Hide' : 'Change'}
-                </button>
+                </MotionButton>
               </div>
 
               {passwordOpen && (
@@ -528,7 +529,7 @@ function User() {
             </div>
 
             <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-              <button
+              <MotionButton
                 type="button"
                 onClick={closeEdit}
                 disabled={saving}
@@ -542,8 +543,8 @@ function User() {
                 }}
               >
                 Cancel
-              </button>
-              <button
+              </MotionButton>
+              <MotionButton
                 type="button"
                 onClick={saveEdit}
                 disabled={saving}
@@ -559,7 +560,7 @@ function User() {
                 }}
               >
                 Save
-              </button>
+              </MotionButton>
             </div>
           </div>
         </div>
@@ -567,22 +568,23 @@ function User() {
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownUser && (
-        <div 
-          ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: dropdownPosition.top,
-            left: dropdownPosition.left,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 99999,
-            minWidth: '140px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
+        <ActionMenuPortal>
+          <div
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 99999,
+              minWidth: '140px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+          <MotionButton
             type="button"
             onClick={(e) => {
               e.stopPropagation();
@@ -608,8 +610,8 @@ function User() {
           >
             <Edit2 size={14} />
             Edit
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             type="button"
             onClick={(e) => {
               e.stopPropagation();
@@ -635,8 +637,9 @@ function User() {
           >
             <Trash2 size={14} />
             Delete
-          </button>
-        </div>
+          </MotionButton>
+          </div>
+        </ActionMenuPortal>
       )}
     </div>
   )

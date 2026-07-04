@@ -1,8 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import MotionButton from '../components/MotionButton'
+import ActionMenuPortal from '../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../utils/dropdownPosition'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/customers`
@@ -81,6 +86,9 @@ function Customer() {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [dropdownUp, setDropdownUp] = useState(false)
   const dropdownRef = useRef(null)
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
+  const [pdfFileName, setPdfFileName] = useState('customer_statement.pdf')
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -120,6 +128,15 @@ function Customer() {
 
   const formatMoney = (value) =>
     Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  // Use an ASCII-safe currency prefix so jsPDF's built-in font renders values consistently.
+  const formatPdfMoney = (value) => `${formatMoney(value)}`
+
+  const formatPdfDate = (value) => {
+    const d = value ? new Date(value) : null
+    if (!d || Number.isNaN(d.getTime())) return '-'
+    return d.toLocaleDateString('en-GB')
+  }
 
   // Function to fetch next customer id
   const fetchNextCustomerId = useCallback(async () => {
@@ -202,17 +219,6 @@ function Customer() {
     fetchNextCustomerId();
     fetchCustomFields();
   }, [searchQuery, sortColumn, sortOrder, fetchCustomers, fetchNextCustomerId, fetchCustomFields]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenDropdownId(null);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, []);
 
   // Validation function
   const validateForm = () => {
@@ -760,10 +766,325 @@ function Customer() {
     setInfoCustomer(null)
   }
 
+  const handleDownloadPdf = () => {
+    if (!pdfBlobUrl) return
+    const a = document.createElement('a')
+    a.href = pdfBlobUrl
+    a.download = pdfFileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  const fetchJsonWithAuth = async (url, fallbackMessage) => {
+    const token = getAuthToken()
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    })
+    return readJsonResponse(response, fallbackMessage)
+  }
+
+  const buildStatementPayload = (customerRecord, invoiceRows, paymentRows) => {
+    const customerId = String(customerRecord?._id || '')
+
+    const invoices = (invoiceRows || []).filter((invoice) => {
+      const clientId = String(invoice?.clientId?._id || invoice?.clientId || '')
+      const legacyCustomerId = String(invoice?.customerId?._id || invoice?.customerId || '')
+      return (
+        legacyCustomerId === customerId ||
+        (clientId === customerId && String(invoice?.clientType || 'Customer') === 'Customer')
+      )
+    })
+
+    const payments = (paymentRows || []).filter((payment) => {
+      const clientId = String(payment?.clientId?._id || payment?.clientId || '')
+      const legacyCustomerId = String(payment?.customerId?._id || payment?.customerId || '')
+      return (
+        legacyCustomerId === customerId ||
+        (clientId === customerId && String(payment?.clientType || 'Customer') === 'Customer')
+      )
+    })
+
+    const statementRows = [
+      ...invoices.map((invoice) => ({
+        date: invoice.invoiceDate || invoice.createdAt,
+        createdAt: invoice.createdAt || invoice.invoiceDate,
+        transactionNo: invoice.invoiceNumber || '-',
+        transactionType: 'Sales Invoice',
+        description: String(invoice.transactionDescription || '').trim() || 'Invoice',
+        debit: Number(invoice.totalAmount) || 0,
+        credit: 0
+      })),
+      ...payments.map((payment) => ({
+        date: payment.paymentDate || payment.createdAt,
+        createdAt: payment.createdAt || payment.paymentDate,
+        transactionNo: payment.paymentNumber || '-',
+        transactionType: 'Sales Payment',
+        description: String(payment.description || '').trim() || 'Payment Received',
+        debit: 0,
+        credit: Number(payment.amount) || 0
+      }))
+    ].sort((a, b) => {
+      const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime()
+      if (dateDiff !== 0) return dateDiff
+      const typeDiff = (a.credit > 0 ? 1 : 0) - (b.credit > 0 ? 1 : 0)
+      if (typeDiff !== 0) return typeDiff
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    })
+
+    let runningBalance = 0
+    const transactions = statementRows.map((row) => {
+      runningBalance += row.debit - row.credit
+      return {
+        date: row.date,
+        transactionNo: row.transactionNo,
+        transactionType: row.transactionType,
+        description: row.description,
+        debit: row.debit,
+        credit: row.credit,
+        balance: runningBalance
+      }
+    })
+
+    const totalInvoice = invoices.reduce((sum, invoice) => sum + (Number(invoice.totalAmount) || 0), 0)
+    const totalPayment = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0)
+    const openingBalance = 0
+    const closingBalance = openingBalance + totalInvoice - totalPayment
+
+    return {
+      customer: customerRecord,
+      summary: {
+        openingBalance,
+        totalInvoice,
+        totalPayment,
+        closingBalance
+      },
+      transactions
+    }
+  }
+
+  const buildCustomerStatementFallback = async (customer) => {
+    const [customerRecord, invoiceData, paymentData] = await Promise.all([
+      fetchJsonWithAuth(`${API_URL}/${customer._id}`, 'Error fetching customer details'),
+      fetchJsonWithAuth(`${API_BASE_URL}/api/invoices?limit=1000`, 'Error fetching invoices'),
+      fetchJsonWithAuth(`${API_BASE_URL}/api/payments?limit=1000`, 'Error fetching payments')
+    ])
+
+    return buildStatementPayload(
+      customerRecord || customer,
+      invoiceData?.invoices || [],
+      paymentData?.payments || []
+    )
+  }
+
+  const generateCustomerStatementPdf = async (customer) => {
+    const id = customer?._id
+    if (!id) return
+
+    try {
+      let data
+      try {
+        data = await fetchJsonWithAuth(`${API_URL}/${id}/statement`, 'Error fetching customer statement')
+      } catch (statementErr) {
+        console.warn('Falling back to local customer statement builder:', statementErr)
+        data = await buildCustomerStatementFallback(customer)
+      }
+
+      const statementCustomer = data?.customer || customer
+      const summary = data?.summary || {}
+      const transactions = Array.isArray(data?.transactions) ? data.transactions : []
+
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const marginLeft = 10
+      const marginRight = 10
+      let y = 14
+
+      doc.setTextColor(17, 24, 39)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(20)
+      doc.text('Customer Statement', marginLeft, y)
+
+      y += 8
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, marginLeft, y)
+
+      y += 8
+      doc.setDrawColor(75, 85, 99)
+      doc.setLineWidth(0.4)
+      doc.roundedRect(marginLeft, y, pageWidth - marginLeft - marginRight, 30, 3, 3)
+
+      const customerName = statementCustomer?.customerName || '-'
+      const companyName = statementCustomer?.companyName || '-'
+      const customerCode = statementCustomer?.id || '-'
+      const contactNumber = statementCustomer?.contactNumber || '-'
+      const email = statementCustomer?.email || '-'
+      const address = statementCustomer?.address || '-'
+
+      let detailY = y + 6
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text('Customer Details', marginLeft + 4, detailY)
+
+      detailY += 6
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Name:', marginLeft + 4, detailY)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(customerName), marginLeft + 23, detailY)
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('Customer ID:', marginLeft + 105, detailY)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(customerCode), marginLeft + 128, detailY)
+
+      detailY += 5
+      doc.setFont('helvetica', 'bold')
+      doc.text('Company:', marginLeft + 4, detailY)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(companyName), marginLeft + 23, detailY)
+
+      doc.setFont('helvetica', 'bold')
+      doc.text('Mobile:', marginLeft + 105, detailY)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(contactNumber), marginLeft + 128, detailY)
+
+      detailY += 5
+      doc.setFont('helvetica', 'bold')
+      doc.text('Email:', marginLeft + 4, detailY)
+      doc.setFont('helvetica', 'normal')
+      doc.text(String(email), marginLeft + 23, detailY)
+
+      const addressLines = doc.splitTextToSize(String(address), 72)
+      doc.setFont('helvetica', 'bold')
+      doc.text('Address:', marginLeft + 105, detailY)
+      doc.setFont('helvetica', 'normal')
+      doc.text(addressLines, marginLeft + 128, detailY)
+
+      y += 38
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.text('Summary', marginLeft, y)
+
+      autoTable(doc, {
+        startY: y + 3,
+        margin: { left: marginLeft, right: marginRight },
+        // theme: 'grid',
+        head: [['Particular', 'Amount']],
+        body: [
+          ['Opening Balance', formatPdfMoney(summary.openingBalance || 0)],
+          ['Total Invoice', formatPdfMoney(summary.totalInvoice || 0)],
+          ['Total Payment', formatPdfMoney(summary.totalPayment || 0)],
+          ['Closing Balance', formatPdfMoney(summary.closingBalance || 0)]
+        ],
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [17, 24, 39],
+          fontStyle: 'bold',
+          fillColor: [255, 255, 255],
+          bottomlineColor: [0, 0, 0],
+          lineWidth: 0.2,
+          halign: 'center',
+        },
+        bodyStyles: {
+          font: 'helvetica',
+          fontStyle: 'normal',
+          textColor: [17, 24, 39],
+          bottomlineColor: [0, 0, 0],
+          lineWidth: 0.15
+        },
+        columnStyles: {
+          0: { cellWidth: 115, halign: 'left' },
+          1: { cellWidth: 65, halign: 'left', fontStyle: 'normal' }
+        }
+      })
+
+      y = (doc.lastAutoTable?.finalY || y + 35) + 10
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.text('Statement Grid', marginLeft, y)
+
+      autoTable(doc, {
+        startY: y + 3,
+        margin: { left: marginLeft, right: marginRight },
+        // theme: 'grid',
+        head: [['Date', 'Transaction No', 'Transaction Type', 'Description', 'Debit (Invoice)', 'Credit (Payment)', 'Balance']],
+        body: transactions.length > 0
+          ? transactions.map((row) => [
+              formatPdfDate(row.date),
+              row.transactionNo || '-',
+              row.transactionType || '-',
+              row.description || '-',
+              row.debit ? formatPdfMoney(row.debit) : '-',
+              row.credit ? formatPdfMoney(row.credit) : '-',
+              formatPdfMoney(row.balance || 0)
+            ])
+          : [['-', '-', '-', 'No transactions found', '-', '-', formatPdfMoney(summary.closingBalance || 0)]],
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [17, 24, 39],
+          fontStyle: 'bold',
+          fontSize: 8,
+          bottomLineColor: [0, 0, 0],
+          lineWidth: 0.2,
+          halign: 'center',
+        },
+        bodyStyles: {
+          fontSize: 8,
+          font: 'helvetica',
+          fontStyle: 'normal',
+          textColor: [17, 24, 39],
+          bottomLineColor: [0, 0, 0],
+          lineWidth: 0.15,
+          cellPadding: { top: 2, right: 1.2, bottom: 2, left: 1.2 }
+        },
+        columnStyles: {
+          0: { cellWidth: 20, halign: 'center' },
+          1: { cellWidth: 24, halign: 'center' },
+          2: { cellWidth: 34, halign: 'left' },
+          3: { cellWidth: 28, halign: 'left' },
+          4: { cellWidth: 28, halign: 'left', fontStyle: 'normal' },
+          5: { cellWidth: 27, halign: 'left', fontStyle: 'normal' },
+          6: { cellWidth: 29, halign: 'left', fontStyle: 'normal' }
+        },
+        didParseCell: (hookData) => {
+          if (hookData.section !== 'body') return
+          if (![4, 5, 6].includes(hookData.column.index)) return
+          hookData.cell.styles.fontStyle = 'normal'
+          hookData.cell.styles.font = 'helvetica'
+          hookData.cell.styles.fontSize = 8
+          hookData.cell.styles.halign = 'center'
+        },
+        didDrawPage: () => {
+          doc.setFontSize(8)
+          doc.setTextColor(107, 114, 128)
+          doc.text(
+            'Customer statement generated from GoldFlow.',
+            pageWidth / 2,
+            pageHeight - 8,
+            { align: 'center' }
+          )
+        }
+      })
+
+      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl)
+      const blob = doc.output('blob')
+      const url = URL.createObjectURL(blob)
+      setPdfBlobUrl(url)
+      setPdfFileName(`customer_statement_${statementCustomer?.id || statementCustomer?.customerName || 'customer'}.pdf`)
+      setPdfViewerOpen(true)
+    } catch (err) {
+      console.error('Error generating customer statement PDF:', err)
+      alert(err.message || 'Failed to generate customer statement PDF')
+    }
+  }
+
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
-        <button
+        <MotionButton
           type="button"
           onClick={openCreateCustomer}
           disabled={loading}
@@ -781,7 +1102,7 @@ function Customer() {
           }}
         >
           Add Customer
-        </button>
+        </MotionButton>
       </div>
 
       {formOpen && (
@@ -828,7 +1149,7 @@ function Customer() {
                 >
                   Customer ID : {customerForm.id || 'xxxx'}
                 </div>
-                <button
+                <MotionButton
                   type="button"
                   onClick={closeCustomerForm}
                   disabled={loading}
@@ -850,7 +1171,7 @@ function Customer() {
                 >
                   <X size={16} />
                   {/* Close */}
-                </button>
+                </MotionButton>
               </div>
             </div>
             <form onSubmit={handleCustomerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1229,7 +1550,7 @@ function Customer() {
                 {isAdmin && !editingCustomerId && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1rem' }}>Custom Fields</h3>
-                    <button
+                    <MotionButton
                       type="button"
                       onClick={addCustomField}
                       disabled={loading}
@@ -1247,7 +1568,7 @@ function Customer() {
                       }}
                     >
                       Add Field
-                    </button>
+                    </MotionButton>
                   </div>
                 )}
                 
@@ -1262,7 +1583,7 @@ function Customer() {
                         {/* Only show edit/delete buttons for custom fields when NOT editing customer */}
                         {isAdmin && !editingCustomerId && (
                           <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                            <button
+                            <MotionButton
                               type="button"
                               onClick={() => {
                                 setEditingFieldIndex(index)
@@ -1288,8 +1609,8 @@ function Customer() {
                               }}
                             >
                               <Edit2 size={16} />
-                            </button>
-                            <button
+                            </MotionButton>
+                            <MotionButton
                               type="button"
                               onClick={() => removeCustomField(index, field.key)}
                               disabled={loading}
@@ -1310,7 +1631,7 @@ function Customer() {
                               }}
                             >
                               <X size={18} />
-                            </button>
+                            </MotionButton>
                           </div>
                         )}
                       </div>
@@ -1339,7 +1660,7 @@ function Customer() {
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-                <button
+                <MotionButton
                   type="submit"
                   disabled={loading}
                   style={{
@@ -1360,9 +1681,9 @@ function Customer() {
                 >
                   <Save size={16} />
                   {loading ? 'Saving...' : editingCustomerId ? 'Update Customer' : 'Save Customer'}
-                </button>
+                </MotionButton>
                 {!editingCustomerId && (
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={async () => {
                       // Reset custom fields array with permanent field names
@@ -1411,7 +1732,7 @@ function Customer() {
                   >
                     <RotateCcw size={16} />
                     Reset
-                  </button>
+                  </MotionButton>
                 )}
               </div>
             </form>
@@ -1447,7 +1768,7 @@ function Customer() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, color: 'var(--text-header)' }}>Add Custom Field</h3>
-              <button
+              <MotionButton
                 type="button"
                 onClick={() => setAddFieldPopupOpen(false)}
                 style={{
@@ -1459,7 +1780,7 @@ function Customer() {
                 }}
               >
                 <X size={20} />
-              </button>
+              </MotionButton>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1514,7 +1835,7 @@ function Customer() {
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={() => setAddFieldPopupOpen(false)}
                   style={{
@@ -1530,8 +1851,8 @@ function Customer() {
                   }}
                 >
                   Cancel
-                </button>
-                <button
+                </MotionButton>
+                <MotionButton
                   type="button"
                   onClick={saveNewCustomField}
                   disabled={!newFieldName.trim()}
@@ -1549,7 +1870,7 @@ function Customer() {
                   }}
                 >
                   Add Field
-                </button>
+                </MotionButton>
               </div>
             </div>
           </div>
@@ -1584,7 +1905,7 @@ function Customer() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, color: 'var(--text-header)' }}>Edit Custom Field</h3>
-              <button
+              <MotionButton
                 type="button"
                 onClick={() => setEditFieldPopupOpen(false)}
                 style={{
@@ -1596,7 +1917,7 @@ function Customer() {
                 }}
               >
                 <X size={20} />
-              </button>
+              </MotionButton>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1627,7 +1948,7 @@ function Customer() {
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={() => setEditFieldPopupOpen(false)}
                   style={{
@@ -1643,8 +1964,8 @@ function Customer() {
                   }}
                 >
                   Cancel
-                </button>
-                <button
+                </MotionButton>
+                <MotionButton
                   type="button"
                   onClick={renameCustomField}
                   disabled={!editingFieldNewName.trim() || editingFieldNewName.trim() === editingFieldOldName}
@@ -1662,7 +1983,7 @@ function Customer() {
                   }}
                 >
                   Rename
-                </button>
+                </MotionButton>
               </div>
             </div>
           </div>
@@ -1755,7 +2076,7 @@ function Customer() {
                             )}
                           </div>
                           <div style={{ position: 'relative' }}>
-                            <button
+                            <MotionButton
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (openDropdownId === customer._id) {
@@ -1763,13 +2084,12 @@ function Customer() {
                                   setDropdownCustomer(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  const dropdownHeight = isAdmin ? 160 : 120; // Approximate height
-                                  const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                  
-                                  setDropdownPosition({
-                                    top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                    left: rect.right - 140
+                                  const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                    rect,
+                                    dropdownHeight: isAdmin ? 160 : 120
                                   });
+
+                                  setDropdownPosition({ top, left });
                                   setDropdownUp(shouldOpenUp);
                                   setDropdownCustomer(customer);
                                   setOpenDropdownId(customer._id);
@@ -1787,7 +2107,7 @@ function Customer() {
                               title="Actions"
                             >
                               <MoreVertical size={16} />
-                            </button>
+                            </MotionButton>
 
                           </div>
                         </div>
@@ -1911,7 +2231,7 @@ function Customer() {
                             ))}
                             <td style={{ padding: '0.5rem 0.375rem' }}>
                               <div style={{ position: 'relative' }}>
-                                <button
+                                <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (openDropdownId === customer._id) {
@@ -1919,13 +2239,12 @@ function Customer() {
                                       setDropdownCustomer(null);
                                     } else {
                                       const rect = e.currentTarget.getBoundingClientRect();
-                                      const dropdownHeight = isAdmin ? 160 : 120; // Approximate height
-                                      const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                      
-                                      setDropdownPosition({
-                                        top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                        left: rect.right - 140
+                                      const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                        rect,
+                                        dropdownHeight: isAdmin ? 160 : 120
                                       });
+
+                                      setDropdownPosition({ top, left });
                                       setDropdownUp(shouldOpenUp);
                                       setDropdownCustomer(customer);
                                       setOpenDropdownId(customer._id);
@@ -1943,7 +2262,7 @@ function Customer() {
                                   title="Actions"
                                 >
                                   <MoreVertical size={16} />
-                                </button>
+                                </MotionButton>
                               </div>
                             </td>
                           </tr>
@@ -1964,7 +2283,7 @@ function Customer() {
                   marginTop: '1.5rem',
                   flexWrap: 'wrap'
                 }}>
-                  <button
+                  <MotionButton
                     onClick={() => fetchCustomers(currentPage - 1, searchQuery)}
                     disabled={currentPage === 1}
                     style={{
@@ -1979,10 +2298,10 @@ function Customer() {
                     }}
                   >
                     Previous
-                  </button>
+                  </MotionButton>
 
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
+                    <MotionButton
                       key={page}
                       onClick={() => fetchCustomers(page, searchQuery)}
                       disabled={page === currentPage}
@@ -1998,10 +2317,10 @@ function Customer() {
                       }}
                     >
                       {page}
-                    </button>
+                    </MotionButton>
                   ))}
 
-                  <button
+                  <MotionButton
                     onClick={() => fetchCustomers(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
                     style={{
@@ -2016,7 +2335,7 @@ function Customer() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>
@@ -2057,14 +2376,14 @@ function Customer() {
                 </div> */}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={closeInfo}
                   style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                   title="Close"
                 >
                   <X size={18} />
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -2297,26 +2616,26 @@ function Customer() {
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownCustomer && (
-        <div 
-          ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: dropdownPosition.top,
-            left: dropdownPosition.left,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 99999,
-            minWidth: '140px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
+        <ActionMenuPortal>
+          <div 
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 99999,
+              minWidth: '140px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
-              setInfoCustomer(dropdownCustomer);
-              setInfoOpen(true);
+              openInfo(dropdownCustomer);
               setOpenDropdownId(null);
               setDropdownCustomer(null);
             }}
@@ -2337,8 +2656,8 @@ function Customer() {
           >
             <Eye size={14} />
             View
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               handleEditCustomer(dropdownCustomer);
@@ -2362,11 +2681,11 @@ function Customer() {
           >
             <Edit2 size={14} />
             Edit
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
-              alert('PDF feature coming soon!');
+              generateCustomerStatementPdf(dropdownCustomer);
               setOpenDropdownId(null);
               setDropdownCustomer(null);
             }}
@@ -2387,9 +2706,9 @@ function Customer() {
           >
             <span>📄</span>
             PDF
-          </button>
+          </MotionButton>
           {isAdmin && (
-            <button
+            <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeleteCustomer(dropdownCustomer._id);
@@ -2413,8 +2732,93 @@ function Customer() {
             >
               <Trash2 size={14} />
               Delete
-            </button>
+            </MotionButton>
           )}
+          </div>
+        </ActionMenuPortal>
+      )}
+
+      {/* PDF Viewer Modal */}
+      {pdfViewerOpen && pdfBlobUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 100000,
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+          onClick={() => setPdfViewerOpen(false)}
+        >
+          <div
+            style={{
+              background: '#f8fafc',
+              borderBottom: '1px solid #e5e7eb',
+              padding: '1rem 1.5rem',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              color: '#1f2937',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <MotionButton
+                onClick={() => setPdfViewerOpen(false)}
+                style={{
+                  background: 'rgba(0,0,0,0.05)',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '0.5rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                  color: '#1f2937'
+                }}
+              >
+                <X size={24} />
+              </MotionButton>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
+              </div>
+            </div>
+            <MotionButton
+              onClick={handleDownloadPdf}
+              style={{
+                background: 'rgba(0,0,0,0.05)',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '0.5rem 1rem',
+                color: '#1f2937',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <span>⬇️</span>
+              Download
+            </MotionButton>
+          </div>
+
+          <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+            <iframe
+              src={pdfBlobUrl}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none'
+              }}
+              title={pdfFileName}
+            />
+          </div>
         </div>
       )}
     </div>

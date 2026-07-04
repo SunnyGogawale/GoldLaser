@@ -12,6 +12,7 @@ import {
   Moon
 } from 'lucide-react';
 import { setAuthSession } from '../utils/authStorage';
+import MotionButton from '../components/MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
@@ -57,9 +58,9 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
   return (
     <div className="login-page-container">
       {/* Theme Toggle Button */}
-      <button className="theme-toggle-btn" onClick={toggleTheme}>
+      <MotionButton className="theme-toggle-btn" onClick={toggleTheme}>
         {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-      </button>
+      </MotionButton>
 
       {/* Blurred Background Elements */}
       <div className="login-bg-blur">
@@ -112,13 +113,13 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   required 
                 />
-                <button 
+                <MotionButton 
                   type="button" 
                   className="password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -126,9 +127,9 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
               <Link to="/forgot-password" name="forgot-password" className="forgot-password">Forgot password?</Link>
             </div>
 
-            <button type="submit" className="login-submit-btn" disabled={loading}>
+            <MotionButton type="submit" className="login-submit-btn" disabled={loading}>
               {loading ? 'Signing in...' : 'Get Started'}
-            </button>
+            </MotionButton>
 
             {showAdminLink && (
               <div className="login-footer">

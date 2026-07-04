@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { FileText, TrendingUp } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
+import MotionButton from '../components/MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORTS_API_URL = `${API_BASE_URL}/api/reports`
@@ -164,7 +165,7 @@ function Reports() {
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div className="card" style={{ margin: '0 auto', width: '100%', padding: '1.5rem' }}>
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <button
+          <MotionButton
             type="button"
             onClick={() => setActiveTab('invoiceSummary')}
             style={{
@@ -182,8 +183,8 @@ function Reports() {
             }}
           >
             <FileText size={16} /> Invoice Summary
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             type="button"
             onClick={() => setActiveTab('salesReport')}
             style={{
@@ -201,7 +202,7 @@ function Reports() {
             }}
           >
             <TrendingUp size={16} /> Sales Report
-          </button>
+          </MotionButton>
         </div>
 
         <h2 style={{ margin: '0 0 1rem 0', color: 'var(--text-header)', fontSize: '1.25rem' }}>
@@ -328,7 +329,7 @@ function Reports() {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-          <button
+          <MotionButton
             type="button"
             onClick={applyFilters}
             style={{
@@ -343,8 +344,8 @@ function Reports() {
             }}
           >
             Apply Filters
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             type="button"
             onClick={clearFilters}
             style={{
@@ -359,7 +360,7 @@ function Reports() {
             }}
           >
             Clear Filters
-          </button>
+          </MotionButton>
         </div>
 
         <div style={{ display: 'flex', gap: '1rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
@@ -434,7 +435,7 @@ function Reports() {
                   gap: '0.5rem',
                   marginTop: '1.5rem'
                 }}>
-                  <button
+                  <MotionButton
                     onClick={() => fetchInvoiceSummary(invoicePage - 1)}
                     disabled={invoicePage === 1}
                     style={{
@@ -448,10 +449,10 @@ function Reports() {
                     }}
                   >
                     Previous
-                  </button>
+                  </MotionButton>
 
                   {Array.from({ length: invoiceTotalPages }, (_, i) => i + 1).map(p => (
-                    <button
+                    <MotionButton
                       key={p}
                       onClick={() => fetchInvoiceSummary(p)}
                       disabled={p === invoicePage}
@@ -466,10 +467,10 @@ function Reports() {
                       }}
                     >
                       {p}
-                    </button>
+                    </MotionButton>
                   ))}
 
-                  <button
+                  <MotionButton
                     onClick={() => fetchInvoiceSummary(invoicePage + 1)}
                     disabled={invoicePage === invoiceTotalPages}
                     style={{
@@ -483,7 +484,7 @@ function Reports() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>
@@ -539,7 +540,7 @@ function Reports() {
                   gap: '0.5rem',
                   marginTop: '1.5rem'
                 }}>
-                  <button
+                  <MotionButton
                     onClick={() => fetchSalesReport(salesPage - 1)}
                     disabled={salesPage === 1}
                     style={{
@@ -553,10 +554,10 @@ function Reports() {
                     }}
                   >
                     Previous
-                  </button>
+                  </MotionButton>
 
                   {Array.from({ length: salesTotalPages }, (_, i) => i + 1).map(p => (
-                    <button
+                    <MotionButton
                       key={p}
                       onClick={() => fetchSalesReport(p)}
                       disabled={p === salesPage}
@@ -571,10 +572,10 @@ function Reports() {
                       }}
                     >
                       {p}
-                    </button>
+                    </MotionButton>
                   ))}
 
-                  <button
+                  <MotionButton
                     onClick={() => fetchSalesReport(salesPage + 1)}
                     disabled={salesPage === salesTotalPages}
                     style={{
@@ -588,7 +589,7 @@ function Reports() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>

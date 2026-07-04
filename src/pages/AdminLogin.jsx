@@ -12,6 +12,7 @@ import {
   Moon
 } from 'lucide-react';
 import { setAuthSession } from '../utils/authStorage';
+import MotionButton from '../components/MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
@@ -56,9 +57,9 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
   return (
     <div className="login-page-container admin-theme">
       {/* Theme Toggle Button */}
-      <button className="theme-toggle-btn" onClick={toggleTheme}>
+      <MotionButton className="theme-toggle-btn" onClick={toggleTheme}>
         {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-      </button>
+      </MotionButton>
 
       {/* Blurred Background Elements */}
       <div className="login-bg-blur">
@@ -109,19 +110,19 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   required 
                 />
-                <button 
+                <MotionButton 
                   type="button" 
                   className="password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                </MotionButton>
               </div>
             </div>
 
-            <button type="submit" className="login-submit-btn admin-btn" disabled={loading}>
+            <MotionButton type="submit" className="login-submit-btn admin-btn" disabled={loading}>
               {loading ? 'Authenticating...' : 'Access Admin Dashboard'}
-            </button>
+            </MotionButton>
 
             <div className="login-footer">
               <span>Not an admin?</span>

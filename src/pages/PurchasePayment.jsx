@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../utils/authStorage'
+import MotionButton from '../components/MotionButton'
+import ActionMenuPortal from '../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../utils/dropdownPosition'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/purchase-payments`
@@ -291,17 +294,6 @@ function PurchasePayment() {
     fetchPendingInvoices(paymentForm.clientId, paymentForm.clientType, editingPaymentId)
   }, [paymentForm.clientId, paymentForm.clientType, editingPaymentId])
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setOpenDropdownId(null)
-    }
-    document.addEventListener('click', handleClickOutside)
-    return () => {
-      document.removeEventListener('click', handleClickOutside)
-    }
-  }, [])
-
   const validateForm = () => {
     const newErrors = {}
 
@@ -551,7 +543,7 @@ function PurchasePayment() {
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
-        <button
+        <MotionButton
           type="button"
           onClick={openCreatePayment}
           disabled={loading}
@@ -569,7 +561,7 @@ function PurchasePayment() {
           }}
         >
           Add Payment
-        </button>
+        </MotionButton>
       </div>
 
       {formOpen && (
@@ -608,7 +600,7 @@ function PurchasePayment() {
                 >
                   Payment No : {paymentForm.paymentNumber || 'xxxx'}
                 </div>
-                <button
+                <MotionButton
                   type="button"
                   onClick={closePaymentForm}
                   disabled={loading}
@@ -631,7 +623,7 @@ function PurchasePayment() {
                 >
                   <X size={16} />
                   {/* Close */}
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -941,7 +933,7 @@ function PurchasePayment() {
 
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                 {!editingPaymentId && (
-                  <button
+                  <MotionButton
                     type="button"
                     onClick={async () => {
                       setPaymentForm({
@@ -975,9 +967,9 @@ function PurchasePayment() {
                     }}
                   >
                     <RotateCcw size={14} /> Reset
-                  </button>
+                  </MotionButton>
                 )}
-                <button
+                <MotionButton
                   type="submit"
                   disabled={loading}
                   style={{
@@ -996,7 +988,7 @@ function PurchasePayment() {
                 >
                   <Save size={14} />
                   {loading ? 'Saving...' : editingPaymentId ? 'Update Payment' : 'Save Payment'}
-                </button>
+                </MotionButton>
               </div>
             </form>
           </div>
@@ -1085,7 +1077,7 @@ function PurchasePayment() {
                             </div>
                           </div>
                           <div style={{ position: 'relative' }}>
-                            <button
+                            <MotionButton
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (openDropdownId === payment._id) {
@@ -1093,12 +1085,11 @@ function PurchasePayment() {
                                   setDropdownPurchasePayment(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  const dropdownHeight = isAdmin ? 160 : 120;
-                                  const shouldOpenUp = rect.bottom + dropdownHeight > window.innerHeight;
-                                  setDropdownPosition({
-                                    top: shouldOpenUp ? rect.top - 4 - dropdownHeight : rect.bottom + 4,
-                                    left: rect.right - 140
+                                  const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                    rect,
+                                    dropdownHeight: isAdmin ? 160 : 120
                                   });
+                                  setDropdownPosition({ top, left });
                                   setDropdownUp(shouldOpenUp);
                                   setDropdownPurchasePayment(payment);
                                   setOpenDropdownId(payment._id);
@@ -1116,7 +1107,7 @@ function PurchasePayment() {
                               title="Actions"
                             >
                               <MoreVertical size={16} />
-                            </button>
+                            </MotionButton>
 
                           </div>
                         </div>
@@ -1220,7 +1211,7 @@ function PurchasePayment() {
                             </td>
                             <td style={{ padding: '0.5rem 0.375rem' }}>
                               <div style={{ position: 'relative' }}>
-                                <button
+                                <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (openDropdownId === payment._id) {
@@ -1228,10 +1219,12 @@ function PurchasePayment() {
                                       setDropdownPurchasePayment(null);
                                     } else {
                                       const rect = e.currentTarget.getBoundingClientRect();
-                                      setDropdownPosition({
-                                        top: rect.bottom + 4,
-                                        left: rect.right - 140
+                                      const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                        rect,
+                                        dropdownHeight: isAdmin ? 160 : 120
                                       });
+                                      setDropdownPosition({ top, left });
+                                      setDropdownUp(shouldOpenUp);
                                       setDropdownPurchasePayment(payment);
                                       setOpenDropdownId(payment._id);
                                     }
@@ -1248,7 +1241,7 @@ function PurchasePayment() {
                                   title="Actions"
                                 >
                                   <MoreVertical size={16} />
-                                </button>
+                                </MotionButton>
 
                               </div>
                             </td>
@@ -1270,7 +1263,7 @@ function PurchasePayment() {
                   marginTop: '1.5rem',
                   flexWrap: 'wrap'
                 }}>
-                  <button
+                  <MotionButton
                     onClick={() => fetchPayments(currentPage - 1, searchQuery)}
                     disabled={currentPage === 1}
                     style={{
@@ -1285,10 +1278,10 @@ function PurchasePayment() {
                     }}
                   >
                     Previous
-                  </button>
+                  </MotionButton>
 
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
+                    <MotionButton
                       key={page}
                       onClick={() => fetchPayments(page, searchQuery)}
                       disabled={page === currentPage}
@@ -1304,10 +1297,10 @@ function PurchasePayment() {
                       }}
                     >
                       {page}
-                    </button>
+                    </MotionButton>
                   ))}
 
-                  <button
+                  <MotionButton
                     onClick={() => fetchPayments(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
                     style={{
@@ -1322,7 +1315,7 @@ function PurchasePayment() {
                     }}
                   >
                     Next
-                  </button>
+                  </MotionButton>
                 </div>
               )}
             </div>
@@ -1363,7 +1356,7 @@ function PurchasePayment() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <button
+                <MotionButton
                   type="button"
                   onClick={refreshInfo}
                   disabled={infoLoading}
@@ -1379,15 +1372,15 @@ function PurchasePayment() {
                   title="Refresh"
                 >
                   <RotateCcw size={18} />
-                </button>
-                <button
+                </MotionButton>
+                <MotionButton
                   type="button"
                   onClick={closeInfo}
                   style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                   title="Close"
                 >
                   <X size={18} />
-                </button>
+                </MotionButton>
               </div>
             </div>
 
@@ -1511,22 +1504,23 @@ function PurchasePayment() {
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownPurchasePayment && (
-        <div 
-          ref={dropdownRef}
-          style={{
-            position: 'fixed',
-            top: dropdownPosition.top,
-            left: dropdownPosition.left,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 99999,
-            minWidth: '140px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
+        <ActionMenuPortal>
+          <div 
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 99999,
+              minWidth: '140px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               setInfoPayment(dropdownPurchasePayment);
@@ -1551,8 +1545,8 @@ function PurchasePayment() {
           >
             <Eye size={14} />
             View
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               handleEditPayment(dropdownPurchasePayment);
@@ -1576,8 +1570,8 @@ function PurchasePayment() {
           >
             <Edit2 size={14} />
             Edit
-          </button>
-          <button
+          </MotionButton>
+          <MotionButton
             onClick={(e) => {
               e.stopPropagation();
               alert('PDF feature coming soon!');
@@ -1601,9 +1595,9 @@ function PurchasePayment() {
           >
             <span>📄</span>
             PDF
-          </button>
+          </MotionButton>
           {isAdmin && (
-            <button
+            <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
                 handleDeletePayment(dropdownPurchasePayment._id);
@@ -1627,9 +1621,10 @@ function PurchasePayment() {
             >
               <Trash2 size={14} />
               Delete
-            </button>
+            </MotionButton>
           )}
-        </div>
+          </div>
+        </ActionMenuPortal>
       )}
       
 

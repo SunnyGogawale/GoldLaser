@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Login from './pages/Login'
 import AdminLogin from './pages/AdminLogin'
@@ -15,6 +15,7 @@ import Vendor from './pages/Vendor'
 import PurchaseInvoice from './pages/PurchaseInvoice'
 import PurchasePayment from './pages/PurchasePayment'
 import { clearAuthSession, getAuthToken, getLastActivityAt, markSessionActivity } from './utils/authStorage'
+import PageTransition from './components/PageTransition'
 import './App.css'
 
 function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
@@ -97,6 +98,8 @@ function App() {
     setIsLoggedIn(false)
   }, [])
 
+  const withPageTransition = (element) => <PageTransition>{element}</PageTransition>
+
   return (
     <BrowserRouter>
       <IdleSessionManager isLoggedIn={isLoggedIn} onLogout={logout} timeoutMs={120000} />
@@ -105,17 +108,21 @@ function App() {
         <Route
           path="/login"
           element={
-            isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />
+            isLoggedIn
+              ? <Navigate to="/dashboard" replace />
+              : withPageTransition(<Login setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />)
           }
         />
         <Route
           path="/admin"
           element={
-            isLoggedIn ? <Navigate to="/dashboard" replace /> : <AdminLogin setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />
+            isLoggedIn
+              ? <Navigate to="/dashboard" replace />
+              : withPageTransition(<AdminLogin setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />)
           }
         />
-        <Route path="/signup" element={<SignUp theme={theme} toggleTheme={toggleTheme} />} />
-        <Route path="/forgot-password" element={<ForgotPassword theme={theme} toggleTheme={toggleTheme} />} />
+        <Route path="/signup" element={withPageTransition(<SignUp theme={theme} toggleTheme={toggleTheme} />)} />
+        <Route path="/forgot-password" element={withPageTransition(<ForgotPassword theme={theme} toggleTheme={toggleTheme} />)} />
         
         {/* Protected Routes with Layout */}
         <Route element={<Layout setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />}>
