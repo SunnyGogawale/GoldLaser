@@ -13,7 +13,7 @@ function Vendor() {
   // Responsive state
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   
-  useEffect(() => {
+  useEffect(() => { 
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
     }
