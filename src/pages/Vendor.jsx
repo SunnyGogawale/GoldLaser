@@ -28,8 +28,10 @@ function Vendor() {
     vendorName: '',
     companyName: '',
     contactNumber: '',
+    alternateNumber: '',
     email: '',
     address: '',
+    shippingAddress: '',
     note: '',
     customFields: {}
   })
@@ -474,8 +476,10 @@ function Vendor() {
         vendorName: String(vendorForm.vendorName || '').trim(),
         companyName: String(vendorForm.companyName || '').trim(),
         contactNumber: String(vendorForm.contactNumber || '').trim(),
+        alternateNumber: String(vendorForm.alternateNumber || '').trim(),
         email: String(vendorForm.email || '').trim(),
         address: String(vendorForm.address || '').trim(),
+        shippingAddress: String(vendorForm.shippingAddress || '').trim(),
         note: String(vendorForm.note || '').trim()
       }
 
@@ -544,8 +548,10 @@ function Vendor() {
         vendorName: '',
         companyName: '',
         contactNumber: '',
+        alternateNumber: '',
         email: '',
         address: '',
+        shippingAddress: '',
         note: '',
         customFields: initialCustomFields
       });
@@ -580,8 +586,10 @@ function Vendor() {
       vendorName: '',
       companyName: '',
       contactNumber: '',
+      alternateNumber: '',
       email: '',
       address: '',
+      shippingAddress: '',
       note: '',
       customFields: initialCustomFields
     })
@@ -620,8 +628,10 @@ function Vendor() {
         vendorName: fullVendor.vendorName || '',
         companyName: fullVendor.companyName || '',
         contactNumber: fullVendor.contactNumber,
+        alternateNumber: fullVendor.alternateNumber || '',
         email: fullVendor.email,
         address: fullVendor.address,
+        shippingAddress: fullVendor.shippingAddress || '',
         note: fullVendor.note,
         customFields
       })
@@ -653,8 +663,10 @@ function Vendor() {
       vendorName: '',
       companyName: '',
       contactNumber: '',
+      alternateNumber: '',
       email: '',
       address: '',
+      shippingAddress: '',
       note: '',
       customFields: initialCustomFields
     });
@@ -972,6 +984,53 @@ function Vendor() {
 
                 <div style={{ flex: '1 1 280px' }}>
                   <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Alternate Contact Number<span style={{ color: 'var(--danger)' }}></span></span>
+                  </label>
+                  <input
+                    type="tel"
+                    name="alternatecontactNumber"
+                    value={vendorForm.alternateNumber}
+                    onChange={handleVendorInputChange}
+                    disabled={loading}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      border: `2px solid ${errors.alternateNumber ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
+                      fontSize: '0.9375rem',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-header)',
+                      transition: 'all 0.2s ease',
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.alternateNumber ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                    }}
+                    placeholder="Enter alternate contact number"
+                  />
+                  {formSubmitted && errors.alternateNumber && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.alternateNumber}
+                    </p>
+                  )}
+                </div>
+
+                
+              </div>
+
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+
+                <div style={{ flex: '1 1 280px' }}>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
                     <span>Email <span style={{ color: 'var(--danger)' }}>*</span></span>
                   </label>
                   <input
@@ -1010,7 +1069,39 @@ function Vendor() {
                     </p>
                   )}
                 </div>
+
+                <div style={{ flex: '1 1 280px' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    Note
+                  </label>
+                  <input
+                    type="text"
+                    name="note"
+                    value={vendorForm.note}
+                    onChange={handleVendorInputChange}
+                    rows={3}
+                    disabled={loading}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      fontSize: '0.9375rem',
+                      background: 'var(--bg-card)',
+                      color: 'var(--text-header)',
+                      transition: 'all 0.2s',
+                      resize: 'vertical',
+                      opacity: loading ? 0.7 : 1
+                    }}
+                    placeholder="Add any notes"
+                  ></input>
+                </div>
+
+                
+
               </div>
+
+
 
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px' }}>
@@ -1056,30 +1147,48 @@ function Vendor() {
                 </div>
 
                 <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    Note
+                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                    <span>Shipping Address<span style={{ color: 'var(--danger)' }}></span></span>
                   </label>
                   <textarea
-                    name="note"
-                    value={vendorForm.note}
+                    name="Shipping address"
+                    value={vendorForm.shippingAddress}
                     onChange={handleVendorInputChange}
                     rows={3}
                     disabled={loading}
+                    autoComplete="shipping-address"
                     style={{
                       width: '100%',
                       padding: '0.75rem 1rem',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
+                      border: `2px solid ${errors.shippingAddress ? '#ef4444' : 'var(--border)'}`,
+                      borderRadius: '12px',
                       fontSize: '0.9375rem',
                       background: 'var(--bg-card)',
                       color: 'var(--text-header)',
-                      transition: 'all 0.2s',
+                      transition: 'all 0.2s ease',
                       resize: 'vertical',
-                      opacity: loading ? 0.7 : 1
+                      opacity: loading ? 0.7 : 1,
+                      outline: 'none',
+                      boxShadow: errors.shippingAddress ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
                     }}
-                    placeholder="Add any notes"
+                    placeholder="Enter vendor shipping address"
                   ></textarea>
+                  {formSubmitted && errors.shippingAddress && (
+                    <p style={{
+                      color: '#ef4444',
+                      fontSize: '0.875rem',
+                      marginTop: '0.5rem',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      {errors.shippingAddress}
+                    </p>
+                  )}
                 </div>
+
+                
               </div>
 
               {/* Custom Fields Section */}
@@ -1100,7 +1209,7 @@ function Vendor() {
                         borderRadius: '8px',
                         fontSize: '0.875rem',
                         fontWeight: 600,
-                        cursor: loading ? 'not-allowed' : 'pointer',
+                        cursor: loading ? 'not-allowed' : 'pointer', 
                         transition: 'all 0.2s',
                         opacity: loading ? 0.7 : 1
                       }}

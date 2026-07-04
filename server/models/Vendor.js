@@ -53,6 +53,10 @@ const vendorSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  alternateNumber: {
+  type: String,
+  default: ''
+  }, 
   email: {
     type: String,
     default: ''
@@ -60,6 +64,10 @@ const vendorSchema = new mongoose.Schema({
   address: {
     type: String,
     default: ''
+  },
+  shippingAddress: {
+  type: String,
+  default: ''
   },
   note: {
     type: String,
