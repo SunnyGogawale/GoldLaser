@@ -169,20 +169,48 @@ function PurchaseInvoice() {
     return s.slice(0, max) + '...'
   }
 
-  // Client dropdown autocomplete state
-  const [clientSearchText, setClientSearchText] = useState('');
-  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const truncateTextByChars = (value, maxChars = 30) => {
+    const s = String(value ?? '').trim()
+    if (!s) return ''
+    if (s.length <= maxChars) return s
+    return `${s.slice(0, maxChars)}...`
+  }
 
-  // Combine customers and vendors
-  const allClients = useMemo(() => [
-    ...customers.map(c => ({ ...c, type: 'Customer', name: c.customerName })),
+  const getClientDisplayLabel = (client) => {
+    const baseName =
+      client?.customerName ||
+      client?.vendorName ||
+      `${client?.firstName || ''} ${client?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+      'Unknown'
+    const withCompany = client?.companyName ? `${baseName} - ${client.companyName}` : baseName
+    return client?.id ? `${withCompany}` : withCompany
+  }
+
+  const formatDateDDMMMYYYY = (dateValue) => {
+    if (!dateValue) return '-'
+    const d = new Date(dateValue)
+    if (!d || Number.isNaN(d.getTime())) return '-'
+    const dd = String(d.getDate()).padStart(2, '0')
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const mmm = months[d.getMonth()] || ''
+    const yyyy = d.getFullYear()
+    return `${dd}-${mmm}-${yyyy}`
+  }
+
+  // Vendor dropdown autocomplete state
+  const [vendorSearchText, setVendorSearchText] = useState('');
+  const [isVendorDropdownOpen, setIsVendorDropdownOpen] = useState(false);
+
+  // Only vendors for purchase invoices
+  const allVendors = useMemo(() => [
     ...vendors.map(v => ({ ...v, type: 'Vendor', name: v.vendorName }))
-  ], [customers, vendors]);
+  ], [vendors]);
 
-  const filteredClients = useMemo(() => allClients.filter(c => 
-    c.name?.toLowerCase().includes(clientSearchText.toLowerCase()) || 
-    c.id?.toLowerCase().includes(clientSearchText.toLowerCase())
-  ), [allClients, clientSearchText]);
+  const filteredVendors = useMemo(() => allVendors.filter(v => 
+    v.name?.toLowerCase().includes(vendorSearchText.toLowerCase()) || 
+    v.companyName?.toLowerCase().includes(vendorSearchText.toLowerCase()) || 
+    v.id?.toLowerCase().includes(vendorSearchText.toLowerCase())
+  ), [allVendors, vendorSearchText]);
 
   // Fetch next invoice number
   const fetchNextInvoiceNumber = async () => {
@@ -463,6 +491,7 @@ function PurchaseInvoice() {
     const clientId = invoice.clientId || invoice.vendorId?._id || invoice.vendorId;
     const client = invoice.vendorId;
     const clientName = client?.customerName || client?.vendorName || '';
+    const companyName = client?.companyName || '';
     const clientIdStr = client?.id || '';
     
     setInvoiceForm({
@@ -478,7 +507,7 @@ function PurchaseInvoice() {
       })),
       totalAmount: invoice.totalAmount
     });
-    setClientSearchText(clientName ? `${clientName} (${clientIdStr}) - ${clientType}` : '');
+    setVendorSearchText(clientName ? `${clientName}${companyName ? ' - ' + companyName : ''}` : '');
     setEditingInvoiceId(invoice._id);
     setErrors({});
     setFormSubmitted(false);
@@ -496,7 +525,7 @@ function PurchaseInvoice() {
       items: [{ product: '', description: '', amount: 0 }],
       totalAmount: 0
     });
-    setClientSearchText('');
+    setVendorSearchText('');
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -515,8 +544,8 @@ function PurchaseInvoice() {
       items: [{ product: '', description: '', amount: 0 }],
       totalAmount: 0
     });
-    setClientSearchText('');
-    setIsClientDropdownOpen(false);
+    setVendorSearchText('');
+    setIsVendorDropdownOpen(false);
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -845,38 +874,39 @@ function PurchaseInvoice() {
 
       <AnimatePresence>
         {formOpen && (
-        <motion.div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          initial={overlayMotion.initial}
-          animate={overlayMotion.animate}
-          exit={overlayMotion.exit}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeInvoiceForm()
-          }}
-        >
+        <ActionMenuPortal>
           <motion.div
-            className="card"
             style={{
-              width: 'min(1100px, 96vw)',
-              maxHeight: '88vh',
-              overflow: 'auto',
-              padding: '1.5rem'
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
             }}
-            initial={modalMotion.initial}
-            animate={modalMotion.animate}
-            exit={modalMotion.exit}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
+            initial={overlayMotion.initial}
+            animate={overlayMotion.animate}
+            exit={overlayMotion.exit}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInvoiceForm()
+            }}
           >
+            <motion.div
+              className="card"
+              style={{
+                width: 'min(1100px, 96vw)',
+                maxHeight: '88vh',
+                overflow: 'auto',
+                padding: '1.5rem'
+              }}
+              initial={modalMotion.initial}
+              animate={modalMotion.animate}
+              exit={modalMotion.exit}
+              transition={{ duration: 0.24, ease: 'easeOut' }}
+            >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
                 {editingInvoiceId ? 'Edit Invoice' : 'New Invoice'}
@@ -927,16 +957,16 @@ function PurchaseInvoice() {
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px', position: 'relative' }}>
                   <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Client <span style={{ color: 'var(--danger)' }}>*</span>
+                    Select Vendor <span style={{ color: 'var(--danger)' }}>*</span>
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="text"
-                      placeholder="Search client (customer or vendor)..."
-                      value={clientSearchText}
+                      placeholder="Search vendor..."
+                      value={vendorSearchText}
                       onChange={(e) => {
-                        setClientSearchText(e.target.value);
-                        setIsClientDropdownOpen(e.target.value.length > 0);
+                        setVendorSearchText(e.target.value);
+                        setIsVendorDropdownOpen(e.target.value.length > 0);
                         if (invoiceForm.clientId) {
                           setInvoiceForm(prev => ({ ...prev, clientId: '', clientType: 'Vendor' }));
                         }
@@ -949,9 +979,9 @@ function PurchaseInvoice() {
                         }
                       }}
                       onFocus={(e) => {
-                        if (e.target.value.length > 0) setIsClientDropdownOpen(true);
+                        if (e.target.value.length > 0) setIsVendorDropdownOpen(true);
                       }}
-                      onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
+                      onBlur={() => setTimeout(() => setIsVendorDropdownOpen(false), 200)}
                       disabled={loading}
                       style={{
                         width: '100%',
@@ -964,7 +994,7 @@ function PurchaseInvoice() {
                         outline: 'none'
                       }}
                     />
-                    {isClientDropdownOpen && (
+                    {isVendorDropdownOpen && (
                       <ul style={{
                         position: 'absolute',
                         top: '100%',
@@ -981,13 +1011,13 @@ function PurchaseInvoice() {
                         zIndex: 10,
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}>
-                        {filteredClients.map(client => (
+                        {filteredVendors.map(vendor => (
                           <li
-                            key={client._id + client.type}
+                            key={vendor._id + vendor.type}
                             onClick={() => {
-                              setInvoiceForm(prev => ({ ...prev, clientId: client._id, clientType: client.type }));
-                              setClientSearchText(`${client.name} (${client.id}) - ${client.type}`);
-                              setIsClientDropdownOpen(false);
+                              setInvoiceForm(prev => ({ ...prev, clientId: vendor._id, clientType: vendor.type }));
+                              setVendorSearchText(`${vendor.name}${vendor.companyName ? ' - ' + vendor.companyName : ''}`);
+                              setIsVendorDropdownOpen(false);
                             }}
                             style={{
                               padding: '0.5rem 0.75rem',
@@ -999,8 +1029,8 @@ function PurchaseInvoice() {
                             }}
                             onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
                             onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                          >
-                            {client.name} ({client.id}) - {client.type}
+                            >
+                            {vendor.name}{vendor.companyName ? ' - ' + vendor.companyName : ''}
                           </li>
                         ))}
                       </ul>
@@ -1243,6 +1273,7 @@ function PurchaseInvoice() {
             </form>
           </motion.div>
         </motion.div>
+        </ActionMenuPortal>
       )}
       </AnimatePresence>
 
@@ -1298,7 +1329,7 @@ function PurchaseInvoice() {
                       `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                       'Unknown';
                     const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name;
-                    const dateLabel = new Date(invoice.invoiceDate).toLocaleDateString();
+                    const dateLabel = formatDateDDMMMYYYY(invoice.invoiceDate);
                     const amountLabel = `₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                     const descriptionLabel = invoice.transactionDescription ? String(invoice.transactionDescription) : '-';
 
@@ -1377,7 +1408,7 @@ function PurchaseInvoice() {
                           {descriptionLabel !== '-' && (
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
                               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Description:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{descriptionLabel}</div>
+                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{truncateTextByChars(descriptionLabel, 30)}</div>
                             </div>
                           )}
                         </div>
@@ -1393,69 +1424,74 @@ function PurchaseInvoice() {
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
                         <th
                           onClick={() => handleSort('invoiceNumber')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
-                          Invoice No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          INV No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('clientId')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
-                          Client {sortColumn === 'clientId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          Vendor {sortColumn === 'clientId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('invoiceDate')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Date {sortColumn === 'invoiceDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('transactionDescription')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Txn Description {sortColumn === 'transactionDescription' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('totalAmount')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Total Amount {sortColumn === 'totalAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                        <th style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {invoices.map((invoice) => {
-                        const name =
-                          invoice.vendorId?.vendorName ||
-                          invoice.vendorId?.customerName ||
-                          `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                          'Unknown';
-                        const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name;
-                        const dateLabel = new Date(invoice.invoiceDate).toLocaleDateString();
+                        const label = getClientDisplayLabel(invoice.vendorId)
+                        const dateLabel = formatDateDDMMMYYYY(invoice.invoiceDate)
                         const amountLabel = `₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                         const descriptionLabel = invoice.transactionDescription ? String(invoice.transactionDescription) : '-';
 
                         return (
                           <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(invoice.invoiceNumber || '')}>
+                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
                               {truncateText(invoice.invoiceNumber || '')}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>
-                              <span title={String(label)}>
-                                {truncateText(label)}
-                              </span>
+                            <td
+                              style={{
+                                padding: '0.3rem 0.3rem',
+                                color: 'var(--text-main)',
+                                borderLeft: isAdmin ? '1px solid var(--border)' : 'none',
+                                borderRight: isAdmin ? '1px solid var(--border)' : 'none',
+                                whiteSpace: 'normal',
+                                overflowWrap: 'anywhere',
+                                wordBreak: 'break-word',
+                                minWidth: '220px'
+                              }}
+                              title={String(label)}
+                            >
+                              {label || '-'}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={dateLabel}>
-                              {truncateText(dateLabel)}
+                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={dateLabel}>
+                              {dateLabel}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
-                              {descriptionLabel === '-' ? '-' : truncateText(descriptionLabel)}
+                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '260px', maxWidth: '420px' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
+                              {descriptionLabel || '-'}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={amountLabel}>
+                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
                               {amountLabel}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem' }}>
+                            <td style={{ padding: '0.3rem 0.5rem', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {
@@ -1570,38 +1606,39 @@ function PurchaseInvoice() {
 
       <AnimatePresence>
         {infoOpen && (
-        <motion.div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          initial={overlayMotion.initial}
-          animate={overlayMotion.animate}
-          exit={overlayMotion.exit}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeInfo()
-          }}
-        >
+        <ActionMenuPortal>
           <motion.div
-            className="card"
             style={{
-              width: 'min(700px, 96vw)',
-              maxHeight: '88vh',
-              overflow: 'auto',
-              padding: '1.25rem'
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
             }}
-            initial={modalMotion.initial}
-            animate={modalMotion.animate}
-            exit={modalMotion.exit}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
+            initial={overlayMotion.initial}
+            animate={overlayMotion.animate}
+            exit={overlayMotion.exit}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInfo()
+            }}
           >
+            <motion.div
+              className="card"
+              style={{
+                width: 'min(700px, 96vw)',
+                maxHeight: '88vh',
+                overflow: 'auto',
+                padding: '1.25rem'
+              }}
+              initial={modalMotion.initial}
+              animate={modalMotion.animate}
+              exit={modalMotion.exit}
+              transition={{ duration: 0.24, ease: 'easeOut' }}
+            >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
               <div>
                 <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Invoice Details</div>
@@ -1739,6 +1776,7 @@ function PurchaseInvoice() {
             </div>
           </motion.div>
         </motion.div>
+        </ActionMenuPortal>
       )}
       </AnimatePresence>
 
@@ -1870,21 +1908,22 @@ function PurchaseInvoice() {
       {/* PDF Viewer Modal */}
       <AnimatePresence>
         {pdfViewerOpen && pdfBlobUrl && (
-        <motion.div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 100000,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-          initial={overlayMotion.initial}
-          animate={overlayMotion.animate}
-          exit={overlayMotion.exit}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          onClick={() => setPdfViewerOpen(false)}
-        >
+        <ActionMenuPortal>
+          <motion.div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              zIndex: 100000,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            initial={overlayMotion.initial}
+            animate={overlayMotion.animate}
+            exit={overlayMotion.exit}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            onClick={() => setPdfViewerOpen(false)}
+          >
           {/* Header */}
           <motion.div
             style={{
@@ -1967,6 +2006,7 @@ function PurchaseInvoice() {
             />
           </motion.div>
         </motion.div>
+        </ActionMenuPortal>
       )}
       </AnimatePresence>
 

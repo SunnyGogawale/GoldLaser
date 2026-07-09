@@ -29,16 +29,16 @@ function Invoice() {
       ifscCode: ''
     }
   })
-  
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
     }
-    
+
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-  
+
   // Fetch company settings
   useEffect(() => {
     const fetchSettings = async () => {
@@ -54,7 +54,7 @@ function Invoice() {
     }
     fetchSettings()
   }, [])
-  
+
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
     invoiceNumber: '',
@@ -113,14 +113,24 @@ function Invoice() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [openDropdownId]);
-  
+
   const handleSort = (column) => {
     if (sortColumn === column) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(column);
       setSortOrder('asc');
     }
+  };
+
+  const getClientDisplayLabel = (client) => {
+    const baseName =
+      client?.customerName ||
+      client?.vendorName ||
+      `${client?.firstName || ''} ${client?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+      'Unknown';
+    const withCompany = client?.companyName ? `${baseName} - ${client.companyName}` : baseName;
+    return client?.id ? `${withCompany}` : withCompany;
   };
 
   const formatTimeAgo = (dateValue) => {
@@ -145,19 +155,43 @@ function Invoice() {
     return s.slice(0, max) + '...'
   }
 
-  // Client dropdown autocomplete state
-  const [clientSearchText, setClientSearchText] = useState('');
-  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const truncateTextByChars = (value, maxChars = 30) => {
+    const s = String(value ?? '').trim()
+    if (!s) return ''
+    if (s.length <= maxChars) return s
+    return `${s.slice(0, maxChars)}...`
+  }
 
-  // Combine customers and vendors
-  const allClients = [
-    ...customers.map(c => ({ ...c, type: 'Customer', name: c.customerName })),
-    ...vendors.map(v => ({ ...v, type: 'Vendor', name: v.vendorName }))
-  ];
+  const formatDateDDMMMYYYY = (dateValue) => {
+    if (!dateValue) return '-'
+    const d = new Date(dateValue)
+    if (!d || Number.isNaN(d.getTime())) return '-'
+    const dd = String(d.getDate()).padStart(2, '0')
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const mmm = months[d.getMonth()] || ''
+    const yyyy = d.getFullYear()
+    return `${dd}-${mmm}-${yyyy}`
+  }
 
-  const filteredClients = allClients.filter(c =>
-    c.name?.toLowerCase().includes(clientSearchText.toLowerCase()) ||
-    c.id?.toLowerCase().includes(clientSearchText.toLowerCase())
+  // Customer dropdown autocomplete state
+  const [customerSearchText, setCustomerSearchText] = useState('');
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+
+  // Only use customers
+  const allCustomers = customers.map(c => ({
+    ...c,
+    type: 'Customer',
+    name: c.customerName,
+    companyName: c.companyName,
+    displayName: c.companyName
+      ? `${c.customerName} - ${c.companyName}`
+      : c.customerName
+  }));
+
+  const filteredCustomers = allCustomers.filter(c =>
+    c.name?.toLowerCase().includes(customerSearchText.toLowerCase()) ||
+    c.companyName?.toLowerCase().includes(customerSearchText.toLowerCase()) ||
+    c.id?.toLowerCase().includes(customerSearchText.toLowerCase())
   );
 
   // Fetch vendors for dropdown
@@ -170,7 +204,7 @@ function Invoice() {
       console.error('Error fetching vendors:', err);
     }
   };
-  
+
   // Fetch next invoice number
   const fetchNextInvoiceNumber = async () => {
     try {
@@ -437,9 +471,23 @@ function Invoice() {
   const handleEditInvoice = (invoice) => {
     const clientType = invoice.clientType || 'Customer';
     const clientId = invoice.clientId || invoice.vendorId?._id || invoice.vendorId;
-    const client = invoice.vendorId;
-    const clientName = client?.customerName || client?.vendorName || '';
-    const clientIdStr = client?.id || '';
+    let clientName = '';
+    let clientIdStr = '';
+    let displayName = '';
+
+    if (clientType === 'Customer') {
+      const customer = customers.find(c => String(c._id) === String(clientId));
+      if (customer) {
+        clientName = customer.customerName;
+        // clientIdStr = customer.id;
+        displayName = customer.companyName ? `${customer.customerName} - ${customer.companyName}` : customer.customerName;
+      }
+    } else {
+      const client = invoice.vendorId;
+      clientName = client?.customerName || client?.vendorName || '';
+      // clientIdStr = client?.id || '';
+      displayName = clientName;
+    }
 
     setInvoiceForm({
       invoiceNumber: invoice.invoiceNumber,
@@ -454,7 +502,7 @@ function Invoice() {
       })),
       totalAmount: invoice.totalAmount
     });
-    setClientSearchText(clientName ? `${clientName} (${clientIdStr}) - ${clientType}` : '');
+    setCustomerSearchText(displayName ? `${displayName} (${clientIdStr})` : '');
     setEditingInvoiceId(invoice._id);
     setErrors({});
     setFormSubmitted(false);
@@ -472,7 +520,7 @@ function Invoice() {
       items: [{ product: '', description: '', amount: 0 }],
       totalAmount: 0
     });
-    setClientSearchText('');
+    setCustomerSearchText('');
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -491,8 +539,8 @@ function Invoice() {
       items: [{ product: '', description: '', amount: 0 }],
       totalAmount: 0
     });
-    setClientSearchText('');
-    setIsClientDropdownOpen(false);
+    setCustomerSearchText('');
+    setIsCustomerDropdownOpen(false);
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -521,12 +569,12 @@ function Invoice() {
     doc.setDrawColor(0, 0, 0); // Black border
     doc.setFillColor(255, 255, 255);
     doc.setTextColor(0, 0, 0);
-    
+
     // --- Top Section (Company Info & Logo) ---
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.text('INVOICE', marginLeft, y);
-    
+
     // Company Info (Left)
     y += 8;
     doc.setFontSize(10);
@@ -541,7 +589,7 @@ function Invoice() {
     y += 5;
     doc.setFont('helvetica', 'normal');
     doc.text(companySettings.companyContactNumber || 'Contact No', marginLeft, y);
-    
+
     // Logo Placeholder (Right)
     const logoX = pageWidth - marginRight - 50;
     doc.setLineWidth(0.5);
@@ -551,7 +599,7 @@ function Invoice() {
     doc.setFont('helvetica', 'bold');
     doc.text('Company', logoX + 25, 32, { align: 'center' });
     doc.text('Logo', logoX + 25, 42, { align: 'center' });
-    
+
     // --- Bill To Section ---
     y = 65;
     doc.setFontSize(10);
@@ -560,14 +608,14 @@ function Invoice() {
     y += 6;
     const client = invoice.vendorId;
     const isCustomer = client?.customerName;
-    
+
     const rightColX = pageWidth - marginRight - 80;
     // Customer/Vendor Name
     doc.setFont('helvetica', 'bold');
     doc.text('Name:', marginLeft, y);
     doc.setFont('helvetica', 'normal');
     doc.text(isCustomer ? client.customerName : (client?.vendorName || 'N/A'), marginLeft + 20, y);
-    
+
     // Email in the same row on the right
     if (isCustomer && client.email || !isCustomer && client?.email) {
       doc.setFont('helvetica', 'bold');
@@ -576,7 +624,7 @@ function Invoice() {
       doc.text(isCustomer ? client.email : (client?.email || ''), rightColX + 15, y);
     }
     y += 5;
-    
+
     if (isCustomer) {
       // Display customer details with bold titles
       let hasCompanyOrPhone = false;
@@ -595,7 +643,7 @@ function Invoice() {
         hasCompanyOrPhone = true;
       }
       if (hasCompanyOrPhone) y += 5;
-      
+
       if (client.address) {
         doc.setFont('helvetica', 'bold');
         doc.text('Address:', marginLeft, y);
@@ -603,7 +651,7 @@ function Invoice() {
         doc.text(client.address, marginLeft + 20, y);
         y += 5;
       }
-      
+
       if (client.alternateNumber) {
         doc.setFont('helvetica', 'bold');
         doc.text('Alt:', marginLeft, y);
@@ -629,7 +677,7 @@ function Invoice() {
         hasCompanyOrPhone = true;
       }
       if (hasCompanyOrPhone) y += 5;
-      
+
       if (client?.address) {
         doc.setFont('helvetica', 'bold');
         doc.text('Address:', marginLeft, y);
@@ -638,7 +686,7 @@ function Invoice() {
         y += 5;
       }
     }
-    
+
     // --- Invoice Details ---
     y += 5; // Add space before invoice details
     doc.setLineWidth(0.3);
@@ -648,7 +696,7 @@ function Invoice() {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('Invoice details', marginLeft, y);
-    
+
     const invoiceNo = invoice.invoiceNumber || 'SI00001';
     const formatDate = (dateStr) => {
       const date = new Date(dateStr);
@@ -659,23 +707,23 @@ function Invoice() {
       return `${day}-${month}-${year}`;
     };
 
-    const invoiceDate = invoice.invoiceDate 
+    const invoiceDate = invoice.invoiceDate
       ? formatDate(invoice.invoiceDate)
       : '05-Nov-2026';
-      
+
     // Invoice No
     doc.setFont('helvetica', 'bold');
     doc.text('Invoice No:', marginLeft, y + 6);
     doc.setFont('helvetica', 'normal');
     doc.text(invoiceNo, marginLeft + 25, y + 6);
-    
+
     // Invoice Date on next line
     y += 5;
     doc.setFont('helvetica', 'bold');
     doc.text('Invoice Date:', marginLeft, y + 6);
     doc.setFont('helvetica', 'normal');
     doc.text(invoiceDate, marginLeft + 25, y + 6);
-    
+
     // --- Items Table ---
     y += 15;
     const items = invoice.items || [];
@@ -685,7 +733,7 @@ function Invoice() {
       item.description?.toString().trim() || '-',
       `${(parseFloat(item.amount) || 0).toLocaleString('en-IN')}/-`
     ]);
-    
+
     autoTable(doc, {
       startY: y,
       head: [['Sr No', 'Product', 'Description', 'Amount']],
@@ -715,13 +763,13 @@ function Invoice() {
         3: { cellWidth: 35, halign: 'right' }
       }
     });
-    
+
     // --- Total ---
     const finalY = doc.lastAutoTable?.finalY || y + 40;
     y = finalY + 5;
     const totalAmt = parseFloat(invoice.totalAmount) || 0;
     const totalAmtStr = totalAmt.toLocaleString('en-IN');
-    
+
     doc.setLineWidth(0.5);
     doc.setDrawColor(0, 0, 0);
     doc.line(marginLeft, y, pageWidth - marginRight, y);
@@ -730,7 +778,7 @@ function Invoice() {
     doc.setFont('helvetica', 'bold');
     doc.text('Total', pageWidth - marginRight - 60, y);
     doc.text(`${totalAmtStr}/-`, pageWidth - marginRight, y, { align: 'right' });
-    
+
     // --- Company Footer ---
     y += 20;
     doc.setFontSize(10);
@@ -739,7 +787,7 @@ function Invoice() {
     y += 5;
     doc.setFont('helvetica', 'normal');
     doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y);
-    
+
     // --- Bank Details ---
     y += 20;
     doc.setFontSize(10);
@@ -824,110 +872,204 @@ function Invoice() {
       </div>
 
       {formOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeInvoiceForm()
-          }}
-        >
+        <ActionMenuPortal>
           <div
-            className="card"
             style={{
-              width: 'min(1100px, 96vw)',
-              maxHeight: '88vh',
-              overflow: 'auto',
-              padding: '1.5rem'
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInvoiceForm()
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
-                {editingInvoiceId ? 'Edit Invoice' : 'New Invoice'}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
-                <div
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: 999,
-                    background: 'var(--bg-main)',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.875rem',
-                    fontWeight: 800,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Invoice No : {invoiceForm.invoiceNumber || 'xxxx'}
+            <div
+              className="card"
+              style={{
+                width: 'min(1100px, 96vw)',
+                maxHeight: '88vh',
+                overflow: 'auto',
+                padding: '1.5rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
+                  {editingInvoiceId ? 'Edit Invoice' : 'New Invoice'}
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
+                  <div
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      border: '1px solid var(--border)',
+                      borderRadius: 999,
+                      background: 'var(--bg-main)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.875rem',
+                      fontWeight: 800,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Invoice No : {invoiceForm.invoiceNumber || 'xxxx'}
+                  </div>
+                  <MotionButton
+                    type="button"
+                    onClick={closeInvoiceForm}
+                    disabled={loading}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '0.5rem 1rem',
+                      // background: 'var(--bg-main)',
+                      color: 'var(--text-header)',
+                      // border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      fontSize: '0.9375rem',
+                      fontWeight: 600,
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      opacity: loading ? 0.7 : 1
+                    }}
+                  >
+                    <X size={16} />
+                    {/* Close */}
+                  </MotionButton>
                 </div>
-                <MotionButton
-                  type="button"
-                  onClick={closeInvoiceForm}
-                  disabled={loading}
-                  className="btn btn-secondary"
-                  style={{
-                    padding: '0.5rem 1rem',
-                    // background: 'var(--bg-main)',
-                    color: 'var(--text-header)',
-                    // border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    fontSize: '0.9375rem',
-                    fontWeight: 600,
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    opacity: loading ? 0.7 : 1
-                  }}
-                >
-                  <X size={16} />
-                  {/* Close */}
-                </MotionButton>
               </div>
-            </div>
 
-            <form onSubmit={handleInvoiceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 280px', position: 'relative' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Client <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
-                  <div style={{ position: 'relative' }}>
+              <form onSubmit={handleInvoiceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 280px', position: 'relative' }}>
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                      Select Customer <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        placeholder="Search customer..."
+                        value={customerSearchText}
+                        onChange={(e) => {
+                          setCustomerSearchText(e.target.value);
+                          setIsCustomerDropdownOpen(e.target.value.length > 0);
+                          if (invoiceForm.clientId) {
+                            setInvoiceForm(prev => ({ ...prev, clientId: '', clientType: 'Customer' }));
+                          }
+                          if (formSubmitted && errors.clientId) {
+                            setErrors(prev => {
+                              const newE = { ...prev };
+                              delete newE.clientId;
+                              return newE;
+                            });
+                          }
+                        }}
+                        onFocus={(e) => {
+                          if (e.target.value.length > 0) setIsCustomerDropdownOpen(true);
+                        }}
+                        onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                        disabled={loading}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          border: `1px solid ${errors.clientId ? 'var(--danger)' : 'var(--border)'}`,
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                      {isCustomerDropdownOpen && (
+                        <ul style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          maxHeight: '250px',
+                          overflowY: 'auto',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          marginTop: '4px',
+                          padding: 0,
+                          listStyle: 'none',
+                          zIndex: 10,
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}>
+                          {filteredCustomers.map(customer => (
+                            <li
+                              key={customer._id + customer.type}
+                              onClick={() => {
+                                setInvoiceForm(prev => ({ ...prev, clientId: customer._id, clientType: customer.type }))
+                                setCustomerSearchText(`${customer.displayName}`)
+                                setIsCustomerDropdownOpen(false)
+                              }}
+                              style={{
+                                padding: '0.5rem 0.75rem',
+                                cursor: 'pointer',
+                                fontSize: '0.875rem',
+                                color: 'var(--text-header)',
+                                borderBottom: '1px solid var(--border)',
+                                transition: 'background 0.2s'
+                              }}
+                              onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
+                              onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                            >
+                              {customer.displayName}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    {formSubmitted && errors.clientId && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.clientId}</p>
+                    )}
+                  </div>
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                      Invoice Date <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
                     <input
-                      type="text"
-                      placeholder="Search client (customer or vendor)..."
-                      value={clientSearchText}
-                      onChange={(e) => {
-                        setClientSearchText(e.target.value);
-                        setIsClientDropdownOpen(e.target.value.length > 0);
-                        if (invoiceForm.clientId) {
-                          setInvoiceForm(prev => ({ ...prev, clientId: '', clientType: 'Customer' }));
-                        }
-                        if (formSubmitted && errors.clientId) {
-                          setErrors(prev => {
-                            const newE = { ...prev };
-                            delete newE.clientId;
-                            return newE;
-                          });
-                        }
-                      }}
-                      onFocus={(e) => {
-                        if (e.target.value.length > 0) setIsClientDropdownOpen(true);
-                      }}
-                      onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
+                      type="date"
+                      name="invoiceDate"
+                      value={invoiceForm.invoiceDate}
+                      onChange={handleInputChange}
                       disabled={loading}
                       style={{
                         width: '100%',
                         padding: '0.5rem 0.75rem',
-                        border: `1px solid ${errors.clientId ? 'var(--danger)' : 'var(--border)'}`,
+                        border: `1px solid ${errors.invoiceDate ? 'var(--danger)' : 'var(--border)'}`,
+                        borderRadius: '6px',
+                        fontSize: '0.875rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)'
+                      }}
+                    />
+                    {formSubmitted && errors.invoiceDate && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.invoiceDate}</p>
+                    )}
+                  </div>
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                      Transaction Description
+                    </label>
+                    <input
+                      type="text"
+                      name="transactionDescription"
+                      value={invoiceForm.transactionDescription}
+                      onChange={handleInputChange}
+                      disabled={loading}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid var(--border)',
                         borderRadius: '6px',
                         fontSize: '0.875rem',
                         background: 'var(--bg-card)',
@@ -935,248 +1077,175 @@ function Invoice() {
                         outline: 'none'
                       }}
                     />
-                    {isClientDropdownOpen && (
-                      <ul style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        maxHeight: '250px',
-                        overflowY: 'auto',
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '6px',
-                        marginTop: '4px',
-                        padding: 0,
-                        listStyle: 'none',
-                        zIndex: 10,
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                      }}>
-                        {filteredClients.map(client => (
-                          <li
-                            key={client._id + client.type}
-                            onClick={() => {
-                              setInvoiceForm(prev => ({ ...prev, clientId: client._id, clientType: client.type }));
-                              setClientSearchText(`${client.name} (${client.id}) - ${client.type}`);
-                              setIsClientDropdownOpen(false);
-                            }}
-                            style={{
-                              padding: '0.5rem 0.75rem',
-                              cursor: 'pointer',
-                              fontSize: '0.875rem',
-                              color: 'var(--text-header)',
-                              borderBottom: '1px solid var(--border)',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
-                            onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                          >
-                            {client.name} ({client.id}) - {client.type}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </div>
-                  {formSubmitted && errors.clientId && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.clientId}</p>
-                  )}
                 </div>
 
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Invoice Date <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="invoiceDate"
-                    value={invoiceForm.invoiceDate}
-                    onChange={handleInputChange}
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      border: `1px solid ${errors.invoiceDate ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)'
-                    }}
-                  />
-                  {formSubmitted && errors.invoiceDate && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.invoiceDate}</p>
-                  )}
-                </div>
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Transaction Description
-                  </label>
-                  <input
-                    type="text"
-                    name="transactionDescription"
-                    value={invoiceForm.transactionDescription}
-                    onChange={handleInputChange}
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Invoice Items</h3>
-                  <MotionButton
-                    type="button"
-                    onClick={addItemRow}
-                    disabled={loading}
-                    style={{
-                      padding: '0.25rem 0.75rem',
-                      background: 'transparent',
-                      color: 'var(--text-header)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      fontSize: '0.875rem'
-                    }}
-                  >
-                    <Plus size={14} /> Add Row
-                  </MotionButton>
-                </div>
-
-                <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                    <thead style={{ background: 'var(--bg-main)' }}>
-                      <tr>
-                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '50px' }}>Sr No</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>Product</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>Description</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '120px' }}>Amount (₹)</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '60px' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoiceForm.items.map((item, index) => (
-                        <tr key={index} style={{ borderTop: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
-                          <td style={{ padding: '0.5rem' }}>
-                            <input
-                              type="text"
-                              value={item.product}
-                              onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                              placeholder="Enter product name"
-                              style={{
-                                width: '100%',
-                                padding: '0.25rem 0.5rem',
-                                border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
-                                borderRadius: '4px',
-                                background: 'transparent',
-                                color: 'var(--text-header)',
-                                fontSize: '0.875rem'
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.5rem' }}>
-                            <input
-                              type="text"
-                              value={item.description}
-                              onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                              placeholder="Enter description"
-                              style={{
-                                width: '100%',
-                                padding: '0.25rem 0.5rem',
-                                border: '1px solid transparent',
-                                borderRadius: '4px',
-                                background: 'transparent',
-                                color: 'var(--text-header)',
-                                fontSize: '0.875rem'
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.5rem' }}>
-                            <input
-                              type="number"
-                              value={item.amount}
-                              onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
-                              min="0"
-                              step="0.01"
-                              style={{
-                                width: '100%',
-                                padding: '0.25rem 0.5rem',
-                                border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.amount ? 'var(--danger)' : 'transparent'}`,
-                                borderRadius: '4px',
-                                background: 'transparent',
-                                color: 'var(--text-header)',
-                                textAlign: 'right',
-                                fontSize: '0.875rem'
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                            <MotionButton
-                              type="button"
-                              onClick={() => removeItemRow(index)}
-                              disabled={invoiceForm.items.length === 1}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: invoiceForm.items.length === 1 ? 'var(--text-muted)' : 'var(--danger)',
-                                cursor: invoiceForm.items.length === 1 ? 'not-allowed' : 'pointer',
-                                padding: '0.25rem'
-                              }}
-                            >
-                              <Trash2 size={16} />
-                            </MotionButton>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {formSubmitted && errors.items && (
-                  <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.items}</p>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{
-                  background: 'var(--primary-light, #eef2ff)',
-                  padding: '0.75rem 1.25rem',
-                  borderRadius: '6px',
-                  border: '1px solid var(--primary-border, #c7d2fe)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem'
-                }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-header)' }}>Total Amount:</span>
-                  <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
-                    ₹{invoiceForm.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  {!editingInvoiceId && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Invoice Items</h3>
                     <MotionButton
                       type="button"
-                      onClick={handleCancelEdit}
+                      onClick={addItemRow}
+                      disabled={loading}
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        background: 'transparent',
+                        color: 'var(--text-header)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      <Plus size={14} /> Add Row
+                    </MotionButton>
+                  </div>
+
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                      <thead style={{ background: 'var(--bg-main)' }}>
+                        <tr>
+                          <th style={{ padding: '0.5rem', textAlign: 'center', width: '50px' }}>Sr No</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Product</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Description</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'right', width: '120px' }}>Amount (₹)</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'center', width: '60px' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoiceForm.items.map((item, index) => (
+                          <tr key={index} style={{ borderTop: '1px solid var(--border)' }}>
+                            <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
+                            <td style={{ padding: '0.5rem' }}>
+                              <input
+                                type="text"
+                                value={item.product}
+                                onChange={(e) => handleItemChange(index, 'product', e.target.value)}
+                                placeholder="Enter product name"
+                                style={{
+                                  width: '100%',
+                                  padding: '0.25rem 0.5rem',
+                                  border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
+                                  borderRadius: '4px',
+                                  background: 'transparent',
+                                  color: 'var(--text-header)',
+                                  fontSize: '0.875rem'
+                                }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.5rem' }}>
+                              <input
+                                type="text"
+                                value={item.description}
+                                onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                placeholder="Enter description"
+                                style={{
+                                  width: '100%',
+                                  padding: '0.25rem 0.5rem',
+                                  border: '1px solid transparent',
+                                  borderRadius: '4px',
+                                  background: 'transparent',
+                                  color: 'var(--text-header)',
+                                  fontSize: '0.875rem'
+                                }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.5rem' }}>
+                              <input
+                                type="number"
+                                value={item.amount}
+                                onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
+                                min="0"
+                                step="0.01"
+                                style={{
+                                  width: '100%',
+                                  padding: '0.25rem 0.5rem',
+                                  border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.amount ? 'var(--danger)' : 'transparent'}`,
+                                  borderRadius: '4px',
+                                  background: 'transparent',
+                                  color: 'var(--text-header)',
+                                  textAlign: 'right',
+                                  fontSize: '0.875rem'
+                                }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                              <MotionButton
+                                type="button"
+                                onClick={() => removeItemRow(index)}
+                                disabled={invoiceForm.items.length === 1}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: invoiceForm.items.length === 1 ? 'var(--text-muted)' : 'var(--danger)',
+                                  cursor: invoiceForm.items.length === 1 ? 'not-allowed' : 'pointer',
+                                  padding: '0.25rem'
+                                }}
+                              >
+                                <Trash2 size={16} />
+                              </MotionButton>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {formSubmitted && errors.items && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.items}</p>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{
+                    background: 'var(--primary-light, #eef2ff)',
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--primary-border, #c7d2fe)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem'
+                  }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-header)' }}>Total Amount:</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
+                      ₹{invoiceForm.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    {!editingInvoiceId && (
+                      <MotionButton
+                        type="button"
+                        onClick={handleCancelEdit}
+                        disabled={loading}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: 'var(--bg-main)',
+                          color: 'var(--text-header)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <RotateCcw size={14} /> Reset
+                      </MotionButton>
+                    )}
+                    <MotionButton
+                      type="submit"
                       disabled={loading}
                       style={{
                         padding: '0.5rem 1rem',
-                        background: 'var(--bg-main)',
-                        color: 'var(--text-header)',
-                        border: '1px solid var(--border)',
+                        background: 'var(--primary)',
+                        color: 'white',
+                        border: 'none',
                         borderRadius: '6px',
                         fontWeight: 700,
                         fontSize: '0.875rem',
@@ -1186,34 +1255,15 @@ function Invoice() {
                         gap: '0.25rem'
                       }}
                     >
-                      <RotateCcw size={14} /> Reset
+                      <Save size={14} />
+                      {loading ? 'Saving...' : editingInvoiceId ? 'Update Invoice' : 'Save Invoice'}
                     </MotionButton>
-                  )}
-                  <MotionButton
-                    type="submit"
-                    disabled={loading}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: 'var(--primary)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontWeight: 700,
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}
-                  >
-                    <Save size={14} />
-                    {loading ? 'Saving...' : editingInvoiceId ? 'Update Invoice' : 'Save Invoice'}
-                  </MotionButton>
+                  </div>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
-        </div>
+        </ActionMenuPortal>
       )}
 
       {/* Invoice List */}
@@ -1260,39 +1310,38 @@ function Invoice() {
             <div>
               {/* Mobile/Tablet Card View */}
               {isMobile ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {invoices.map((invoice) => {
-                    const name =
-                      invoice.vendorId?.customerName ||
-                      invoice.vendorId?.vendorName ||
-                      `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                      'Unknown'
-                    const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name
-                    
+                    const label = getClientDisplayLabel(invoice.vendorId)
+
                     return (
-                      <div 
-                        key={invoice._id} 
+                      <div
+                        key={invoice._id}
                         style={{
                           border: '1px solid var(--border)',
                           borderRadius: '12px',
-                          padding: '1rem',
-                          background: 'var(--bg-card)'
+                          padding: '0.75rem',
+                          background: 'var(--bg-card)',
+                          boxShadow: 'inset 0 -1px 0 rgba(15, 23, 42, 0.08)'
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.5rem' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ 
-                              fontSize: '1rem', 
-                              fontWeight: 800, 
+                            <div style={{
+                              fontSize: '1rem',
+                              fontWeight: 800,
                               color: 'var(--text-header)',
                               marginBottom: '0.25rem'
                             }}>
                               {invoice.invoiceNumber || '-'}
                             </div>
-                            <div style={{ 
-                              fontSize: '0.875rem', 
+                            <div style={{
+                              fontSize: '0.875rem',
                               color: 'var(--text-muted)',
-                              fontWeight: 600
+                              fontWeight: 600,
+                              whiteSpace: 'normal',
+                              overflowWrap: 'anywhere',
+                              wordBreak: 'break-word'
                             }}>
                               {label}
                             </div>
@@ -1332,22 +1381,24 @@ function Invoice() {
 
                           </div>
                         </div>
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Date:</div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{new Date(invoice.invoiceDate).toLocaleDateString()}</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '64px' }}>Date:</div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{formatDateDDMMMYYYY(invoice.invoiceDate)}</div>
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Amount:</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '64px' }}>Amount:</div>
                             <div style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 800 }}>
                               ₹{invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           </div>
                           {invoice.transactionDescription && (
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Note:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{invoice.transactionDescription}</div>
+                              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '64px' }}>Note:</div>
+                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                                {truncateTextByChars(invoice.transactionDescription, 30)}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1363,64 +1414,84 @@ function Invoice() {
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
                         <th
                           onClick={() => handleSort('invoiceNumber')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
-                          Invoice No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          INV No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('clientId')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
-                          Client {sortColumn === 'clientId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          Customer {sortColumn === 'clientId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('invoiceDate')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Date {sortColumn === 'invoiceDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('transactionDescription')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Txn Description {sortColumn === 'transactionDescription' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('totalAmount')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Total Amount {sortColumn === 'totalAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                        <th style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {invoices.map((invoice) => {
-                        const name =
-                          invoice.vendorId?.customerName ||
-                          invoice.vendorId?.vendorName ||
-                          `${invoice.vendorId?.firstName || ''} ${invoice.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                          'Unknown'
-                        const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name
-                        
+                        const label = getClientDisplayLabel(invoice.vendorId)
+
                         return (
-                          <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(invoice.invoiceNumber || '')}>
+                          <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)', boxShadow: 'inset 0 -1px 0 rgba(15, 23, 42, 0.06)' }}>
+                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
                               {truncateText(invoice.invoiceNumber || '')}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(label)}>
-                              {truncateText(label)}
+                            <td
+                              style={{
+                                padding: '0.3rem 0.3rem',
+                                color: 'var(--text-main)',
+                                borderLeft: isAdmin ? '1px solid var(--border)' : 'none',
+                                borderRight: isAdmin ? '1px solid var(--border)' : 'none',
+                                whiteSpace: 'normal',
+                                overflowWrap: 'anywhere',
+                                wordBreak: 'break-word',
+                                minWidth: '220px'
+                              }}
+                              title={String(label)}
+                            >
+                              {label || '-'}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={new Date(invoice.invoiceDate).toLocaleDateString()}>
-                              {truncateText(new Date(invoice.invoiceDate).toLocaleDateString())}
+                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={invoice.invoiceDate ? formatDateDDMMMYYYY(invoice.invoiceDate) : '-'}>
+                              {formatDateDDMMMYYYY(invoice.invoiceDate)}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(invoice.transactionDescription || '')}>
-                              {invoice.transactionDescription ? truncateText(invoice.transactionDescription) : '-'}
+                            <td
+                              style={{
+                                padding: '0.3rem 0.5rem',
+                                color: 'var(--text-main)',
+                                borderLeft: isAdmin ? '1px solid var(--border)' : 'none',
+                                borderRight: isAdmin ? '1px solid var(--border)' : 'none',
+                                whiteSpace: 'normal',
+                                overflowWrap: 'anywhere',
+                                wordBreak: 'break-word',
+                                minWidth: '260px',
+                                maxWidth: '420px'
+                              }}
+                              title={String(invoice.transactionDescription || '')}
+                            >
+                              {invoice.transactionDescription || '-'}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={`₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={`₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
                               ₹{truncateText(invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem' }}>
+                            <td style={{ padding: '0.3rem 0.5rem', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {
@@ -1535,167 +1606,169 @@ function Invoice() {
       )}
 
       {infoOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeInfo()
-          }}
-        >
+        <ActionMenuPortal>
           <div
-            className="card"
             style={{
-              width: 'min(700px, 96vw)',
-              maxHeight: '88vh',
-              overflow: 'auto',
-              padding: '1.25rem'
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInfo()
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Invoice Details</div>
-                <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {infoInvoice?.invoiceNumber ? `Invoice • ${infoInvoice.invoiceNumber}` : 'Invoice'}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <MotionButton
-                  type="button"
-                  onClick={refreshInfo}
-                  disabled={infoLoading}
-                  style={{
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    borderRadius: 10,
-                    padding: '0.45rem',
-                    cursor: infoLoading ? 'not-allowed' : 'pointer',
-                    color: 'var(--text-muted)',
-                    opacity: infoLoading ? 0.6 : 1
-                  }}
-                  title="Refresh"
-                >
-                  <RotateCcw size={18} />
-                </MotionButton>
-                <MotionButton
-                  type="button"
-                  onClick={closeInfo}
-                  style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
-                  title="Close"
-                >
-                  <X size={18} />
-                </MotionButton>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '1.5rem' }}>
-              {/* Client Details */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Client Details</div>
-                <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'grid', gap: '0.75rem' }}>
-                    {(() => {
-                      const client = infoInvoice?.vendorId;
-                      const invoiceDate = infoInvoice?.invoiceDate ? new Date(infoInvoice.invoiceDate).toLocaleDateString() : '-';
-                      const transactionDesc = infoInvoice?.transactionDescription || '-';
-
-                      return (
-                        <>
-                          {client?.customerName && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.customerName}</span>
-                            </div>
-                          )}
-                          {client?.vendorName && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
-                            </div>
-                          )}
-                          {client?.id && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
-                            </div>
-                          )}
-                          {infoInvoice?.clientType && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem', textTransform: 'capitalize' }}>{infoInvoice.clientType}</span>
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Invoice Date</span>
-                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{invoiceDate}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Description</span>
-                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{transactionDesc}</span>
-                          </div>
-                        </>
-                      )
-                    })()}
+            <div
+              className="card"
+              style={{
+                width: 'min(700px, 96vw)',
+                maxHeight: '88vh',
+                overflow: 'auto',
+                padding: '1.25rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Invoice Details</div>
+                  <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {infoInvoice?.invoiceNumber ? `Invoice • ${infoInvoice.invoiceNumber}` : 'Invoice'}
                   </div>
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <MotionButton
+                    type="button"
+                    onClick={refreshInfo}
+                    disabled={infoLoading}
+                    style={{
+                      border: '1px solid var(--border)',
+                      background: 'transparent',
+                      borderRadius: 10,
+                      padding: '0.45rem',
+                      cursor: infoLoading ? 'not-allowed' : 'pointer',
+                      color: 'var(--text-muted)',
+                      opacity: infoLoading ? 0.6 : 1
+                    }}
+                    title="Refresh"
+                  >
+                    <RotateCcw size={18} />
+                  </MotionButton>
+                  <MotionButton
+                    type="button"
+                    onClick={closeInfo}
+                    style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                    title="Close"
+                  >
+                    <X size={18} />
+                  </MotionButton>
+                </div>
               </div>
 
-              {/* Items Table */}
-              <div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Items</div>
-                <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
-                        <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Product</th>
-                        <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Description</th>
-                        <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+              <div style={{ marginTop: '1.5rem' }}>
+                {/* Client Details */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Client Details</div>
+                  <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'grid', gap: '0.75rem' }}>
                       {(() => {
-                        const items = infoInvoice?.items || [];
-                        if (items.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No items found</td>
-                            </tr>
-                          )
-                        }
+                        const client = infoInvoice?.vendorId;
+                        const invoiceDate = infoInvoice?.invoiceDate ? new Date(infoInvoice.invoiceDate).toLocaleDateString() : '-';
+                        const transactionDesc = infoInvoice?.transactionDescription || '-';
+
                         return (
                           <>
-                            {items.map((item, idx) => (
-                              <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                                <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.product || '-'}</td>
-                                <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.description || '-'}</td>
-                                <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 700 }}>
-                                  ₹{item.amount ? item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                                </td>
-                              </tr>
-                            ))}
-                            <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
-                              <td colSpan={2} style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
-                              <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
-                                ₹{infoInvoice?.totalAmount ? infoInvoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                              </td>
-                            </tr>
+                            {client?.customerName && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.customerName}</span>
+                              </div>
+                            )}
+                            {client?.vendorName && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
+                              </div>
+                            )}
+                            {client?.id && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
+                              </div>
+                            )}
+                            {infoInvoice?.clientType && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem', textTransform: 'capitalize' }}>{infoInvoice.clientType}</span>
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Invoice Date</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{invoiceDate}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Description</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{transactionDesc}</span>
+                            </div>
                           </>
                         )
                       })()}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items Table */}
+                <div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Items</div>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
+                          <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Product</th>
+                          <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Description</th>
+                          <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const items = infoInvoice?.items || [];
+                          if (items.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No items found</td>
+                              </tr>
+                            )
+                          }
+                          return (
+                            <>
+                              {items.map((item, idx) => (
+                                <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                  <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.product || '-'}</td>
+                                  <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.description || '-'}</td>
+                                  <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 700 }}>
+                                    ₹{item.amount ? item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
+                                <td colSpan={2} style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
+                                <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
+                                  ₹{infoInvoice?.totalAmount ? infoInvoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                </td>
+                              </tr>
+                            </>
+                          )
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </ActionMenuPortal>
       )}
 
       {/* Dropdown Menu */}
@@ -1716,87 +1789,11 @@ function Invoice() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              setInfoInvoice(dropdownInvoice);
-              setInfoOpen(true);
-              setOpenDropdownId(null);
-              setDropdownInvoice(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Eye size={14} />
-            View
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditInvoice(dropdownInvoice);
-              setOpenDropdownId(null);
-              setDropdownInvoice(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Edit2 size={14} />
-            Edit
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              generateInvoicePDF(dropdownInvoice);
-              setOpenDropdownId(null);
-              setDropdownInvoice(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <span>📄</span>
-            PDF
-          </MotionButton>
-          {isAdmin && (
             <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteInvoice(dropdownInvoice._id);
+                setInfoInvoice(dropdownInvoice);
+                setInfoOpen(true);
                 setOpenDropdownId(null);
                 setDropdownInvoice(null);
               }}
@@ -1807,7 +1804,7 @@ function Invoice() {
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'var(--danger)',
+                color: 'var(--text-header)',
                 fontSize: '0.875rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -1815,98 +1812,176 @@ function Invoice() {
                 transition: 'all 0.2s'
               }}
             >
-              <Trash2 size={14} />
-              Delete
+              <Eye size={14} />
+              View
             </MotionButton>
-          )}
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditInvoice(dropdownInvoice);
+                setOpenDropdownId(null);
+                setDropdownInvoice(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Edit2 size={14} />
+              Edit
+            </MotionButton>
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                generateInvoicePDF(dropdownInvoice);
+                setOpenDropdownId(null);
+                setDropdownInvoice(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <span>📄</span>
+              PDF
+            </MotionButton>
+            {isAdmin && (
+              <MotionButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteInvoice(dropdownInvoice._id);
+                  setOpenDropdownId(null);
+                  setDropdownInvoice(null);
+                }}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '0.375rem 0.75rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--danger)',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Trash2 size={14} />
+                Delete
+              </MotionButton>
+            )}
           </div>
         </ActionMenuPortal>
       )}
 
       {/* PDF Viewer Modal */}
       {pdfViewerOpen && pdfBlobUrl && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 100000,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-          onClick={() => setPdfViewerOpen(false)}
-        >
-          {/* Header */}
+        <ActionMenuPortal>
           <div
             style={{
-              background: '#f8fafc',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '1rem 1.5rem',
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              zIndex: 100000,
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              color: '#1f2937',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+              flexDirection: 'column'
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setPdfViewerOpen(false)}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Header */}
+            <div
+              style={{
+                background: '#f8fafc',
+                borderBottom: '1px solid #e5e7eb',
+                padding: '1rem 1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                color: '#1f2937',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <MotionButton
+                  onClick={() => setPdfViewerOpen(false)}
+                  style={{
+                    background: 'rgba(0,0,0,0.05)',
+                    border: 'none',
+                    borderRadius: '999px',
+                    padding: '0.5rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s',
+                    color: '#1f2937'
+                  }}
+                >
+                  <X size={24} />
+                </MotionButton>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
+                </div>
+              </div>
               <MotionButton
-                onClick={() => setPdfViewerOpen(false)}
+                onClick={handleDownloadPdf}
                 style={{
                   background: 'rgba(0,0,0,0.05)',
                   border: 'none',
                   borderRadius: '999px',
-                  padding: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  color: '#1f2937',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s',
-                  color: '#1f2937'
+                  gap: '0.5rem',
+                  transition: 'all 0.2s'
                 }}
               >
-                <X size={24} />
+                <span>⬇️</span>
+                Download
               </MotionButton>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
-              </div>
             </div>
-            <MotionButton
-              onClick={handleDownloadPdf}
-              style={{
-                background: 'rgba(0,0,0,0.05)',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '0.5rem 1rem',
-                color: '#1f2937',
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>⬇️</span>
-              Download
-            </MotionButton>
-          </div>
 
-          {/* PDF Viewer */}
-          <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-            <iframe
-              src={pdfBlobUrl}
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none'
-              }}
-              title={pdfFileName}
-            />
+            {/* PDF Viewer */}
+            <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+              <iframe
+                src={pdfBlobUrl}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none'
+                }}
+                title={pdfFileName}
+              />
+            </div>
           </div>
-        </div>
+        </ActionMenuPortal>
       )}
 
     </div>

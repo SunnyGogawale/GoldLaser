@@ -868,20 +868,21 @@ function PurchasePayment() {
       </div>
 
       {formOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closePaymentForm()
-          }}
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closePaymentForm()
+            }}
         >
           <div className="card" style={{ width: 'min(1100px, 96vw)', maxHeight: '88vh', overflow: 'auto', padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -1296,10 +1297,10 @@ function PurchasePayment() {
             </form>
           </div>
         </div>
+        </ActionMenuPortal>
       )}
 
-      {(
-        <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
+      <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Payment List</h2>
             <div style={{
@@ -1624,24 +1625,25 @@ function PurchasePayment() {
             </div>
           )}
         </div>
-      )}
+      
 
       {infoOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeInfo()
-          }}
-        >
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInfo()
+            }}
+          >
           <div
             className="card"
             style={{
@@ -1803,6 +1805,7 @@ function PurchasePayment() {
             </div>
           </div>
         </div>
+        </ActionMenuPortal>
       )}
 
       {/* Dropdown Menu */}
@@ -1957,17 +1960,18 @@ function PurchasePayment() {
 
       {/* PDF Viewer Modal */}
       {pdfViewerOpen && pdfBlobUrl && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 100000,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-          onClick={() => setPdfViewerOpen(false)}
-        >
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              zIndex: 100000,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={() => setPdfViewerOpen(false)}
+          >
           {/* Header */}
           <div
             style={{
@@ -2042,6 +2046,7 @@ function PurchasePayment() {
             />
           </div>
         </div>
+        </ActionMenuPortal>
       )}
 
 

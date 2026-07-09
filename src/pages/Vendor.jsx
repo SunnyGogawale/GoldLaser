@@ -1102,17 +1102,18 @@ function Vendor() {
       </div>
 
       {formOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeVendorForm()
           }}
@@ -1712,6 +1713,7 @@ function Vendor() {
             </form>
           </div>
         </div>
+        </ActionMenuPortal>
       )}
 
       {/* Add Custom Field Popup */}
@@ -2036,18 +2038,9 @@ function Vendor() {
                               fontWeight: 800, 
                               color: 'var(--text-header)',
                               marginBottom: '0.25rem'
-                            }}>
-                              {vendorName || '-'}
+                            }} title={vendorName + (companyName ? ' - ' + companyName : '')}>
+                              {vendorName + (companyName ? ' - ' + companyName : '') || '-'}
                             </div>
-                            {companyName && (
-                              <div style={{ 
-                                fontSize: '0.875rem', 
-                                color: 'var(--text-muted)',
-                                fontWeight: 600
-                              }}>
-                                {companyName}
-                              </div>
-                            )}
                           </div>
                           <div style={{ position: 'relative' }}>
                             <MotionButton
@@ -2128,31 +2121,31 @@ function Vendor() {
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
                         <th
                           onClick={() => handleSort('companyName')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Company Name {sortColumn === 'companyName' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('vendorName')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Vendor Name {sortColumn === 'vendorName' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('contactNumber')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Mobile {sortColumn === 'contactNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('email')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Email {sortColumn === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('outstanding')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Outstanding {sortColumn === 'outstanding' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
@@ -2161,12 +2154,12 @@ function Vendor() {
                           <th
                             key={columnName}
                             onClick={() => handleSort(`customField_${columnName}`)}
-                            style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                            style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                           >
                             {columnName} {sortColumn === `customField_${columnName}` && (sortOrder === 'asc' ? '↑' : '↓')}
                           </th>
                         ))}
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2181,28 +2174,40 @@ function Vendor() {
                     const outstanding = formatMoney(outstandingAmount)
                         return (
                           <tr key={vendor._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(companyName)}>
+                            <td style={{ padding: '0.5rem 0.45rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(companyName)}>
                               {truncateText(companyName) || '-'}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>
-                              <span title={String(vendorName)}>{truncateText(vendorName)}</span>
+                            <td
+                              style={{
+                                padding: '0.5rem 0.45rem',
+                                color: 'var(--text-main)',
+                                borderLeft: isAdmin ? '1px solid var(--border)' : 'none',
+                                borderRight: isAdmin ? '1px solid var(--border)' : 'none',
+                                whiteSpace: 'normal',
+                                overflowWrap: 'anywhere',
+                                wordBreak: 'break-word',
+                                minWidth: '220px'
+                              }}
+                              title={String(vendorName + (companyName ? ' - ' + companyName : ''))}
+                            >
+                              {vendorName + (companyName ? ' - ' + companyName : '')}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(mobile)}>
+                            <td style={{ padding: '0.3rem 0.45rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(mobile)}>
                               {truncateText(mobile)}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(email)}>
+                            <td style={{ padding: '0.3rem 0.45rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(email)}>
                               {truncateText(email)}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)') }} title={String(outstanding)}>
+                            <td style={{ padding: '0.3rem 0.45rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)'), borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(outstanding)}>
                               {outstanding}
                             </td>
                             {/* Custom column cells */}
                             {customColumns.map((columnName) => (
-                              <td key={columnName} style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(vendor.customFields?.[columnName] || '-')}>
-                                {truncateText(vendor.customFields?.[columnName] || '-')}
-                              </td>
+                              <td key={columnName} style={{ padding: '0.3rem 0.45rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(vendor.customFields?.[columnName] || '-')}>{
+                                truncateText(vendor.customFields?.[columnName] || '-')
+                              }</td>
                             ))}
-                            <td style={{ padding: '0.5rem 0.375rem' }}>
+                            <td style={{ padding: '0.5rem 0.45rem', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {
@@ -2317,17 +2322,18 @@ function Vendor() {
       )}
 
       {infoOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeInfo()
           }}
@@ -2583,6 +2589,7 @@ function Vendor() {
 
           </div>
         </div>
+        </ActionMenuPortal>
       )}
 
       {/* Dropdown Menu */}
@@ -2710,15 +2717,16 @@ function Vendor() {
       )}
 
       {pdfViewerOpen && pdfBlobUrl && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 100000,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              zIndex: 100000,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
           onClick={() => setPdfViewerOpen(false)}
         >
           <div
@@ -2790,6 +2798,7 @@ function Vendor() {
             />
           </div>
         </div>
+        </ActionMenuPortal>
       )}
     </div>
   );

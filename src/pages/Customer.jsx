@@ -1106,20 +1106,21 @@ function Customer() {
       </div>
 
       {formOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeCustomerForm()
-          }}
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeCustomerForm()
+            }}
         >
           <div
             className="card"
@@ -1738,6 +1739,7 @@ function Customer() {
             </form>
           </div>
         </div>
+        </ActionMenuPortal>
       )}
 
       {/* Add Custom Field Popup */}
@@ -2344,21 +2346,22 @@ function Customer() {
       )}
 
       {infoOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeInfo()
-          }}
-        >
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInfo()
+            }}
+          >
           <div
             className="card"
             style={{
@@ -2612,6 +2615,7 @@ function Customer() {
 
           </div>
         </div>
+        </ActionMenuPortal>
       )}
 
       {/* Dropdown Menu */}
@@ -2740,17 +2744,18 @@ function Customer() {
 
       {/* PDF Viewer Modal */}
       {pdfViewerOpen && pdfBlobUrl && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 100000,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-          onClick={() => setPdfViewerOpen(false)}
-        >
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              zIndex: 100000,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={() => setPdfViewerOpen(false)}
+          >
           <div
             style={{
               background: '#f8fafc',
@@ -2820,6 +2825,7 @@ function Customer() {
             />
           </div>
         </div>
+        </ActionMenuPortal>
       )}
     </div>
   );

@@ -133,7 +133,7 @@ function Payment() {
     ...customers.map(c => ({ ...c, type: 'Customer', name: c.customerName })),
     ...vendors.map(v => ({ ...v, type: 'Vendor', name: v.vendorName }))
   ], [customers, vendors])
-  
+
   const filteredClients = useMemo(() => {
     const q = clientSearchText.trim().toLowerCase()
     if (!q) return []
@@ -225,7 +225,7 @@ function Payment() {
       console.error('Error fetching customers:', err)
     }
   }
-  
+
   const fetchVendorsList = async () => {
     try {
       const response = await fetch(`${VENDORS_API_URL}?limit=1000`)
@@ -450,7 +450,7 @@ function Payment() {
       const data = await readJsonResponse(response, 'Error loading payment')
       const clientType = data.clientType || 'Customer'
       const clientId = data.clientId || data.vendorId?._id || data.vendorId
-    const client = data.vendorId
+      const client = data.vendorId
       const clientName = client?.customerName || client?.vendorName || ''
       const clientIdStr = client?.id || ''
 
@@ -566,12 +566,12 @@ function Payment() {
     doc.setDrawColor(0, 0, 0) // Black border
     doc.setFillColor(255, 255, 255)
     doc.setTextColor(0, 0, 0)
-    
+
     // --- Top Section (Company Info & Logo) ---
     doc.setFontSize(20)
     doc.setFont('helvetica', 'bold')
     doc.text('PAYMENT', marginLeft, y)
-    
+
     // Company Info (Left)
     y += 8
     doc.setFontSize(10)
@@ -586,7 +586,7 @@ function Payment() {
     y += 5
     doc.setFont('helvetica', 'normal')
     doc.text(companySettings.companyContactNumber || 'Contact No', marginLeft, y)
-    
+
     // Logo Placeholder (Right)
     const logoX = pageWidth - marginRight - 50
     doc.setLineWidth(0.5)
@@ -596,7 +596,7 @@ function Payment() {
     doc.setFont('helvetica', 'bold')
     doc.text('Company', logoX + 25, 32, { align: 'center' })
     doc.text('Logo', logoX + 25, 42, { align: 'center' })
-    
+
     // --- Bill To Section ---
     y = 65
     doc.setFontSize(10)
@@ -605,14 +605,14 @@ function Payment() {
     y += 6
     const client = payment.vendorId
     const isCustomer = client?.customerName
-    
+
     const rightColX = pageWidth - marginRight - 80
     // Client Name
     doc.setFont('helvetica', 'bold')
     doc.text('Name:', marginLeft, y)
     doc.setFont('helvetica', 'normal')
     doc.text(isCustomer ? client.customerName : (client?.vendorName || 'N/A'), marginLeft + 20, y)
-    
+
     // Email in the same row on the right
     if (isCustomer && client.email || !isCustomer && client?.email) {
       doc.setFont('helvetica', 'bold')
@@ -621,7 +621,7 @@ function Payment() {
       doc.text(isCustomer ? client.email : (client?.email || ''), rightColX + 15, y)
     }
     y += 5
-    
+
     if (isCustomer) {
       // Display customer details with bold titles
       let hasCompanyOrPhone = false
@@ -640,7 +640,7 @@ function Payment() {
         hasCompanyOrPhone = true
       }
       if (hasCompanyOrPhone) y += 5
-      
+
       if (client.address) {
         doc.setFont('helvetica', 'bold')
         doc.text('Address:', marginLeft, y)
@@ -648,7 +648,7 @@ function Payment() {
         doc.text(client.address, marginLeft + 20, y)
         y += 5
       }
-      
+
       if (client.alternateNumber) {
         doc.setFont('helvetica', 'bold')
         doc.text('Alt:', marginLeft, y)
@@ -674,7 +674,7 @@ function Payment() {
         hasCompanyOrPhone = true
       }
       if (hasCompanyOrPhone) y += 5
-      
+
       if (client?.address) {
         doc.setFont('helvetica', 'bold')
         doc.text('Address:', marginLeft, y)
@@ -683,7 +683,7 @@ function Payment() {
         y += 5
       }
     }
-    
+
     // --- Payment Details ---
     y += 5 // Add space before payment details
     doc.setLineWidth(0.3)
@@ -693,7 +693,7 @@ function Payment() {
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.text('Payment Details', marginLeft, y)
-    
+
     const paymentNo = payment.paymentNumber || 'SP00001'
     const formatDate = (dateStr) => {
       const date = new Date(dateStr)
@@ -704,23 +704,23 @@ function Payment() {
       return `${day}-${month}-${year}`
     }
 
-    const paymentDate = payment.paymentDate 
+    const paymentDate = payment.paymentDate
       ? formatDate(payment.paymentDate)
       : '05-Nov-2026'
-      
+
     // Payment No
     doc.setFont('helvetica', 'bold')
     doc.text('Payment No:', marginLeft, y + 6)
     doc.setFont('helvetica', 'normal')
     doc.text(paymentNo, marginLeft + 25, y + 6)
-    
+
     // Payment Date on next line
     y += 5
     doc.setFont('helvetica', 'bold')
     doc.text('Payment Date:', marginLeft, y + 6)
     doc.setFont('helvetica', 'normal')
     doc.text(paymentDate, marginLeft + 25, y + 6)
-    
+
     // --- Allocations Table ---
     y += 15
     const allocations = payment.allocations || []
@@ -730,7 +730,7 @@ function Payment() {
       (alloc.invoiceDate ? formatDate(alloc.invoiceDate) : '-'),
       `${(parseFloat(alloc.amount) || 0).toLocaleString('en-IN')}/-`
     ])
-    
+
     autoTable(doc, {
       startY: y,
       head: [['Sr No', 'Invoice Number', 'Invoice Date', 'Amount']],
@@ -760,13 +760,13 @@ function Payment() {
         3: { cellWidth: 35, halign: 'right' }
       }
     })
-    
+
     // --- Total ---
     const finalY = doc.lastAutoTable?.finalY || y + 40
     y = finalY + 5
     const totalAmt = parseFloat(payment.amount) || 0
     const totalAmtStr = totalAmt.toLocaleString('en-IN')
-    
+
     doc.setLineWidth(0.5)
     doc.setDrawColor(0, 0, 0)
     doc.line(marginLeft, y, pageWidth - marginRight, y)
@@ -775,7 +775,7 @@ function Payment() {
     doc.setFont('helvetica', 'bold')
     doc.text('Total', pageWidth - marginRight - 60, y)
     doc.text(`${totalAmtStr}/-`, pageWidth - marginRight, y, { align: 'right' })
-    
+
     // --- Company Footer ---
     y += 20
     doc.setFontSize(10)
@@ -784,7 +784,7 @@ function Payment() {
     y += 5
     doc.setFont('helvetica', 'normal')
     doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y)
-    
+
     // --- Bank Details ---
     y += 20
     doc.setFontSize(10)
@@ -853,42 +853,43 @@ function Payment() {
       </div>
 
       {formOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closePaymentForm()
-          }}
-        >
-          <div className="card" style={{ width: 'min(1100px, 96vw)', maxHeight: '88vh', overflow: 'auto', padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
-                {editingPaymentId ? 'Edit Payment' : 'New Payment'}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
-                <div
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: 999,
-                    background: 'var(--bg-main)',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.875rem',
-                    fontWeight: 800,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Payment No : {paymentForm.paymentNumber || 'xxxx'}
-                </div>
-                {/* {editingPaymentId && (
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closePaymentForm()
+            }}
+          >
+            <div className="card" style={{ width: 'min(1100px, 96vw)', maxHeight: '88vh', overflow: 'auto', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
+                  {editingPaymentId ? 'Edit Payment' : 'New Payment'}
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
+                  <div
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      border: '1px solid var(--border)',
+                      borderRadius: 999,
+                      background: 'var(--bg-main)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.875rem',
+                      fontWeight: 800,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Payment No : {paymentForm.paymentNumber || 'xxxx'}
+                  </div>
+                  {/* {editingPaymentId && (
                   <MotionButton
                     onClick={handleCancelEdit}
                     disabled={loading}
@@ -899,363 +900,383 @@ function Payment() {
                     Cancel
                   </MotionButton>
                 )} */}
-                <MotionButton
-                  type="button"
-                  onClick={closePaymentForm}
-                  disabled={loading}
-                  className="btn btn-secondary"
-                  style={{ 
-                    padding: '0.5rem 1rem',
-                    // background: 'var(--bg-main)',
-                    color: 'var(--text-header)',
-                    // border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    fontSize: '0.9375rem',
-                    fontWeight: 600,
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    opacity: loading ? 0.7 : 1
-                  }}
-                >
-                  <X size={16} />
-                  {/* Close */}
-                </MotionButton>
+                  <MotionButton
+                    type="button"
+                    onClick={closePaymentForm}
+                    disabled={loading}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '0.5rem 1rem',
+                      // background: 'var(--bg-main)',
+                      color: 'var(--text-header)',
+                      // border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      fontSize: '0.9375rem',
+                      fontWeight: 600,
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      opacity: loading ? 0.7 : 1
+                    }}
+                  >
+                    <X size={16} />
+                    {/* Close */}
+                  </MotionButton>
+                </div>
               </div>
-            </div>
 
-            <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 280px', position: 'relative' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Client <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
-                  <div style={{ position: 'relative' }}>
+              <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 280px', position: 'relative' }}>
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                      Select Client <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        placeholder="Search client (customer or vendor)..."
+                        value={clientSearchText}
+                        onChange={(e) => {
+                          setClientSearchText(e.target.value)
+                          setIsClientDropdownOpen(e.target.value.length > 0)
+                          if (paymentForm.clientId) {
+                            setPaymentForm(prev => ({ ...prev, clientId: '', clientType: 'Customer' }))
+                          }
+                          if (formSubmitted && errors.clientId) {
+                            setErrors(prev => {
+                              const newE = { ...prev }
+                              delete newE.clientId
+                              return newE
+                            })
+                          }
+                        }}
+                        onFocus={(e) => {
+                          if (e.target.value.length > 0) setIsClientDropdownOpen(true)
+                        }}
+                        onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
+                        disabled={loading}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          border: `1px solid ${errors.clientId ? 'var(--danger)' : 'var(--border)'}`,
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                      {isClientDropdownOpen && (
+                        <ul style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          maxHeight: '250px',
+                          overflowY: 'auto',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          marginTop: '4px',
+                          padding: 0,
+                          listStyle: 'none',
+                          zIndex: 10,
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}>
+                          {filteredClients.map(client => (
+                            <li
+                              key={client._id + client.type}
+                              onClick={() => {
+                                setPaymentForm(prev => ({ ...prev, clientId: client._id, clientType: client.type }))
+                                setClientSearchText(`${client.name} (${client.id}) - ${client.type}`)
+                                setIsClientDropdownOpen(false)
+                              }}
+                              style={{
+                                padding: '0.5rem 0.75rem',
+                                cursor: 'pointer',
+                                fontSize: '0.875rem',
+                                color: 'var(--text-header)',
+                                borderBottom: '1px solid var(--border)',
+                                transition: 'background 0.2s'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                            >
+                              {client.name} ({client.id}) - {client.type}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    {formSubmitted && errors.clientId && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.clientId}</p>
+                    )}
+                  </div>
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                      Payment Date <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
                     <input
-                      type="text"
-                      placeholder="Search client (customer or vendor)..."
-                      value={clientSearchText}
+                      type="date"
+                      name="paymentDate"
+                      value={paymentForm.paymentDate}
                       onChange={(e) => {
-                        setClientSearchText(e.target.value)
-                        setIsClientDropdownOpen(e.target.value.length > 0)
-                        if (paymentForm.clientId) {
-                          setPaymentForm(prev => ({ ...prev, clientId: '', clientType: 'Customer' }))
-                        }
-                        if (formSubmitted && errors.clientId) {
+                        setPaymentForm(prev => ({ ...prev, paymentDate: e.target.value }))
+                        if (formSubmitted && errors.paymentDate) {
                           setErrors(prev => {
-                            const newE = { ...prev }
-                            delete newE.clientId
-                            return newE
+                            const ne = { ...prev }
+                            delete ne.paymentDate
+                            return ne
                           })
                         }
                       }}
-                      onFocus={(e) => {
-                        if (e.target.value.length > 0) setIsClientDropdownOpen(true)
-                      }}
-                      onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
                       disabled={loading}
                       style={{
                         width: '100%',
                         padding: '0.5rem 0.75rem',
-                        border: `1px solid ${errors.clientId ? 'var(--danger)' : 'var(--border)'}`,
+                        border: `1px solid ${errors.paymentDate ? 'var(--danger)' : 'var(--border)'}`,
                         borderRadius: '6px',
                         fontSize: '0.875rem',
                         background: 'var(--bg-card)',
-                        color: 'var(--text-header)',
-                        outline: 'none'
+                        color: 'var(--text-header)'
                       }}
                     />
-                    {isClientDropdownOpen && (
-                      <ul style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        maxHeight: '250px',
-                        overflowY: 'auto',
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '6px',
-                        marginTop: '4px',
-                        padding: 0,
-                        listStyle: 'none',
-                        zIndex: 10,
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                      }}>
-                        {filteredClients.map(client => (
-                          <li
-                            key={client._id + client.type}
-                            onClick={() => {
-                              setPaymentForm(prev => ({ ...prev, clientId: client._id, clientType: client.type }))
-                              setClientSearchText(`${client.name} (${client.id}) - ${client.type}`)
-                              setIsClientDropdownOpen(false)
-                            }}
-                            style={{
-                              padding: '0.5rem 0.75rem',
-                              cursor: 'pointer',
-                              fontSize: '0.875rem',
-                              color: 'var(--text-header)',
-                              borderBottom: '1px solid var(--border)',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                          >
-                            {client.name} ({client.id}) - {client.type}
-                          </li>
-                        ))}
-                      </ul>
+                    {formSubmitted && errors.paymentDate && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.paymentDate}</p>
                     )}
                   </div>
-                  {formSubmitted && errors.clientId && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.clientId}</p>
-                  )}
                 </div>
 
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Payment Date <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="paymentDate"
-                    value={paymentForm.paymentDate}
-                    onChange={(e) => {
-                      setPaymentForm(prev => ({ ...prev, paymentDate: e.target.value }))
-                      if (formSubmitted && errors.paymentDate) {
-                        setErrors(prev => {
-                          const ne = { ...prev }
-                          delete ne.paymentDate
-                          return ne
-                        })
-                      }
-                    }}
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      border: `1px solid ${errors.paymentDate ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)'
-                    }}
-                  />
-                  {formSubmitted && errors.paymentDate && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.paymentDate}</p>
-                  )}
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                      Payment Amount (₹) <span style={{ color: 'var(--danger)' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={paymentForm.amount}
+                      onChange={(e) => {
+                        setPaymentForm(prev => ({ ...prev, amount: e.target.value }))
+                        if (formSubmitted && errors.amount) {
+                          setErrors(prev => {
+                            const ne = { ...prev }
+                            delete ne.amount
+                            return ne
+                          })
+                        }
+                      }}
+                      min="0"
+                      step="0.01"
+                      disabled={loading}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        border: `1px solid ${errors.amount ? 'var(--danger)' : 'var(--border)'}`,
+                        borderRadius: '6px',
+                        fontSize: '0.875rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)'
+                      }}
+                    />
+                    {formSubmitted && errors.amount && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.amount}</p>
+                    )}
+                  </div>
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                      Description
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentForm.description}
+                      onChange={(e) => setPaymentForm(prev => ({ ...prev, description: e.target.value }))}
+                      disabled={loading}
+                      placeholder="Enter payment description or notes"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        fontSize: '0.875rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)'
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Payment Amount (₹) <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={paymentForm.amount}
-                    onChange={(e) => {
-                      setPaymentForm(prev => ({ ...prev, amount: e.target.value }))
-                      if (formSubmitted && errors.amount) {
-                        setErrors(prev => {
-                          const ne = { ...prev }
-                          delete ne.amount
-                          return ne
-                        })
-                      }
-                    }}
-                    min="0"
-                    step="0.01"
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      border: `1px solid ${errors.amount ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)'
-                    }}
-                  />
-                  {formSubmitted && errors.amount && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.amount}</p>
-                  )}
-                </div>
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Description
-                  </label>
-                  <input
-                    type="text"
-                    value={paymentForm.description}
-                    onChange={(e) => setPaymentForm(prev => ({ ...prev, description: e.target.value }))}
-                    disabled={loading}
-                    placeholder="Enter payment description or notes"
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem 0', color: 'var(--text-header)' }}>Pending Invoices</h3>
-                <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                    <thead style={{ background: 'var(--bg-main)' }}>
-                      <tr>
-                        <th style={{ padding: '0.5rem', textAlign: 'center', width: 70 }}>Priority</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Number</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Date</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'right' }}>Invoice Amount</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'right' }}>Paid Amount</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'right' }}>Pending Amount</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'right' }}>Will Pay</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'center' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orderedPendingInvoices.length === 0 ? (
+                <div>
+                  <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem 0', color: 'var(--text-header)' }}>Pending Invoices</h3>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                      <thead style={{ background: 'var(--bg-main)' }}>
                         <tr>
-                          <td colSpan={8} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                            {paymentForm.clientId ? 'No pending invoices for this client.' : 'Select a client to view pending invoices.'}
-                          </td>
+                          <th style={{ padding: '0.5rem', textAlign: 'center', width: 70 }}>Priority</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Number</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Date</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Invoice Amount</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Paid Amount</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Pending Amount</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Will Pay</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'center' }}>Status</th>
                         </tr>
-                      ) : (
-                        orderedPendingInvoices.map((inv, idx) => (
-                          <tr
-                            key={inv._id}
-                            style={{
-                              borderTop: '1px solid var(--border)',
-                              background: dragInvoiceId && String(inv._id) === String(dragInvoiceId) ? 'rgba(59,130,246,0.10)' : 'transparent'
-                            }}
-                            onDragOver={(e) => {
-                              if (!dragInvoiceId) return
-                              e.preventDefault()
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault()
-                              if (!dragInvoiceId) return
-                              moveInvoiceBefore(dragInvoiceId, inv._id)
-                              setDragInvoiceId(null)
-                            }}
-                          >
-                            <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                              <div
-                                draggable
-                                onDragStart={(e) => {
-                                  setDragInvoiceId(String(inv._id))
-                                  e.dataTransfer.effectAllowed = 'move'
-                                }}
-                                onDragEnd={() => setDragInvoiceId(null)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: 34,
-                                  height: 30,
-                                  border: '1px solid var(--border)',
-                                  borderRadius: 10,
-                                  background: 'var(--bg-card)',
-                                  cursor: 'grab',
-                                  userSelect: 'none',
-                                  fontWeight: 900,
-                                  color: 'var(--text-muted)'
-                                }}
-                                title="Drag to change priority"
-                              >
-                                {idx + 1}
-                              </div>
-                            </td>
-                            <td style={{ padding: '0.75rem 0.5rem' }}>{inv.invoiceNumber}</td>
-                            <td style={{ padding: '0.75rem 0.5rem' }}>{new Date(inv.invoiceDate).toLocaleDateString()}</td>
-                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(inv.invoiceAmount)}</td>
-                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
-                              ₹{formatMoney((Number(inv.paidAmount) || 0) + (allocationPreview.allocationMap.get(String(inv._id)) || 0))}
-                            </td>
-                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'rgb(249, 115, 22)', fontWeight: 700 }}>
-                              ₹{formatMoney(Math.max(0, (Number(inv.pendingAmount) || 0) - (allocationPreview.allocationMap.get(String(inv._id)) || 0)))}
-                            </td>
-                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--text-header)' }}>
-                              ₹{formatMoney(allocationPreview.allocationMap.get(String(inv._id)) || 0)}
-                            </td>
-                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                              <span style={{
-                                display: 'inline-block',
-                                padding: '0.2rem 0.5rem',
-                                borderRadius: '999px',
-                                fontSize: '0.75rem',
-                                fontWeight: 700,
-                                ...statusStyles(inv.status)
-                              }}>
-                                {inv.status}
-                              </span>
+                      </thead>
+                      <tbody>
+                        {orderedPendingInvoices.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                              {paymentForm.clientId ? 'No pending invoices for this client.' : 'Select a client to view pending invoices.'}
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.08)' }}>
-                        <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
-                          Total Pending:
-                        </td>
-                        <td colSpan={3} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
-                          ₹{formatMoney(totalPending)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                        ) : (
+                          orderedPendingInvoices.map((inv, idx) => (
+                            <tr
+                              key={inv._id}
+                              style={{
+                                borderTop: '1px solid var(--border)',
+                                background: dragInvoiceId && String(inv._id) === String(dragInvoiceId) ? 'rgba(59,130,246,0.10)' : 'transparent'
+                              }}
+                              onDragOver={(e) => {
+                                if (!dragInvoiceId) return
+                                e.preventDefault()
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault()
+                                if (!dragInvoiceId) return
+                                moveInvoiceBefore(dragInvoiceId, inv._id)
+                                setDragInvoiceId(null)
+                              }}
+                            >
+                              <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                                <div
+                                  draggable
+                                  onDragStart={(e) => {
+                                    setDragInvoiceId(String(inv._id))
+                                    e.dataTransfer.effectAllowed = 'move'
+                                  }}
+                                  onDragEnd={() => setDragInvoiceId(null)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: 34,
+                                    height: 30,
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 10,
+                                    background: 'var(--bg-card)',
+                                    cursor: 'grab',
+                                    userSelect: 'none',
+                                    fontWeight: 900,
+                                    color: 'var(--text-muted)'
+                                  }}
+                                  title="Drag to change priority"
+                                >
+                                  {idx + 1}
+                                </div>
+                              </td>
+                              <td style={{ padding: '0.75rem 0.5rem' }}>{inv.invoiceNumber}</td>
+                              <td style={{ padding: '0.75rem 0.5rem' }}>{new Date(inv.invoiceDate).toLocaleDateString()}</td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(inv.invoiceAmount)}</td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
+                                ₹{formatMoney((Number(inv.paidAmount) || 0) + (allocationPreview.allocationMap.get(String(inv._id)) || 0))}
+                              </td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'rgb(249, 115, 22)', fontWeight: 700 }}>
+                                ₹{formatMoney(Math.max(0, (Number(inv.pendingAmount) || 0) - (allocationPreview.allocationMap.get(String(inv._id)) || 0)))}
+                              </td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--text-header)' }}>
+                                ₹{formatMoney(allocationPreview.allocationMap.get(String(inv._id)) || 0)}
+                              </td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '0.2rem 0.5rem',
+                                  borderRadius: '999px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  ...statusStyles(inv.status)
+                                }}>
+                                  {inv.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.08)' }}>
+                          <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                            Total Pending:
+                          </td>
+                          <td colSpan={3} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
+                            ₹{formatMoney(totalPending)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <div style={{
+                    marginTop: '0.75rem',
+                    border: '1px solid rgba(59,130,246,0.25)',
+                    background: 'rgba(59,130,246,0.08)',
+                    padding: '0.75rem',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    color: 'var(--text-header)'
+                  }}>
+                    <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Payment Logic:</span> Money will deduct by priority (Priority 1 first). If payment amount is more, remaining will go to Priority 2, Priority 3, etc. Allocated now ₹{formatMoney(allocationPreview.allocatedTotal)}.
+                  </div>
                 </div>
 
-                <div style={{
-                  marginTop: '0.75rem',
-                  border: '1px solid rgba(59,130,246,0.25)',
-                  background: 'rgba(59,130,246,0.08)',
-                  padding: '0.75rem',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  color: 'var(--text-header)'
-                }}>
-                  <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Payment Logic:</span> Money will deduct by priority (Priority 1 first). If payment amount is more, remaining will go to Priority 2, Priority 3, etc. Allocated now ₹{formatMoney(allocationPreview.allocatedTotal)}.
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-                {!editingPaymentId && (
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                  {!editingPaymentId && (
+                    <MotionButton
+                      type="button"
+                      onClick={async () => {
+                        setPaymentForm({
+                          paymentNumber: '',
+                          clientId: '',
+                          clientType: 'Customer',
+                          paymentDate: new Date().toISOString().split('T')[0],
+                          amount: 0,
+                          description: ''
+                        })
+                        setPendingInvoiceOrder([])
+                        setDragInvoiceId(null)
+                        setClientSearchText('')
+                        setErrors({})
+                        setFormSubmitted(false)
+                        await fetchNextPaymentNumber()
+                      }}
+                      disabled={loading}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: 'var(--bg-main)',
+                        color: 'var(--text-header)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      <RotateCcw size={14} /> Reset
+                    </MotionButton>
+                  )}
                   <MotionButton
-                    type="button"
-                    onClick={async () => {
-                      setPaymentForm({
-                        paymentNumber: '',
-                        clientId: '',
-                        clientType: 'Customer',
-                        paymentDate: new Date().toISOString().split('T')[0],
-                        amount: 0,
-                        description: ''
-                      })
-                      setPendingInvoiceOrder([])
-                      setDragInvoiceId(null)
-                      setClientSearchText('')
-                      setErrors({})
-                      setFormSubmitted(false)
-                      await fetchNextPaymentNumber()
-                    }}
+                    type="submit"
                     disabled={loading}
                     style={{
                       padding: '0.5rem 1rem',
-                      background: 'var(--bg-main)',
-                      color: 'var(--text-header)',
-                      border: '1px solid var(--border)',
+                      background: 'var(--primary)',
+                      color: 'white',
+                      border: 'none',
                       borderRadius: '6px',
                       fontWeight: 700,
                       fontSize: '0.875rem',
@@ -1265,537 +1286,516 @@ function Payment() {
                       gap: '0.25rem'
                     }}
                   >
-                    <RotateCcw size={14} /> Reset
+                    <Save size={14} />
+                    {loading ? 'Saving...' : editingPaymentId ? 'Update Payment' : 'Save Payment'}
                   </MotionButton>
-                )}
-                <MotionButton
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: 'var(--primary)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontWeight: 700,
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}
-                >
-                  <Save size={14} />
-                  {loading ? 'Saving...' : editingPaymentId ? 'Update Payment' : 'Save Payment'}
-                </MotionButton>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {(
-        <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Payment List</h2>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: 'var(--bg-main)',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              padding: '0.35rem 0.6rem',
-              width: 'min(420px, 100%)',
-              flex: '0 0 auto',
-              marginLeft: 'auto'
-            }}>
-              <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
-              <input
-                type="text"
-                placeholder="Search by payment no or client..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  width: '100%',
-                  fontSize: '0.8125rem',
-                  color: 'var(--text-header)'
-                }}
-              />
+                </div>
+              </form>
             </div>
           </div>
-
-          {listLoading ? (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading payments...</div>
-          ) : payments.length === 0 ? (
-            <EmptyDataCard />
-          ) : (
-            <div>
-              {/* Mobile/Tablet Card View */}
-              {isMobile ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {payments.map((payment) => {
-                    const name =
-                      payment.vendorId?.customerName ||
-                      payment.vendorId?.vendorName ||
-                      `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                      'Unknown'
-                    const customerLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
-                    const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
-                    const amountLabel = `₹${formatMoney(payment.amount)}`
-                    const descriptionLabel = payment.description ? String(payment.description) : '-'
-
-                    return (
-                      <div 
-                        key={payment._id} 
-                        style={{
-                          border: '1px solid var(--border)',
-                          borderRadius: '12px',
-                          padding: '1rem',
-                          background: 'var(--bg-card)'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ 
-                              fontSize: '1rem', 
-                              fontWeight: 800, 
-                              color: 'var(--text-header)',
-                              marginBottom: '0.25rem'
-                            }}>
-                              {payment.paymentNumber || '-'}
-                            </div>
-                            <div style={{ 
-                              fontSize: '0.875rem', 
-                              color: 'var(--text-muted)',
-                              fontWeight: 600
-                            }}>
-                              {customerLabel}
-                            </div>
-                          </div>
-                          <div style={{ position: 'relative' }}>
-                            <MotionButton
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (openDropdownId === payment._id) {
-                                  setOpenDropdownId(null);
-                                  setDropdownPayment(null);
-                                } else {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  const { top, left, shouldOpenUp } = getActionDropdownPosition({
-                                    rect,
-                                    dropdownHeight: isAdmin ? 160 : 120
-                                  });
-                                  setDropdownPosition({ top, left });
-                                  setDropdownUp(shouldOpenUp);
-                                  setDropdownPayment(payment);
-                                  setOpenDropdownId(payment._id);
-                                }
-                              }}
-                              style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                color: 'var(--text-muted)',
-                                transition: 'all 0.2s'
-                              }}
-                              title="Actions"
-                            >
-                              <MoreVertical size={16} />
-                            </MotionButton>
-
-                          </div>
-                        </div>
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Date:</div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{dateLabel}</div>
-                          </div>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Amount:</div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 800 }}>{amountLabel}</div>
-                          </div>
-                          {descriptionLabel !== '-' && (
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Description:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{descriptionLabel}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                /* Desktop Table View */
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                        <th
-                          onClick={() => handleSort('paymentNumber')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
-                        >
-                          Payment No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th
-                          onClick={() => handleSort('vendorId')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
-                        >
-                          Client {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th
-                          onClick={() => handleSort('paymentDate')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
-                        >
-                          Date {sortColumn === 'paymentDate' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th
-                          onClick={() => handleSort('description')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
-                        >
-                          Description {sortColumn === 'description' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th
-                          onClick={() => handleSort('amount')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
-                        >
-                          Amount {sortColumn === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payments.map((payment) => {
-                        const name =
-                          payment.vendorId?.customerName ||
-                          payment.vendorId?.vendorName ||
-                          `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                          'Unknown'
-                        const customerLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
-                        const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
-                        const amountLabel = `₹${formatMoney(payment.amount)}`
-                        const descriptionLabel = payment.description ? String(payment.description) : '-'
-                        
-                        return (
-                          <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
-                              {truncateText(payment.paymentNumber || '')}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(customerLabel)}>
-                              {truncateText(customerLabel)}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(dateLabel)}>
-                              {truncateText(dateLabel)}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
-                              {descriptionLabel === '-' ? '-' : truncateText(descriptionLabel)}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={amountLabel}>
-                              {amountLabel}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.375rem' }}>
-                              <div style={{ position: 'relative' }}>
-                                <MotionButton
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (openDropdownId === payment._id) {
-                                      setOpenDropdownId(null);
-                                      setDropdownPayment(null);
-                                    } else {
-                                      const rect = e.currentTarget.getBoundingClientRect();
-                                      const { top, left, shouldOpenUp } = getActionDropdownPosition({
-                                        rect,
-                                        dropdownHeight: isAdmin ? 160 : 120
-                                      });
-                                      setDropdownPosition({ top, left });
-                                      setDropdownUp(shouldOpenUp);
-                                      setDropdownPayment(payment);
-                                      setOpenDropdownId(payment._id);
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '0.25rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-muted)',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  title="Actions"
-                                >
-                                  <MoreVertical size={16} />
-                                </MotionButton>
-
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  marginTop: '1.5rem',
-                  flexWrap: 'wrap'
-                }}>
-                  <MotionButton
-                    onClick={() => fetchPayments(currentPage - 1, searchQuery)}
-                    disabled={currentPage === 1}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: 'var(--bg-main)',
-                      color: 'var(--text-header)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                      opacity: currentPage === 1 ? 0.5 : 1,
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    Previous
-                  </MotionButton>
-
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <MotionButton
-                      key={page}
-                      onClick={() => fetchPayments(page, searchQuery)}
-                      disabled={page === currentPage}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        background: page === currentPage ? 'var(--primary)' : 'var(--bg-main)',
-                        color: page === currentPage ? 'white' : 'var(--text-header)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '6px',
-                        cursor: page === currentPage ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s',
-                        fontWeight: page === currentPage ? 700 : 400
-                      }}
-                    >
-                      {page}
-                    </MotionButton>
-                  ))}
-
-                  <MotionButton
-                    onClick={() => fetchPayments(currentPage + 1, searchQuery)}
-                    disabled={currentPage === totalPages}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: 'var(--bg-main)',
-                      color: 'var(--text-header)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                      opacity: currentPage === totalPages ? 0.5 : 1,
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    Next
-                  </MotionButton>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        </ActionMenuPortal>
       )}
 
-      {infoOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.55)',
-            zIndex: 9999,
+      <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Payment List</h2>
+          <div style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeInfo()
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: 'min(520px, 96vw)',
-              maxHeight: '88vh',
-              overflow: 'auto',
-              padding: '1.25rem'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Payment Details</div>
-                <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {infoPayment?.paymentNumber ? `Payment • ${infoPayment.paymentNumber}` : 'Payment'}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <MotionButton
-                  type="button"
-                  onClick={refreshInfo}
-                  disabled={infoLoading}
-                  style={{
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    borderRadius: 10,
-                    padding: '0.45rem',
-                    cursor: infoLoading ? 'not-allowed' : 'pointer',
-                    color: 'var(--text-muted)',
-                    opacity: infoLoading ? 0.6 : 1
-                  }}
-                  title="Refresh"
-                >
-                  <RotateCcw size={18} />
-                </MotionButton>
-                <MotionButton
-                  type="button"
-                  onClick={closeInfo}
-                  style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
-                  title="Close"
-                >
-                  <X size={18} />
-                </MotionButton>
-              </div>
-            </div>
+            background: 'var(--bg-main)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            padding: '0.35rem 0.6rem',
+            width: 'min(420px, 100%)',
+            flex: '0 0 auto',
+            marginLeft: 'auto'
+          }}>
+            <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
+            <input
+              type="text"
+              placeholder="Search by payment no or client..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                width: '100%',
+                fontSize: '0.8125rem',
+                color: 'var(--text-header)'
+              }}
+            />
+          </div>
+        </div>
 
-            <div style={{ marginTop: '1.5rem' }}>
-              {/* Client Details */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Client Details</div>
-                <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'grid', gap: '0.75rem' }}>
-                    {(() => {
-                      const client = infoPayment?.vendorId;
-                      const paymentDate = infoPayment?.paymentDate ? new Date(infoPayment.paymentDate).toLocaleDateString() : '-';
-                      const description = infoPayment?.description || '-';
+        {listLoading ? (
+          <div style={{ textAlign: 'center', padding: '2rem' }}>Loading payments...</div>
+        ) : payments.length === 0 ? (
+          <EmptyDataCard />
+        ) : (
+          <div>
+            {/* Mobile/Tablet Card View */}
+            {isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {payments.map((payment) => {
+                  const name =
+                    payment.vendorId?.customerName ||
+                    payment.vendorId?.vendorName ||
+                    `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                    'Unknown'
+                  const customerLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
+                  const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
+                  const amountLabel = `₹${formatMoney(payment.amount)}`
+                  const descriptionLabel = payment.description ? String(payment.description) : '-'
+
+                  return (
+                    <div
+                      key={payment._id}
+                      style={{
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        background: 'var(--bg-card)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: '1rem',
+                            fontWeight: 800,
+                            color: 'var(--text-header)',
+                            marginBottom: '0.25rem'
+                          }}>
+                            {payment.paymentNumber || '-'}
+                          </div>
+                          <div style={{
+                            fontSize: '0.875rem',
+                            color: 'var(--text-muted)',
+                            fontWeight: 600
+                          }}>
+                            {customerLabel}
+                          </div>
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                          <MotionButton
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openDropdownId === payment._id) {
+                                setOpenDropdownId(null);
+                                setDropdownPayment(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                  rect,
+                                  dropdownHeight: isAdmin ? 160 : 120
+                                });
+                                setDropdownPosition({ top, left });
+                                setDropdownUp(shouldOpenUp);
+                                setDropdownPayment(payment);
+                                setOpenDropdownId(payment._id);
+                              }
+                            }}
+                            style={{
+                              padding: '0.25rem',
+                              background: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              color: 'var(--text-muted)',
+                              transition: 'all 0.2s'
+                            }}
+                            title="Actions"
+                          >
+                            <MoreVertical size={16} />
+                          </MotionButton>
+
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Date:</div>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{dateLabel}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Amount:</div>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 800 }}>{amountLabel}</div>
+                        </div>
+                        {descriptionLabel !== '-' && (
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Description:</div>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{descriptionLabel}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              /* Desktop Table View */
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                      <th
+                        onClick={() => handleSort('paymentNumber')}
+                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        Payment No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th
+                        onClick={() => handleSort('vendorId')}
+                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        Client {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th
+                        onClick={() => handleSort('paymentDate')}
+                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        Date {sortColumn === 'paymentDate' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th
+                        onClick={() => handleSort('description')}
+                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        Description {sortColumn === 'description' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th
+                        onClick={() => handleSort('amount')}
+                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        Amount {sortColumn === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map((payment) => {
+                      const name =
+                        payment.vendorId?.customerName ||
+                        payment.vendorId?.vendorName ||
+                        `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+                        'Unknown'
+                      const customerLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
+                      const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
+                      const amountLabel = `₹${formatMoney(payment.amount)}`
+                      const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                       return (
-                        <>
-                          {client?.customerName && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.customerName}</span>
+                        <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
+                            {truncateText(payment.paymentNumber || '')}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(customerLabel)}>
+                            {truncateText(customerLabel)}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(dateLabel)}>
+                            {truncateText(dateLabel)}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
+                            {descriptionLabel === '-' ? '-' : truncateText(descriptionLabel)}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={amountLabel}>
+                            {amountLabel}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.375rem' }}>
+                            <div style={{ position: 'relative' }}>
+                              <MotionButton
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (openDropdownId === payment._id) {
+                                    setOpenDropdownId(null);
+                                    setDropdownPayment(null);
+                                  } else {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const { top, left, shouldOpenUp } = getActionDropdownPosition({
+                                      rect,
+                                      dropdownHeight: isAdmin ? 160 : 120
+                                    });
+                                    setDropdownPosition({ top, left });
+                                    setDropdownUp(shouldOpenUp);
+                                    setDropdownPayment(payment);
+                                    setOpenDropdownId(payment._id);
+                                  }
+                                }}
+                                style={{
+                                  padding: '0.25rem',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  color: 'var(--text-muted)',
+                                  transition: 'all 0.2s'
+                                }}
+                                title="Actions"
+                              >
+                                <MoreVertical size={16} />
+                              </MotionButton>
+
                             </div>
-                          )}
-                          {client?.vendorName && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
-                            </div>
-                          )}
-                          {client?.id && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
-                            </div>
-                          )}
-                          {infoPayment?.clientType && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem', textTransform: 'capitalize' }}>{infoPayment.clientType}</span>
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Payment Date</span>
-                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{paymentDate}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Description</span>
-                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{description}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Amount</span>
-                            <span style={{ color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
-                              ₹{infoPayment?.amount ? infoPayment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                            </span>
-                          </div>
-                        </>
+                          </td>
+                        </tr>
                       )
-                    })()}
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginTop: '1.5rem',
+                flexWrap: 'wrap'
+              }}>
+                <MotionButton
+                  onClick={() => fetchPayments(currentPage - 1, searchQuery)}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-header)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    opacity: currentPage === 1 ? 0.5 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Previous
+                </MotionButton>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <MotionButton
+                    key={page}
+                    onClick={() => fetchPayments(page, searchQuery)}
+                    disabled={page === currentPage}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: page === currentPage ? 'var(--primary)' : 'var(--bg-main)',
+                      color: page === currentPage ? 'white' : 'var(--text-header)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      cursor: page === currentPage ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s',
+                      fontWeight: page === currentPage ? 700 : 400
+                    }}
+                  >
+                    {page}
+                  </MotionButton>
+                ))}
+
+                <MotionButton
+                  onClick={() => fetchPayments(currentPage + 1, searchQuery)}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-header)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    opacity: currentPage === totalPages ? 0.5 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Next
+                </MotionButton>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {infoOpen && (
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInfo()
+            }}
+          >
+            <div
+              className="card"
+              style={{
+                width: 'min(520px, 96vw)',
+                maxHeight: '88vh',
+                overflow: 'auto',
+                padding: '1.25rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Payment Details</div>
+                  <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {infoPayment?.paymentNumber ? `Payment • ${infoPayment.paymentNumber}` : 'Payment'}
                   </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <MotionButton
+                    type="button"
+                    onClick={refreshInfo}
+                    disabled={infoLoading}
+                    style={{
+                      border: '1px solid var(--border)',
+                      background: 'transparent',
+                      borderRadius: 10,
+                      padding: '0.45rem',
+                      cursor: infoLoading ? 'not-allowed' : 'pointer',
+                      color: 'var(--text-muted)',
+                      opacity: infoLoading ? 0.6 : 1
+                    }}
+                    title="Refresh"
+                  >
+                    <RotateCcw size={18} />
+                  </MotionButton>
+                  <MotionButton
+                    type="button"
+                    onClick={closeInfo}
+                    style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                    title="Close"
+                  >
+                    <X size={18} />
+                  </MotionButton>
                 </div>
               </div>
 
-              {/* Allocations (Invoice Items) Table */}
-              <div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Invoice Allocations</div>
-                <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
-                        <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Invoice No</th>
-                        <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Invoice Amount</th>
-                        <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Paid Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+              <div style={{ marginTop: '1.5rem' }}>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Client Details</div>
+                  <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'grid', gap: '0.75rem' }}>
                       {(() => {
-                        const allocations = infoPayment?.allocations || [];
-                        let totalPaidAmount = 0;
-                        allocations.forEach(alloc => totalPaidAmount += alloc.amount || 0);
+                        const client = infoPayment?.vendorId;
+                        const paymentDate = infoPayment?.paymentDate ? new Date(infoPayment.paymentDate).toLocaleDateString() : '-';
+                        const description = infoPayment?.description || '-';
 
                         return (
                           <>
-                            {allocations.length === 0 ? (
-                              <tr>
-                                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No invoice allocations found</td>
-                              </tr>
-                            ) : (
-                              <>
-                                {allocations.map((alloc, idx) => (
-                                  <tr key={idx} style={{ borderBottom: idx < allocations.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                                    <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>
-                                      {alloc.invoiceId?.invoiceNumber || 'Unknown Invoice'}
-                                    </td>
-                                    <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem' }}>
-                                      ₹{alloc.invoiceId?.totalAmount ? alloc.invoiceId.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                                    </td>
-                                    <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem' }}>
-                                      ₹{alloc.amount ? alloc.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                                    </td>
-                                  </tr>
-                                ))}
-                                <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
-                                  <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
-                                  <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}></td>
-                                  <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
-                                    ₹{totalPaidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </td>
-                                </tr>
-                              </>
+                            {client?.customerName && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.customerName}</span>
+                              </div>
                             )}
+                            {client?.vendorName && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
+                              </div>
+                            )}
+                            {client?.id && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
+                              </div>
+                            )}
+                            {infoPayment?.clientType && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem', textTransform: 'capitalize' }}>{infoPayment.clientType}</span>
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Payment Date</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{paymentDate}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Description</span>
+                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{description}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Amount</span>
+                              <span style={{ color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
+                                ₹{infoPayment?.amount ? infoPayment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                              </span>
+                            </div>
                           </>
                         )
                       })()}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Invoice Allocations</div>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
+                          <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Invoice No</th>
+                          <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Invoice Amount</th>
+                          <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Paid Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const allocations = infoPayment?.allocations || [];
+                          let totalPaidAmount = 0;
+                          allocations.forEach(alloc => totalPaidAmount += alloc.amount || 0);
+
+                          return (
+                            <>
+                              {allocations.length === 0 ? (
+                                <tr>
+                                  <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No invoice allocations found</td>
+                                </tr>
+                              ) : (
+                                <>
+                                  {allocations.map((alloc, idx) => (
+                                    <tr key={idx} style={{ borderBottom: idx < allocations.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                      <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                        {alloc.invoiceId?.invoiceNumber || 'Unknown Invoice'}
+                                      </td>
+                                      <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                        ₹{alloc.invoiceId?.totalAmount ? alloc.invoiceId.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                      </td>
+                                      <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                                        ₹{alloc.amount ? alloc.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
+                                    <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
+                                    <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}></td>
+                                    <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
+                                      ₹{totalPaidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                  </tr>
+                                </>
+                              )}
+                            </>
+                          )
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </ActionMenuPortal>
       )}
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownPayment && (
         <ActionMenuPortal>
-          <div 
+          <div
             ref={dropdownRef}
             style={{
               position: 'fixed',
@@ -1810,112 +1810,11 @@ function Payment() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              setInfoPayment(dropdownPayment);
-              setInfoOpen(true);
-              setOpenDropdownId(null);
-              setDropdownPayment(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Info size={14} />
-            View
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              generatePaymentPDF(dropdownPayment);
-              setOpenDropdownId(null);
-              setDropdownPayment(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Eye size={14} />
-            View PDF
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditPayment(dropdownPayment);
-              setOpenDropdownId(null);
-              setDropdownPayment(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Edit2 size={14} />
-            Edit
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              alert('PDF feature coming soon!');
-              setOpenDropdownId(null);
-              setDropdownPayment(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <span>📄</span>
-            PDF
-          </MotionButton>
-          {isAdmin && (
             <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeletePayment(dropdownPayment._id);
+                setInfoPayment(dropdownPayment);
+                setInfoOpen(true);
                 setOpenDropdownId(null);
                 setDropdownPayment(null);
               }}
@@ -1926,7 +1825,7 @@ function Payment() {
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'var(--danger)',
+                color: 'var(--text-header)',
                 fontSize: '0.875rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -1934,104 +1833,207 @@ function Payment() {
                 transition: 'all 0.2s'
               }}
             >
-              <Trash2 size={14} />
-              Delete
+              <Info size={14} />
+              View
             </MotionButton>
-          )}
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                generatePaymentPDF(dropdownPayment);
+                setOpenDropdownId(null);
+                setDropdownPayment(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Eye size={14} />
+              View PDF
+            </MotionButton>
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditPayment(dropdownPayment);
+                setOpenDropdownId(null);
+                setDropdownPayment(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Edit2 size={14} />
+              Edit
+            </MotionButton>
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                alert('PDF feature coming soon!');
+                setOpenDropdownId(null);
+                setDropdownPayment(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <span>📄</span>
+              PDF
+            </MotionButton>
+            {isAdmin && (
+              <MotionButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeletePayment(dropdownPayment._id);
+                  setOpenDropdownId(null);
+                  setDropdownPayment(null);
+                }}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '0.375rem 0.75rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--danger)',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Trash2 size={14} />
+                Delete
+              </MotionButton>
+            )}
           </div>
         </ActionMenuPortal>
       )}
 
       {/* PDF Viewer Modal */}
       {pdfViewerOpen && pdfBlobUrl && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 100000,
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-          onClick={() => setPdfViewerOpen(false)}
-        >
-          {/* Header */}
+        <ActionMenuPortal>
           <div
             style={{
-              background: '#f8fafc',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '1rem 1.5rem',
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.85)',
+              zIndex: 100000,
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
+              flexDirection: 'column'
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setPdfViewerOpen(false)}
           >
-            <h3 style={{ margin: 0, color: '#1e293b' }}>{pdfFileName}</h3>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <MotionButton
-                onClick={handleDownloadPdf}
+            {/* Header */}
+            <div
+              style={{
+                background: '#f8fafc',
+                borderBottom: '1px solid #e5e7eb',
+                padding: '1rem 1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: 0, color: '#1e293b' }}>{pdfFileName}</h3>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <MotionButton
+                  onClick={handleDownloadPdf}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Download
+                </MotionButton>
+                <MotionButton
+                  onClick={() => setPdfViewerOpen(false)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: '#e5e7eb',
+                    color: '#1e293b',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </MotionButton>
+              </div>
+            </div>
+
+            {/* PDF Content */}
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '1.5rem',
+                overflow: 'auto'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <iframe
+                src={pdfBlobUrl}
                 style={{
-                  padding: '0.5rem 1rem',
-                  background: '#3b82f6',
-                  color: 'white',
+                  width: '100%',
+                  maxWidth: '900px',
+                  height: '100%',
+                  minHeight: '600px',
                   border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.25)'
                 }}
-              >
-                Download
-              </MotionButton>
-              <MotionButton
-                onClick={() => setPdfViewerOpen(false)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: '#e5e7eb',
-                  color: '#1e293b',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                Close
-              </MotionButton>
+                title="PDF Viewer"
+              />
             </div>
           </div>
-
-          {/* PDF Content */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: '1.5rem',
-              overflow: 'auto'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <iframe
-              src={pdfBlobUrl}
-              style={{
-                width: '100%',
-                maxWidth: '900px',
-                height: '100%',
-                minHeight: '600px',
-                border: 'none',
-                borderRadius: '8px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.25)'
-              }}
-              title="PDF Viewer"
-            />
-          </div>
-        </div>
+        </ActionMenuPortal>
       )}
     </div>
-  );
+  )
 }
 
 export default Payment

@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd '/Users/sunnygogawale/Library/Mobile Documents/com~apple~CloudDocs/Projects/Git Clone/GoldLaser' && python3 << 'PY'\nfrom pathlib import Path\nlines = Path\\('src/pages/Invoice\\.jsx'\\)\\.read_text\\(\\)\\.splitlines\\(\\)\n# Search for infoOpen closing\nfor i in range\\(1607, 1900\\):\n    if i < len\\(lines\\) and lines\\[i\\]\\.strip\\(\\) == '\\)\\}' and i > 1607 and 'pdfViewerOpen' not in lines\\[i\\+1\\]:\n        print\\(f\"Line \\{i\\+1\\}: \\{lines\\[i\\]\\}\"\\)\n        if i > 1620:\n            break\nPY$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
