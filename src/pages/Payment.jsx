@@ -135,14 +135,19 @@ function Payment() {
   }
 
   const allClients = useMemo(() => [
-    ...customers.map(c => ({ ...c, type: 'Customer', name: c.customerName }))
+    ...customers.map(c => ({
+      ...c,
+      type: 'Customer',
+      name: c.customerName,
+      displayName: c.customerName ? (c.companyName ? `${c.customerName} - ${c.companyName}` : c.customerName) : (c.companyName || '')
+    }))
   ], [customers])
 
   const filteredClients = useMemo(() => {
     const q = clientSearchText.trim().toLowerCase()
     if (!q) return []
     return allClients.filter(c =>
-      c.name?.toLowerCase().includes(q) || c.id?.toLowerCase().includes(q)
+      (c.displayName || '').toLowerCase().includes(q) || String(c.id || '').toLowerCase().includes(q)
     )
   }, [allClients, clientSearchText])
 
@@ -505,7 +510,7 @@ function Payment() {
       const clientId = data.clientId || data.vendorId?._id || data.vendorId
       const client = data.vendorId
       const clientName = client?.customerName || client?.vendorName || ''
-      const clientIdStr = client?.id || ''
+      const companyName = client?.companyName || ''
 
       setPaymentForm({
         paymentNumber: data.paymentNumber,
@@ -515,7 +520,7 @@ function Payment() {
         amount: data.amount || 0,
         description: data.description || ''
       })
-      setClientSearchText(clientName ? `${clientName} (${clientIdStr}) - ${clientType}` : '')
+      setClientSearchText(clientName ? (companyName ? `${clientName} - ${companyName}` : clientName) : '')
       setEditingPaymentId(data._id)
       setErrors({})
       setFormSubmitted(false)
@@ -1043,7 +1048,7 @@ function Payment() {
                               key={client._id + client.type}
                               onClick={() => {
                                 setPaymentForm(prev => ({ ...prev, clientId: client._id, clientType: 'Customer' }))
-                                setClientSearchText(`${client.name} (${client.id})`)
+                                setClientSearchText(client.displayName || client.name || '')
                                 setIsClientDropdownOpen(false)
                               }}
                               style={{
@@ -1057,7 +1062,7 @@ function Payment() {
                               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
                               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                             >
-                              {client.name} ({client.id})
+                              {client.displayName || client.name}
                             </li>
                           ))}
                         </ul>
@@ -1603,8 +1608,9 @@ function Payment() {
                     payment.vendorId?.vendorName ||
                     `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                     'Unknown'
-                  const customerLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
-                  const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
+                  const companyName = payment.vendorId?.companyName || ''
+                  const customerLabel = companyName ? `${name} - ${companyName}` : name
+                  const dateLabel = payment.paymentDate ? formatDate(payment.paymentDate) : '-'
                   const amountLabel = `₹${formatMoney(payment.amount)}`
                   const descriptionLabel = payment.description ? String(payment.description) : '-'
 
@@ -1694,41 +1700,41 @@ function Payment() {
               </div>
             ) : (
               /* Desktop Table View */
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
+              <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem', tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
                       <th
                         onClick={() => handleSort('paymentNumber')}
-                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                       >
-                        Payment No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        INV No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('vendorId')}
-                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '20%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                       >
-                        Client {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        Customer {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('paymentDate')}
-                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                       >
                         Date {sortColumn === 'paymentDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('description')}
-                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '30%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                       >
                         Description {sortColumn === 'description' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('amount')}
-                        style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                       >
                         Amount {sortColumn === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                      <th style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1738,26 +1744,27 @@ function Payment() {
                         payment.vendorId?.vendorName ||
                         `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
                         'Unknown'
-                      const customerLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
+                      const companyName = payment.vendorId?.companyName || ''
+                      const customerLabel = companyName ? `${name} - ${companyName}` : name
                       const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
                       const amountLabel = `₹${formatMoney(payment.amount)}`
                       const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                       return (
                         <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
+                          <td style={{ width: '10%', padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
                             {truncateText(payment.paymentNumber || '')}
                           </td>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(customerLabel)}>
-                            {truncateText(customerLabel)}
+                          <td style={{ width: '20%', padding: '0.5rem 0.375rem', color: 'var(--text-main)', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '140px' }} title={String(customerLabel)}>
+                            {customerLabel}
                           </td>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(dateLabel)}>
-                            {truncateText(dateLabel)}
+                          <td style={{ width: '10%', padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(dateLabel)}>
+                            {dateLabel}
                           </td>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
-                            {descriptionLabel === '-' ? '-' : truncateText(descriptionLabel)}
+                          <td style={{ width: '30%', padding: '0.5rem 0.375rem', color: 'var(--text-main)', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '260px' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
+                            {descriptionLabel || '-'}
                           </td>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={amountLabel}>
+                          <td style={{ width: '10%', padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={amountLabel}>
                             {amountLabel}
                           </td>
                           <td style={{ padding: '0.5rem 0.375rem' }}>
@@ -1959,12 +1966,7 @@ function Payment() {
                                 <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
                               </div>
                             )}
-                            {client?.id && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
-                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
-                              </div>
-                            )}
+                            {/* Client ID removed per UI preference; only showing Name / Company */}
                             {infoPayment?.clientType && (
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
