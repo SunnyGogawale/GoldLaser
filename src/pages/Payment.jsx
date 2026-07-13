@@ -134,6 +134,16 @@ function Payment() {
     return s.slice(0, max) + '...'
   }
 
+  const formatDateDDMMMYYYY = (value) => {
+    const d = value ? new Date(value) : null
+    if (!d || Number.isNaN(d.getTime())) return '-'
+    const day = String(d.getDate()).padStart(2, '0')
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const month = monthNames[d.getMonth()]
+    const year = d.getFullYear()
+    return `${day}-${month}-${year}`
+  }
+
   const allClients = useMemo(() => [
     ...customers.map(c => ({
       ...c,
@@ -1167,212 +1177,216 @@ function Payment() {
                 </div>
 
                 <div style={{ marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <label style={{ fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem', margin: 0 }}>
-                    Search INV No
-                  </label>
-                  <div style={{ position: 'relative', width: 'min(520px, 100%)' }}>
-                    <div style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: '0.45rem',
-                      width: '100%',
-                      minHeight: '2.4rem',
-                      padding: '0.4rem 0.55rem',
-                      border: `1px solid ${invoiceInputFocused ? 'rgba(99,102,241,0.6)' : 'var(--border)'}`,
-                      borderRadius: 6,
-                      background: 'var(--bg-card)'
-                    }}>
-                      {invoiceInputParts.selectedTokens.map((token) => (
-                        <span
-                          key={token}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '0.2rem 0.5rem',
-                            border: '1px solid var(--border)',
-                            borderRadius: '999px',
-                            background: 'rgba(99,102,241,0.08)',
-                            color: 'var(--text-header)',
-                            fontSize: '0.85rem'
-                          }}
-                        >
-                          {token}
-                          <button
-                            type="button"
-                            aria-label={`Remove ${token}`}
-                            onClick={() => {
-                              const remaining = invoiceInputParts.selectedTokens.filter((t) => t !== token)
-                              const combined = buildInvoiceInputValue(remaining, '')
-                              setInvoiceSearchText(combined)
-                              setInvoiceInput(combined)
-                              setIsInvoiceDropdownOpen(false)
+                  {paymentForm.clientId && (
+                    <>
+                      <label style={{ fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem', margin: 0 }}>
+                        Search INV No
+                      </label>
+                      <div style={{ position: 'relative', width: 'min(520px, 100%)' }}>
+                        <div style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          width: '100%',
+                          minHeight: '2.4rem',
+                          padding: '0.4rem 0.55rem',
+                          border: `1px solid ${invoiceInputFocused ? 'rgba(99,102,241,0.6)' : 'var(--border)'}`,
+                          borderRadius: 6,
+                          background: 'var(--bg-card)'
+                        }}>
+                          {invoiceInputParts.selectedTokens.map((token) => (
+                            <span
+                              key={token}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '0.2rem 0.5rem',
+                                border: '1px solid var(--border)',
+                                borderRadius: '999px',
+                                background: 'rgba(99,102,241,0.08)',
+                                color: 'var(--text-header)',
+                                fontSize: '0.85rem'
+                              }}
+                            >
+                              {token}
+                              <button
+                                type="button"
+                                aria-label={`Remove ${token}`}
+                                onClick={() => {
+                                  const remaining = invoiceInputParts.selectedTokens.filter((t) => t !== token)
+                                  const combined = buildInvoiceInputValue(remaining, '')
+                                  setInvoiceSearchText(combined)
+                                  setInvoiceInput(combined)
+                                  setIsInvoiceDropdownOpen(false)
+                                }}
+                                style={{
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                  fontSize: '1rem',
+                                  lineHeight: 1
+                                }}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                          <input
+                            aria-label="Search Invoice Number"
+                            type="search"
+                            placeholder={!invoiceInputParts.selectedTokens.length && !invoiceInputParts.fragment ? 'Search INV No' : ''}
+                            value={invoiceInputParts.fragment || ''}
+                            onChange={(e) => {
+                              const fragment = e.target.value
+                              const nextValue = buildInvoiceInputValue(invoiceInputParts.selectedTokens, fragment)
+                              setInvoiceInput(nextValue)
+                              setInvoiceSearchText(nextValue)
+                              setIsInvoiceDropdownOpen(String(fragment).trim().length > 0 && !!paymentForm.clientId)
                             }}
-                            style={{
-                              border: 'none',
-                              background: 'transparent',
-                              color: 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: 0,
-                              fontSize: '1rem',
-                              lineHeight: 1
-                            }}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                      <input
-                        aria-label="Search Invoice Number"
-                        type="search"
-                        placeholder={!invoiceInputParts.selectedTokens.length && !invoiceInputParts.fragment ? 'Search INV No' : ''}
-                        value={invoiceInputParts.fragment || ''}
-                        onChange={(e) => {
-                          const fragment = e.target.value
-                          const nextValue = buildInvoiceInputValue(invoiceInputParts.selectedTokens, fragment)
-                          setInvoiceInput(nextValue)
-                          setInvoiceSearchText(nextValue)
-                          setIsInvoiceDropdownOpen(String(fragment).trim().length > 0 && !!paymentForm.clientId)
-                        }}
-                        onFocus={(e) => { setInvoiceInputFocused(true); if (String(e.target.value || '').trim().length > 0 && paymentForm.clientId) setIsInvoiceDropdownOpen(true) }}
-                        onBlur={() => setTimeout(() => { setInvoiceInputFocused(false); setIsInvoiceDropdownOpen(false) }, 200)}
-                        onKeyDown={(e) => {
-                          const isSeparator = e.key === ',' || e.key === ';' || e.key === ' '
-                          const fragment = String(invoiceInputParts.fragment || '').trim()
-                          if (e.key === 'Backspace' && !fragment && invoiceInputParts.selectedTokens.length > 0) {
-                            const remaining = invoiceInputParts.selectedTokens.slice(0, -1)
-                            const combined = buildInvoiceInputValue(remaining, '')
-                            setInvoiceSearchText(combined)
-                            setInvoiceInput(combined)
-                            setIsInvoiceDropdownOpen(false)
-                            e.preventDefault()
-                            return
-                          }
-                          if (e.key === 'Enter' || isSeparator) {
-                            if (fragment) {
-                              const parts = [...invoiceInputParts.selectedTokens]
-                              if (!parts.map((t) => t.toLowerCase()).includes(fragment.toLowerCase())) parts.push(fragment)
-                              const combined = buildInvoiceInputValue(parts, '')
-                              setInvoiceSearchText(combined)
-                              setInvoiceInput(combined)
-                            }
-                            setIsInvoiceDropdownOpen(false)
-                            if (isSeparator) e.preventDefault()
-                          }
-                        }}
-                        onPaste={(e) => {
-                          try {
-                            const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
-                            if (!pasted) return
-                            e.preventDefault()
-                            const tokens = parseInvoiceRawTokens(pasted)
-                            if (tokens.length === 0) return
-                            const lowerSet = new Set(invoiceInputParts.selectedTokens.map((t) => t.toLowerCase()))
-                            if (invoiceInputParts.fragment) lowerSet.add(invoiceInputParts.fragment.toLowerCase())
-                            const parts = [...invoiceInputParts.selectedTokens]
-                            if (invoiceInputParts.fragment && !parts.map((t) => t.toLowerCase()).includes(invoiceInputParts.fragment.toLowerCase())) {
-                              parts.push(invoiceInputParts.fragment)
-                            }
-                            for (const t of tokens) {
-                              if (!lowerSet.has(t.toLowerCase())) {
-                                parts.push(t)
-                                lowerSet.add(t.toLowerCase())
+                            onFocus={(e) => { setInvoiceInputFocused(true); if (String(e.target.value || '').trim().length > 0 && paymentForm.clientId) setIsInvoiceDropdownOpen(true) }}
+                            onBlur={() => setTimeout(() => { setInvoiceInputFocused(false); setIsInvoiceDropdownOpen(false) }, 200)}
+                            onKeyDown={(e) => {
+                              const isSeparator = e.key === ',' || e.key === ';' || e.key === ' '
+                              const fragment = String(invoiceInputParts.fragment || '').trim()
+                              if (e.key === 'Backspace' && !fragment && invoiceInputParts.selectedTokens.length > 0) {
+                                const remaining = invoiceInputParts.selectedTokens.slice(0, -1)
+                                const combined = buildInvoiceInputValue(remaining, '')
+                                setInvoiceSearchText(combined)
+                                setInvoiceInput(combined)
+                                setIsInvoiceDropdownOpen(false)
+                                e.preventDefault()
+                                return
                               }
-                            }
-                            const combined = buildInvoiceInputValue(parts, '')
-                            setInvoiceSearchText(combined)
-                            setInvoiceInput(combined)
-                            setIsInvoiceDropdownOpen(false)
-                            if (autoAllocateOnSelect) {
-                              const matchedIds = []
-                              for (const t of parseInvoiceTokens(combined)) {
-                                const inv = orderedPendingInvoices.find(i => String(i.invoiceNumber || '').toLowerCase().includes(t))
-                                if (inv) {
-                                  const id = String(inv._id)
-                                  if (!matchedIds.includes(id)) matchedIds.push(id)
+                              if (e.key === 'Enter' || isSeparator) {
+                                if (fragment) {
+                                  const parts = [...invoiceInputParts.selectedTokens]
+                                  if (!parts.map((t) => t.toLowerCase()).includes(fragment.toLowerCase())) parts.push(fragment)
+                                  const combined = buildInvoiceInputValue(parts, '')
+                                  setInvoiceSearchText(combined)
+                                  setInvoiceInput(combined)
                                 }
-                              }
-                              if (matchedIds.length > 0) {
-                                setPendingInvoiceOrder((prev) => {
-                                  const next = Array.isArray(prev) ? [...prev] : []
-                                  for (const id of matchedIds) {
-                                    const idx = next.indexOf(id)
-                                    if (idx !== -1) next.splice(idx, 1)
-                                  }
-                                  for (let i = matchedIds.length - 1; i >= 0; i--) next.unshift(matchedIds[i])
-                                  return next
-                                })
-                              }
-                            }
-                          } catch (err) {
-                            // ignore
-                          }
-                        }}
-                        disabled={!paymentForm.clientId || loading}
-                        style={{
-                          flex: 1,
-                          minWidth: '120px',
-                          border: 'none',
-                          outline: 'none',
-                          background: 'transparent',
-                          color: 'var(--text-header)',
-                          fontSize: '0.9rem',
-                          padding: 0,
-                          margin: 0
-                        }}
-                      />
-                    </div>
-                    {isInvoiceDropdownOpen && invoiceSuggestions.length > 0 && (
-                      <ul style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        maxHeight: '260px',
-                        overflowY: 'auto',
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '6px',
-                        marginTop: '6px',
-                        padding: 0,
-                        listStyle: 'none',
-                        zIndex: 60,
-                        boxShadow: '0 8px 16px rgba(0,0,0,0.12)'
-                      }}>
-                        {invoiceSuggestions.map((inv) => (
-                          <li
-                            key={String(inv._id)}
-                            onClick={() => {
-                              const parts = [...invoiceInputParts.selectedTokens]
-                              const invNum = String(inv.invoiceNumber || '')
-                              if (!parts.map((t) => t.toLowerCase()).includes(invNum.toLowerCase())) parts.push(invNum)
-                              const combined = buildInvoiceInputValue(parts, '')
-                              setInvoiceSearchText(combined)
-                              setInvoiceInput(combined)
-                              setIsInvoiceDropdownOpen(false)
-                              if (autoAllocateOnSelect) {
-                                setPendingInvoiceOrder((prev) => {
-                                  const id = String(inv._id)
-                                  const list = Array.isArray(prev) ? [...prev] : []
-                                  const idx = list.indexOf(id)
-                                  if (idx !== -1) list.splice(idx, 1)
-                                  list.unshift(id)
-                                  return list
-                                })
+                                setIsInvoiceDropdownOpen(false)
+                                if (isSeparator) e.preventDefault()
                               }
                             }}
-                            style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: 'var(--text-header)' }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                          >
-                            <div style={{ fontWeight: 700 }}>{inv.invoiceNumber}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '3px' }}>₹{formatMoney(inv.pendingAmount || inv.invoiceAmount)}</div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                            onPaste={(e) => {
+                              try {
+                                const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+                                if (!pasted) return
+                                e.preventDefault()
+                                const tokens = parseInvoiceRawTokens(pasted)
+                                if (tokens.length === 0) return
+                                const lowerSet = new Set(invoiceInputParts.selectedTokens.map((t) => t.toLowerCase()))
+                                if (invoiceInputParts.fragment) lowerSet.add(invoiceInputParts.fragment.toLowerCase())
+                                const parts = [...invoiceInputParts.selectedTokens]
+                                if (invoiceInputParts.fragment && !parts.map((t) => t.toLowerCase()).includes(invoiceInputParts.fragment.toLowerCase())) {
+                                  parts.push(invoiceInputParts.fragment)
+                                }
+                                for (const t of tokens) {
+                                  if (!lowerSet.has(t.toLowerCase())) {
+                                    parts.push(t)
+                                    lowerSet.add(t.toLowerCase())
+                                  }
+                                }
+                                const combined = buildInvoiceInputValue(parts, '')
+                                setInvoiceSearchText(combined)
+                                setInvoiceInput(combined)
+                                setIsInvoiceDropdownOpen(false)
+                                if (autoAllocateOnSelect) {
+                                  const matchedIds = []
+                                  for (const t of parseInvoiceTokens(combined)) {
+                                    const inv = orderedPendingInvoices.find(i => String(i.invoiceNumber || '').toLowerCase().includes(t))
+                                    if (inv) {
+                                      const id = String(inv._id)
+                                      if (!matchedIds.includes(id)) matchedIds.push(id)
+                                    }
+                                  }
+                                  if (matchedIds.length > 0) {
+                                    setPendingInvoiceOrder((prev) => {
+                                      const next = Array.isArray(prev) ? [...prev] : []
+                                      for (const id of matchedIds) {
+                                        const idx = next.indexOf(id)
+                                        if (idx !== -1) next.splice(idx, 1)
+                                      }
+                                      for (let i = matchedIds.length - 1; i >= 0; i--) next.unshift(matchedIds[i])
+                                      return next
+                                    })
+                                  }
+                                }
+                              } catch (err) {
+                                // ignore
+                              }
+                            }}
+                            disabled={!paymentForm.clientId || loading}
+                            style={{
+                              flex: 1,
+                              minWidth: '120px',
+                              border: 'none',
+                              outline: 'none',
+                              background: 'transparent',
+                              color: 'var(--text-header)',
+                              fontSize: '0.9rem',
+                              padding: 0,
+                              margin: 0
+                            }}
+                          />
+                        </div>
+                        {isInvoiceDropdownOpen && invoiceSuggestions.length > 0 && (
+                          <ul style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            maxHeight: '260px',
+                            overflowY: 'auto',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            marginTop: '6px',
+                            padding: 0,
+                            listStyle: 'none',
+                            zIndex: 60,
+                            boxShadow: '0 8px 16px rgba(0,0,0,0.12)'
+                          }}>
+                            {invoiceSuggestions.map((inv) => (
+                              <li
+                                key={String(inv._id)}
+                                onClick={() => {
+                                  const parts = [...invoiceInputParts.selectedTokens]
+                                  const invNum = String(inv.invoiceNumber || '')
+                                  if (!parts.map((t) => t.toLowerCase()).includes(invNum.toLowerCase())) parts.push(invNum)
+                                  const combined = buildInvoiceInputValue(parts, '')
+                                  setInvoiceSearchText(combined)
+                                  setInvoiceInput(combined)
+                                  setIsInvoiceDropdownOpen(false)
+                                  if (autoAllocateOnSelect) {
+                                    setPendingInvoiceOrder((prev) => {
+                                      const id = String(inv._id)
+                                      const list = Array.isArray(prev) ? [...prev] : []
+                                      const idx = list.indexOf(id)
+                                      if (idx !== -1) list.splice(idx, 1)
+                                      list.unshift(id)
+                                      return list
+                                    })
+                                  }
+                                }}
+                                style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: 'var(--text-header)' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                              >
+                                <div style={{ fontWeight: 700 }}>{inv.invoiceNumber}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '3px' }}>₹{formatMoney(inv.pendingAmount || inv.invoiceAmount)}</div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </>
+                  )}
 
                   <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem 0', color: 'var(--text-header)' }}>Pending Invoices</h3>
                   <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
@@ -1610,7 +1624,7 @@ function Payment() {
                     'Unknown'
                   const companyName = payment.vendorId?.companyName || ''
                   const customerLabel = companyName ? `${name} - ${companyName}` : name
-                  const dateLabel = payment.paymentDate ? formatDate(payment.paymentDate) : '-'
+                  const dateLabel = formatDateDDMMMYYYY(payment.paymentDate)
                   const amountLabel = `₹${formatMoney(payment.amount)}`
                   const descriptionLabel = payment.description ? String(payment.description) : '-'
 
@@ -1714,7 +1728,7 @@ function Payment() {
                         onClick={() => handleSort('vendorId')}
                         style={{ width: '20%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
                       >
-                        Customer {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                        Customer Name {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('paymentDate')}
@@ -1746,7 +1760,7 @@ function Payment() {
                         'Unknown'
                       const companyName = payment.vendorId?.companyName || ''
                       const customerLabel = companyName ? `${name} - ${companyName}` : name
-                      const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
+                      const dateLabel = formatDateDDMMMYYYY(payment.paymentDate)
                       const amountLabel = `₹${formatMoney(payment.amount)}`
                       const descriptionLabel = payment.description ? String(payment.description) : '-'
 
@@ -1949,7 +1963,7 @@ function Payment() {
                     <div style={{ display: 'grid', gap: '0.75rem' }}>
                       {(() => {
                         const client = infoPayment?.vendorId;
-                        const paymentDate = infoPayment?.paymentDate ? new Date(infoPayment.paymentDate).toLocaleDateString() : '-';
+                        const paymentDate = formatDateDDMMMYYYY(infoPayment?.paymentDate);
                         const description = infoPayment?.description || '-';
 
                         return (

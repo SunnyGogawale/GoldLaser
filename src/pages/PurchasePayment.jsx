@@ -1194,11 +1194,12 @@ function PurchasePayment() {
                 </div>
                 </div>
 
-              <div style={{ marginTop: '0.6rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                  <label style={{ fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem', margin: 0 }}>Search INV No</label>
-                </div>
-                <div style={{ position: 'relative', width: 'min(520px, 100%)' }}>
+              {paymentForm.clientId && (
+                <div style={{ marginTop: '0.6rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                    <label style={{ fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem', margin: 0 }}>Search INV No</label>
+                  </div>
+                  <div style={{ position: 'relative', width: 'min(520px, 100%)' }}>
                       {/* Selected chips */}
                     <div style={{
                       display: 'flex',
@@ -1402,9 +1403,10 @@ function PurchasePayment() {
                       ))}
                     </ul>
                   )}
-                  <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem 0', color: 'var(--text-header)' }}>Pending Invoices</h3>
