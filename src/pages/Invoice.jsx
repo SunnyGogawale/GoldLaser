@@ -1408,41 +1408,41 @@ function Invoice() {
                 </div>
               ) : (
                 /* Desktop Table View */
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
                         <th
                           onClick={() => handleSort('invoiceNumber')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           INV No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('clientId')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none'  }}
                         >
                           Customer {sortColumn === 'clientId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('invoiceDate')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Date {sortColumn === 'invoiceDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('transactionDescription')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Txn Description {sortColumn === 'transactionDescription' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('totalAmount')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Total Amount {sortColumn === 'totalAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
+                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1450,15 +1450,15 @@ function Invoice() {
                         const label = getClientDisplayLabel(invoice.vendorId)
 
                         return (
-                          <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)', boxShadow: 'inset 0 -1px 0 rgba(15, 23, 42, 0.06)' }}>
-                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
+                          <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
                               {truncateText(invoice.invoiceNumber || '')}
                             </td>
                             <td
                               style={{
-                                padding: '0.3rem 0.3rem',
+                                textAlign: 'center',
+                                padding: '0.35rem 0.35rem',
                                 color: 'var(--text-main)',
-                                borderLeft: isAdmin ? '1px solid var(--border)' : 'none',
                                 borderRight: isAdmin ? '1px solid var(--border)' : 'none',
                                 whiteSpace: 'normal',
                                 overflowWrap: 'anywhere',
@@ -1469,14 +1469,14 @@ function Invoice() {
                             >
                               {label || '-'}
                             </td>
-                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={invoice.invoiceDate ? formatDateDDMMMYYYY(invoice.invoiceDate) : '-'}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={invoice.invoiceDate ? formatDateDDMMMYYYY(invoice.invoiceDate) : '-'}>
                               {formatDateDDMMMYYYY(invoice.invoiceDate)}
                             </td>
                             <td
                               style={{
-                                padding: '0.3rem 0.5rem',
+                                textAlign: 'left',
+                                padding: '0.35rem 0.35rem',
                                 color: 'var(--text-main)',
-                                borderLeft: isAdmin ? '1px solid var(--border)' : 'none',
                                 borderRight: isAdmin ? '1px solid var(--border)' : 'none',
                                 whiteSpace: 'normal',
                                 overflowWrap: 'anywhere',
@@ -1488,10 +1488,10 @@ function Invoice() {
                             >
                               {invoice.transactionDescription || '-'}
                             </td>
-                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={`₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
-                              ₹{truncateText(invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={`₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                              ₹{invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td style={{ padding: '0.3rem 0.5rem', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {
@@ -1862,8 +1862,8 @@ function Invoice() {
                 transition: 'all 0.2s'
               }}
             >
-              <span>📄</span>
-              PDF
+              <Eye size={14} />
+              View PDF
             </MotionButton>
             {isAdmin && (
               <MotionButton
@@ -1918,66 +1918,69 @@ function Invoice() {
                 padding: '1rem 1.5rem',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
-                color: '#1f2937',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+                alignItems: 'center'
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <h3 style={{ margin: 0, color: '#1e293b' }}>{pdfFileName}</h3>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <MotionButton
+                  onClick={handleDownloadPdf}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Download
+                </MotionButton>
                 <MotionButton
                   onClick={() => setPdfViewerOpen(false)}
                   style={{
-                    background: 'rgba(0,0,0,0.05)',
+                    padding: '0.5rem 1rem',
+                    background: '#e5e7eb',
+                    color: '#1e293b',
                     border: 'none',
-                    borderRadius: '999px',
-                    padding: '0.5rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s',
-                    color: '#1f2937'
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
                   }}
                 >
-                  <X size={24} />
+                  Close
                 </MotionButton>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
-                </div>
               </div>
-              <MotionButton
-                onClick={handleDownloadPdf}
-                style={{
-                  background: 'rgba(0,0,0,0.05)',
-                  border: 'none',
-                  borderRadius: '999px',
-                  padding: '0.5rem 1rem',
-                  color: '#1f2937',
-                  fontWeight: 700,
-                  fontSize: '0.875rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <span>⬇️</span>
-                Download
-              </MotionButton>
             </div>
 
-            {/* PDF Viewer */}
-            <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+            {/* PDF Content */}
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '1.5rem',
+                overflow: 'auto'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <iframe
                 src={pdfBlobUrl}
                 style={{
                   width: '100%',
+                  maxWidth: '900px',
                   height: '100%',
-                  border: 'none'
+                  minHeight: '600px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.25)'
                 }}
-                title={pdfFileName}
+                title="PDF Viewer"
               />
             </div>
           </div>

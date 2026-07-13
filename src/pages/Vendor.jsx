@@ -17,16 +17,16 @@ const CUSTOM_FIELDS_API_URL = `${API_BASE_URL}/api/vendor-custom-fields`
 function Vendor() {
   // Responsive state
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
-  
-  useEffect(() => { 
+
+  useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
     }
-    
+
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-  
+
   // Vendor form state
   const [vendorForm, setVendorForm] = useState({
     id: '',
@@ -428,7 +428,7 @@ function Vendor() {
       await fetchCustomFields();
       // Refresh vendor list
       await fetchVendors();
-      
+
       // Close popup
       setAddFieldPopupOpen(false);
     } catch (err) {
@@ -550,7 +550,7 @@ function Vendor() {
       [name]: value
     };
     setVendorForm(updatedForm);
-    
+
     // Real-time validation
     if (formSubmitted) {
       const error = validateField(name, value);
@@ -841,18 +841,18 @@ function Vendor() {
     try {
       // Refresh custom fields first to ensure we have the latest
       await fetchCustomFields()
-      
+
       const token = getAuthToken()
       const response = await fetch(`${API_URL}/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await readJsonResponse(response, 'Error refreshing vendor info')
-      
+
       // Ensure customFields is always an object
       if (data && !data.customFields) {
         data.customFields = {}
       }
-      
+
       setInfoVendor(data || null)
     } catch (err) {
       console.error('Error refreshing vendor info:', err)
@@ -1010,14 +1010,14 @@ function Vendor() {
         head: [['Date', 'Transaction No', 'Transaction Type', 'Description', 'Debit (Invoice)', 'Credit (Payment)', 'Balance']],
         body: transactions.length > 0
           ? transactions.map((row) => [
-              formatPdfDate(row.date),
-              row.transactionNo || '-',
-              row.transactionType || '-',
-              row.description || '-',
-              row.debit ? formatPdfMoney(row.debit) : '-',
-              row.credit ? formatPdfMoney(row.credit) : '-',
-              formatPdfMoney(row.balance || 0)
-            ])
+            formatPdfDate(row.date),
+            row.transactionNo || '-',
+            row.transactionType || '-',
+            row.description || '-',
+            row.debit ? formatPdfMoney(row.debit) : '-',
+            row.credit ? formatPdfMoney(row.credit) : '-',
+            formatPdfMoney(row.balance || 0)
+          ])
           : [['-', '-', '-', 'No transactions found', '-', '-', formatPdfMoney(summary.closingBalance || 0)]],
         headStyles: {
           fillColor: [255, 255, 255],
@@ -1114,589 +1114,50 @@ function Vendor() {
               justifyContent: 'center',
               padding: '1rem'
             }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeVendorForm()
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: 'min(980px, 96vw)',
-              maxHeight: '88vh',
-              overflow: 'auto',
-              padding: '1.5rem'
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeVendorForm()
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
-              <h2 style={{ margin: 0, color: 'var(--text-header)' }}>
-                {editingVendorId ? 'Edit Vendor' : 'Add New Vendor'}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
-                <div
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: 999,
-                    background: 'var(--bg-main)',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.875rem',
-                    fontWeight: 800,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Vendor ID : {vendorForm.id || 'xxxx'}
-                </div>
-                <MotionButton
-                  type="button"
-                  onClick={closeVendorForm}
-                  disabled={loading}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    // background: 'var(--bg-main)',
-                    color: 'var(--text-header)',
-                    // border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    fontSize: '0.9375rem',
-                    fontWeight: 600,
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    opacity: loading ? 0.7 : 1
-                  }}
-                >
-                  <X size={16} />
-                  {/* Close */}
-                </MotionButton>
-              </div>
-            </div>
-            <form onSubmit={handleVendorSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Vendor Name <span style={{ color: 'var(--danger)' }}>*</span></span>
-                  </label>
-                  <input
-                    type="text"
-                    name="vendorName"
-                    value={vendorForm.vendorName}
-                    onChange={handleVendorInputChange}
-                    disabled={loading}
-                    autoComplete="name"
+            <div
+              className="card"
+              style={{
+                width: 'min(980px, 96vw)',
+                maxHeight: '88vh',
+                overflow: 'auto',
+                padding: '1.5rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, color: 'var(--text-header)' }}>
+                  {editingVendorId ? 'Edit Vendor' : 'Add New Vendor'}
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
+                  <div
                     style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: `2px solid ${errors.vendorName ? '#ef4444' : 'var(--border)'}`,
-                      borderRadius: '12px',
-                      fontSize: '0.9375rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      transition: 'all 0.2s ease',
-                      opacity: loading ? 0.7 : 1,
-                      outline: 'none',
-                      boxShadow: errors.vendorName ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
-                    }}
-                    placeholder="Enter vendor name"
-                  />
-                  {formSubmitted && errors.vendorName && (
-                    <p style={{
-                      color: '#ef4444',
-                      fontSize: '0.875rem',
-                      marginTop: '0.5rem',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      {errors.vendorName}
-                    </p>
-                  )}
-                </div>
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Company Name <span style={{ color: 'var(--danger)' }}>*</span></span>
-                    {/* <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Optional</span> */}
-                  </label>
-                  <input
-                    type="text"
-                    name="companyName"
-                    value={vendorForm.companyName}
-                    onChange={handleVendorInputChange}
-                    disabled={loading}
-                    autoComplete="organization"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: `2px solid ${errors.companyName ? '#ef4444' : 'var(--border)'}`,
-                      borderRadius: '12px',
-                      fontSize: '0.9375rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      transition: 'all 0.2s ease',
-                      opacity: loading ? 0.7 : 1,
-                      outline: 'none',
-                      boxShadow: errors.companyName ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
-                    }}
-                    placeholder="Enter company name"
-                  />
-                  {formSubmitted && errors.companyName && (
-                    <p style={{
-                      color: '#ef4444',
-                      fontSize: '0.875rem',
-                      marginTop: '0.5rem',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      {errors.companyName}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Contact Number <span style={{ color: 'var(--danger)' }}>*</span></span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="contactNumber"
-                    value={vendorForm.contactNumber}
-                    onChange={handleVendorInputChange}
-                    disabled={loading}
-                    inputMode="tel"
-                    autoComplete="tel"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: `2px solid ${errors.contactNumber ? '#ef4444' : 'var(--border)'}`,
-                      borderRadius: '12px',
-                      fontSize: '0.9375rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      transition: 'all 0.2s ease',
-                      opacity: loading ? 0.7 : 1,
-                      outline: 'none',
-                      boxShadow: errors.contactNumber ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
-                    }}
-                    placeholder="Enter contact number"
-                  />
-                  {formSubmitted && errors.contactNumber && (
-                    <p style={{
-                      color: '#ef4444',
-                      fontSize: '0.875rem',
-                      marginTop: '0.5rem',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      {errors.contactNumber}
-                    </p>
-                  )}
-                </div>
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Alternate Number <span style={{ color: 'var(--danger)' }}>*</span></span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="alternateNumber"
-                    value={vendorForm.alternateNumber}
-                    onChange={handleVendorInputChange}
-                    disabled={loading}
-                    inputMode="tel"
-                    autoComplete="tel"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: `2px solid ${errors.alternateNumber ? '#ef4444' : 'var(--border)'}`,
-                      borderRadius: '12px',
-                      fontSize: '0.9375rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      transition: 'all 0.2s ease',
-                      opacity: loading ? 0.7 : 1,
-                      outline: 'none',
-                      boxShadow: errors.alternateNumber ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
-                    }}
-                    placeholder="Enter contact number"
-                  />
-                  {formSubmitted && errors.alternateNumber && (
-                    <p style={{
-                      color: '#ef4444',
-                      fontSize: '0.875rem',
-                      marginTop: '0.5rem',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      {errors.alternateNumber}
-                    </p>
-                  )}
-                </div>
-
-                
-
-                
-              </div>
-
-              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Email <span style={{ color: 'var(--danger)' }}>*</span></span>
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={vendorForm.email}
-                    onChange={handleVendorInputChange}
-                    disabled={loading}
-                    autoComplete="email"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: `2px solid ${errors.email ? '#ef4444' : 'var(--border)'}`,
-                      borderRadius: '12px',
-                      fontSize: '0.9375rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      transition: 'all 0.2s ease',
-                      opacity: loading ? 0.7 : 1,
-                      outline: 'none',
-                      boxShadow: errors.email ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
-                    }}
-                    placeholder="Enter email address"
-                  />
-                  {formSubmitted && errors.email && (
-                    <p style={{
-                      color: '#ef4444',
-                      fontSize: '0.875rem',
-                      marginTop: '0.5rem',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      {errors.email}
-                    </p>
-                  )}
-                </div>
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    Note
-                  </label>
-                  <input
-                    type="text"
-                    name="note"
-                    value={vendorForm.note}
-                    onChange={handleVendorInputChange}
-                    rows={3}
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
+                      padding: '0.4rem 0.75rem',
                       border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      fontSize: '0.9375rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      transition: 'all 0.2s',
-                      resize: 'vertical',
-                      opacity: loading ? 0.7 : 1
-                    }}
-                    placeholder="Add any notes"
-                  ></input>
-                </div>
-
-                
-
-              </div>
-
-
-
-              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Address <span style={{ color: 'var(--danger)' }}>*</span></span>
-                  </label>
-                  <textarea
-                    name="address"
-                    value={vendorForm.address}
-                    onChange={handleVendorInputChange}
-                    rows={3}
-                    disabled={loading}
-                    autoComplete="street-address"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: `2px solid ${errors.address ? '#ef4444' : 'var(--border)'}`,
-                      borderRadius: '12px',
-                      fontSize: '0.9375rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      transition: 'all 0.2s ease',
-                      resize: 'vertical',
-                      opacity: loading ? 0.7 : 1,
-                      outline: 'none',
-                      boxShadow: errors.address ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
-                    }}
-                    placeholder="Enter vendor address"
-                  ></textarea>
-                  {formSubmitted && errors.address && (
-                    <p style={{
-                      color: '#ef4444',
+                      borderRadius: 999,
+                      background: 'var(--bg-main)',
+                      color: 'var(--text-muted)',
                       fontSize: '0.875rem',
-                      marginTop: '0.5rem',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      {errors.address}
-                    </p>
-                  )}
-                </div>
-
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                    <span>Shipping Address <span style={{ color: 'var(--danger)' }}></span></span>
-                  </label>
-                  <textarea
-                    name="shippingAddress"
-                    value={vendorForm.shippingAddress}
-                    onChange={handleVendorInputChange}
-                    rows={3}
-                    disabled={loading}
-                    autoComplete="shipp-address"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      border: `2px solid ${errors.shippingAddress ? '#ef4444' : 'var(--border)'}`,
-                      borderRadius: '12px',
-                      fontSize: '0.9375rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      transition: 'all 0.2s ease',
-                      resize: 'vertical',
-                      opacity: loading ? 0.7 : 1,
-                      outline: 'none',
-                      boxShadow: errors.shippingAddress ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                      fontWeight: 800,
+                      whiteSpace: 'nowrap'
                     }}
-                    placeholder="Enter Shipping address"
-                  ></textarea>
-                  {formSubmitted && errors.shippingAddress && (
-                    <p style={{
-                      color: '#ef4444',
-                      fontSize: '0.875rem',
-                      marginTop: '0.5rem',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      {errors.shippingAddress}
-                    </p>
-                  )}
-                </div>
-
-
-
-                
-                
-              </div>
-
-              {/* Custom Fields Section */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {/* Admin: Add new field button (only when not editing vendor) */}
-                {isAdmin && !editingVendorId && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1rem' }}>Custom Fields</h3>
-                    <MotionButton
-                      type="button"
-                      onClick={addCustomField}
-                      disabled={loading}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        background: 'var(--primary)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '0.875rem',
-                        fontWeight: 600,
-                        cursor: loading ? 'not-allowed' : 'pointer', 
-                        transition: 'all 0.2s',
-                        opacity: loading ? 0.7 : 1
-                      }}
-                    >
-                      Add Field
-                    </MotionButton>
+                  >
+                    Vendor ID : {vendorForm.id || 'xxxx'}
                   </div>
-                )}
-                
-                {/* Render all custom fields in 2 columns */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                  {customFieldsArray.map((field, index) => (
-                    <div key={index}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                        <label style={{ marginBottom: 0, fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
-                          {field.key || 'Custom Field'}
-                        </label>
-                        {/* Only show edit/delete buttons for custom fields when NOT editing vendor */}
-                        {isAdmin && !editingVendorId && (
-                          <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-                            <MotionButton
-                              type="button"
-                              onClick={() => {
-                                setEditingFieldIndex(index)
-                                setEditingFieldOldName(field.key)
-                                setEditingFieldNewName(field.key)
-                                setEditFieldPopupOpen(true)
-                              }}
-                              disabled={loading}
-                              onMouseEnter={(e) => !loading && (e.currentTarget.style.background = 'rgba(0, 0, 0, 0.05)')}
-                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                              style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                color: 'var(--text-header)',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                opacity: loading ? 0.7 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              <Edit2 size={16} />
-                            </MotionButton>
-                            <MotionButton
-                              type="button"
-                              onClick={() => removeCustomField(index, field.key)}
-                              disabled={loading}
-                              onMouseEnter={(e) => !loading && (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)')}
-                              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                              style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                color: 'var(--danger)',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                opacity: loading ? 0.7 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              <X size={18} />
-                            </MotionButton>
-                          </div>
-                        )}
-                      </div>
-                      <input
-                        type="text"
-                        value={field.value}
-                        onChange={(e) => handleCustomFieldChange(index, 'value', e.target.value)}
-                        disabled={loading}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem 1rem',
-                          border: '2px solid var(--border)',
-                          borderRadius: '12px',
-                          fontSize: '0.9375rem',
-                          background: 'var(--bg-card)',
-                          color: 'var(--text-header)',
-                          transition: 'all 0.2s ease',
-                          opacity: loading ? 0.7 : 1,
-                          outline: 'none'
-                        }}
-                        placeholder={`Enter ${field.key || 'value'}`}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-                <MotionButton
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    padding: '0.875rem 1.5rem',
-                    background: 'var(--primary)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '0.9375rem',
-                    fontWeight: 700,
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    opacity: loading ? 0.5 : 1
-                  }}
-                >
-                  <Save size={16} />
-                  {loading ? 'Saving...' : editingVendorId ? 'Update Vendor' : 'Save Vendor'}
-                </MotionButton>
-                {!editingVendorId && (
                   <MotionButton
                     type="button"
-                    onClick={async () => {
-                      // Reset custom fields array with permanent field names
-                      const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
-                        key: fieldName,
-                        value: ''
-                      }))
-                      setCustomFieldsArray(initialCustomFieldsArray)
-                      // Reset vendorForm
-                      const initialCustomFields = {}
-                      customFieldNames.forEach(fieldName => {
-                        initialCustomFields[fieldName] = ''
-                      })
-                      setVendorForm({
-                        id: '',
-                        vendorName: '',
-                        companyName: '',
-                        contactNumber: '',
-                        alternateNumber: '',
-                        email: '',
-                        address: '',
-                        shippingAddress: '',
-                        note: '',
-                        customFields: initialCustomFields
-                      });
-                      await fetchNextVendorId();
-                      setErrors({});
-                      setFormSubmitted(false);
-                    }}
+                    onClick={closeVendorForm}
                     disabled={loading}
                     style={{
-                      padding: '0.75rem 1.5rem',
-                      background: 'var(--bg-main)',
+                      padding: '0.5rem 1rem',
+                      // background: 'var(--bg-main)',
                       color: 'var(--text-header)',
-                      border: '1px solid var(--border)',
+                      // border: '1px solid var(--border)',
                       borderRadius: '8px',
                       fontSize: '0.9375rem',
-                      fontWeight: 700,
+                      fontWeight: 600,
                       cursor: loading ? 'not-allowed' : 'pointer',
                       transition: 'all 0.2s',
                       display: 'flex',
@@ -1705,14 +1166,553 @@ function Vendor() {
                       opacity: loading ? 0.7 : 1
                     }}
                   >
-                    <RotateCcw size={16} />
-                    Reset
+                    <X size={16} />
+                    {/* Close */}
                   </MotionButton>
-                )}
+                </div>
               </div>
-            </form>
+              <form onSubmit={handleVendorSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                      <span>Vendor Name <span style={{ color: 'var(--danger)' }}>*</span></span>
+                    </label>
+                    <input
+                      type="text"
+                      name="vendorName"
+                      value={vendorForm.vendorName}
+                      onChange={handleVendorInputChange}
+                      disabled={loading}
+                      autoComplete="name"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: `2px solid ${errors.vendorName ? '#ef4444' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        fontSize: '0.9375rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        transition: 'all 0.2s ease',
+                        opacity: loading ? 0.7 : 1,
+                        outline: 'none',
+                        boxShadow: errors.vendorName ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                      }}
+                      placeholder="Enter vendor name"
+                    />
+                    {formSubmitted && errors.vendorName && (
+                      <p style={{
+                        color: '#ef4444',
+                        fontSize: '0.875rem',
+                        marginTop: '0.5rem',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        {errors.vendorName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                      <span>Company Name <span style={{ color: 'var(--danger)' }}>*</span></span>
+                      {/* <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Optional</span> */}
+                    </label>
+                    <input
+                      type="text"
+                      name="companyName"
+                      value={vendorForm.companyName}
+                      onChange={handleVendorInputChange}
+                      disabled={loading}
+                      autoComplete="organization"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: `2px solid ${errors.companyName ? '#ef4444' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        fontSize: '0.9375rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        transition: 'all 0.2s ease',
+                        opacity: loading ? 0.7 : 1,
+                        outline: 'none',
+                        boxShadow: errors.companyName ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                      }}
+                      placeholder="Enter company name"
+                    />
+                    {formSubmitted && errors.companyName && (
+                      <p style={{
+                        color: '#ef4444',
+                        fontSize: '0.875rem',
+                        marginTop: '0.5rem',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        {errors.companyName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                      <span>Contact Number <span style={{ color: 'var(--danger)' }}>*</span></span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="contactNumber"
+                      value={vendorForm.contactNumber}
+                      onChange={handleVendorInputChange}
+                      disabled={loading}
+                      inputMode="tel"
+                      autoComplete="tel"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: `2px solid ${errors.contactNumber ? '#ef4444' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        fontSize: '0.9375rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        transition: 'all 0.2s ease',
+                        opacity: loading ? 0.7 : 1,
+                        outline: 'none',
+                        boxShadow: errors.contactNumber ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                      }}
+                      placeholder="Enter contact number"
+                    />
+                    {formSubmitted && errors.contactNumber && (
+                      <p style={{
+                        color: '#ef4444',
+                        fontSize: '0.875rem',
+                        marginTop: '0.5rem',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        {errors.contactNumber}
+                      </p>
+                    )}
+                  </div>
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                      <span>Alternate Number</span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="alternateNumber"
+                      value={vendorForm.alternateNumber}
+                      onChange={handleVendorInputChange}
+                      disabled={loading}
+                      inputMode="tel"
+                      autoComplete="tel"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: `2px solid ${errors.alternateNumber ? '#ef4444' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        fontSize: '0.9375rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        transition: 'all 0.2s ease',
+                        opacity: loading ? 0.7 : 1,
+                        outline: 'none',
+                        boxShadow: errors.alternateNumber ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                      }}
+                      placeholder="Enter contact number"
+                    />
+                    {formSubmitted && errors.alternateNumber && (
+                      <p style={{
+                        color: '#ef4444',
+                        fontSize: '0.875rem',
+                        marginTop: '0.5rem',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        {errors.alternateNumber}
+                      </p>
+                    )}
+                  </div>
+
+
+
+
+                </div>
+
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                      <span>Email <span style={{ color: 'var(--danger)' }}>*</span></span>
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={vendorForm.email}
+                      onChange={handleVendorInputChange}
+                      disabled={loading}
+                      autoComplete="email"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: `2px solid ${errors.email ? '#ef4444' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        fontSize: '0.9375rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        transition: 'all 0.2s ease',
+                        opacity: loading ? 0.7 : 1,
+                        outline: 'none',
+                        boxShadow: errors.email ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                      }}
+                      placeholder="Enter email address"
+                    />
+                    {formSubmitted && errors.email && (
+                      <p style={{
+                        color: '#ef4444',
+                        fontSize: '0.875rem',
+                        marginTop: '0.5rem',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        {errors.email}
+                      </p>
+                    )}
+                  </div>
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                      Note
+                    </label>
+                    <input
+                      type="text"
+                      name="note"
+                      value={vendorForm.note}
+                      onChange={handleVendorInputChange}
+                      rows={3}
+                      disabled={loading}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        fontSize: '0.9375rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        transition: 'all 0.2s',
+                        resize: 'vertical',
+                        opacity: loading ? 0.7 : 1
+                      }}
+                      placeholder="Add any notes"
+                    ></input>
+                  </div>
+
+
+
+                </div>
+
+
+
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                      <span>Address <span style={{ color: 'var(--danger)' }}>*</span></span>
+                    </label>
+                    <textarea
+                      name="address"
+                      value={vendorForm.address}
+                      onChange={handleVendorInputChange}
+                      rows={3}
+                      disabled={loading}
+                      autoComplete="street-address"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: `2px solid ${errors.address ? '#ef4444' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        fontSize: '0.9375rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        transition: 'all 0.2s ease',
+                        resize: 'vertical',
+                        opacity: loading ? 0.7 : 1,
+                        outline: 'none',
+                        boxShadow: errors.address ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                      }}
+                      placeholder="Enter vendor address"
+                    ></textarea>
+                    {formSubmitted && errors.address && (
+                      <p style={{
+                        color: '#ef4444',
+                        fontSize: '0.875rem',
+                        marginTop: '0.5rem',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        {errors.address}
+                      </p>
+                    )}
+                  </div>
+
+
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                      <span>Shipping Address <span style={{ color: 'var(--danger)' }}></span></span>
+                    </label>
+                    <textarea
+                      name="shippingAddress"
+                      value={vendorForm.shippingAddress}
+                      onChange={handleVendorInputChange}
+                      rows={3}
+                      disabled={loading}
+                      autoComplete="shipp-address"
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        border: `2px solid ${errors.shippingAddress ? '#ef4444' : 'var(--border)'}`,
+                        borderRadius: '12px',
+                        fontSize: '0.9375rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        transition: 'all 0.2s ease',
+                        resize: 'vertical',
+                        opacity: loading ? 0.7 : 1,
+                        outline: 'none',
+                        boxShadow: errors.shippingAddress ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'none'
+                      }}
+                      placeholder="Enter Shipping address"
+                    ></textarea>
+                    {formSubmitted && errors.shippingAddress && (
+                      <p style={{
+                        color: '#ef4444',
+                        fontSize: '0.875rem',
+                        marginTop: '0.5rem',
+                        fontWeight: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        {errors.shippingAddress}
+                      </p>
+                    )}
+                  </div>
+
+
+
+
+
+                </div>
+
+                {/* Custom Fields Section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {/* Admin: Add new field button (only when not editing vendor) */}
+                  {isAdmin && !editingVendorId && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h3 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1rem' }}>Custom Fields</h3>
+                      <MotionButton
+                        type="button"
+                        onClick={addCustomField}
+                        disabled={loading}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: 'var(--primary)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          cursor: loading ? 'not-allowed' : 'pointer',
+                          transition: 'all 0.2s',
+                          opacity: loading ? 0.7 : 1
+                        }}
+                      >
+                        Add Field
+                      </MotionButton>
+                    </div>
+                  )}
+
+                  {/* Render all custom fields in 2 columns */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                    {customFieldsArray.map((field, index) => (
+                      <div key={index}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <label style={{ marginBottom: 0, fontWeight: 700, color: 'var(--text-header)', fontSize: '0.9375rem' }}>
+                            {field.key || 'Custom Field'}
+                          </label>
+                          {/* Only show edit/delete buttons for custom fields when NOT editing vendor */}
+                          {isAdmin && !editingVendorId && (
+                            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                              <MotionButton
+                                type="button"
+                                onClick={() => {
+                                  setEditingFieldIndex(index)
+                                  setEditingFieldOldName(field.key)
+                                  setEditingFieldNewName(field.key)
+                                  setEditFieldPopupOpen(true)
+                                }}
+                                disabled={loading}
+                                onMouseEnter={(e) => !loading && (e.currentTarget.style.background = 'rgba(0, 0, 0, 0.05)')}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                style={{
+                                  padding: '0.25rem',
+                                  background: 'transparent',
+                                  color: 'var(--text-header)',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: loading ? 'not-allowed' : 'pointer',
+                                  transition: 'all 0.2s',
+                                  opacity: loading ? 0.7 : 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                <Edit2 size={16} />
+                              </MotionButton>
+                              <MotionButton
+                                type="button"
+                                onClick={() => removeCustomField(index, field.key)}
+                                disabled={loading}
+                                onMouseEnter={(e) => !loading && (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)')}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                style={{
+                                  padding: '0.25rem',
+                                  background: 'transparent',
+                                  color: 'var(--danger)',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: loading ? 'not-allowed' : 'pointer',
+                                  transition: 'all 0.2s',
+                                  opacity: loading ? 0.7 : 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                <X size={18} />
+                              </MotionButton>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={field.value}
+                          onChange={(e) => handleCustomFieldChange(index, 'value', e.target.value)}
+                          disabled={loading}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            border: '2px solid var(--border)',
+                            borderRadius: '12px',
+                            fontSize: '0.9375rem',
+                            background: 'var(--bg-card)',
+                            color: 'var(--text-header)',
+                            transition: 'all 0.2s ease',
+                            opacity: loading ? 0.7 : 1,
+                            outline: 'none'
+                          }}
+                          placeholder={`Enter ${field.key || 'value'}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <MotionButton
+                    type="submit"
+                    disabled={loading}
+                    style={{
+                      padding: '0.875rem 1.5rem',
+                      background: 'var(--primary)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.9375rem',
+                      fontWeight: 700,
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      opacity: loading ? 0.5 : 1
+                    }}
+                  >
+                    <Save size={16} />
+                    {loading ? 'Saving...' : editingVendorId ? 'Update Vendor' : 'Save Vendor'}
+                  </MotionButton>
+                  {!editingVendorId && (
+                    <MotionButton
+                      type="button"
+                      onClick={async () => {
+                        // Reset custom fields array with permanent field names
+                        const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
+                          key: fieldName,
+                          value: ''
+                        }))
+                        setCustomFieldsArray(initialCustomFieldsArray)
+                        // Reset vendorForm
+                        const initialCustomFields = {}
+                        customFieldNames.forEach(fieldName => {
+                          initialCustomFields[fieldName] = ''
+                        })
+                        setVendorForm({
+                          id: '',
+                          vendorName: '',
+                          companyName: '',
+                          contactNumber: '',
+                          alternateNumber: '',
+                          email: '',
+                          address: '',
+                          shippingAddress: '',
+                          note: '',
+                          customFields: initialCustomFields
+                        });
+                        await fetchNextVendorId();
+                        setErrors({});
+                        setFormSubmitted(false);
+                      }}
+                      disabled={loading}
+                      style={{
+                        padding: '0.75rem 1.5rem',
+                        background: 'var(--bg-main)',
+                        color: 'var(--text-header)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        fontSize: '0.9375rem',
+                        fontWeight: 700,
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        opacity: loading ? 0.7 : 1
+                      }}
+                    >
+                      <RotateCcw size={16} />
+                      Reset
+                    </MotionButton>
+                  )}
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
         </ActionMenuPortal>
       )}
 
@@ -2020,10 +2020,10 @@ function Vendor() {
                     const email = vendor.email || ''
                     const outstandingAmount = vendor.outstanding?.outstanding || 0
                     const outstanding = formatMoney(outstandingAmount)
-                    
+
                     return (
-                      <div 
-                        key={vendor._id} 
+                      <div
+                        key={vendor._id}
                         style={{
                           border: '1px solid var(--border)',
                           borderRadius: '12px',
@@ -2033,13 +2033,13 @@ function Vendor() {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ 
-                              fontSize: '1rem', 
-                              fontWeight: 800, 
+                            <div style={{
+                              fontSize: '1rem',
+                              fontWeight: 800,
                               color: 'var(--text-header)',
                               marginBottom: '0.25rem'
-                            }} title={vendorName + (companyName ? ' - ' + companyName : '')}>
-                              {vendorName + (companyName ? ' - ' + companyName : '') || '-'}
+                            }} title={vendorName || '-'}> 
+                              {vendorName || '-'}
                             </div>
                           </div>
                           <div style={{ position: 'relative' }}>
@@ -2077,7 +2077,7 @@ function Vendor() {
 
                           </div>
                         </div>
-                        
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           {mobile && (
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -2115,37 +2115,37 @@ function Vendor() {
                 </div>
               ) : (
                 /* Desktop Table View */
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
                         <th
                           onClick={() => handleSort('companyName')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Company Name {sortColumn === 'companyName' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('vendorName')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Vendor Name {sortColumn === 'vendorName' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('contactNumber')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Mobile {sortColumn === 'contactNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('email')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Email {sortColumn === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('outstanding')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Outstanding {sortColumn === 'outstanding' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
@@ -2154,12 +2154,12 @@ function Vendor() {
                           <th
                             key={columnName}
                             onClick={() => handleSort(`customField_${columnName}`)}
-                            style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                            style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                           >
                             {columnName} {sortColumn === `customField_${columnName}` && (sortOrder === 'asc' ? '↑' : '↓')}
                           </th>
                         ))}
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
+                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2171,43 +2171,43 @@ function Vendor() {
                         const mobile = vendor.contactNumber || ''
                         const email = vendor.email || ''
                         const outstandingAmount = vendor.outstanding?.outstanding || 0
-                    const outstanding = formatMoney(outstandingAmount)
+                        const outstanding = formatMoney(outstandingAmount)
                         return (
                           <tr key={vendor._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '0.5rem 0.45rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(companyName)}>
-                              {truncateText(companyName) || '-'}
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '180px' }} title={String(companyName)}>
+                              {companyName || '-'}
                             </td>
                             <td
                               style={{
-                                padding: '0.5rem 0.45rem',
+                                textAlign: 'center',
+                                padding: '0.35rem 0.35rem',
                                 color: 'var(--text-main)',
-                                borderLeft: isAdmin ? '1px solid var(--border)' : 'none',
                                 borderRight: isAdmin ? '1px solid var(--border)' : 'none',
                                 whiteSpace: 'normal',
                                 overflowWrap: 'anywhere',
                                 wordBreak: 'break-word',
                                 minWidth: '220px'
                               }}
-                              title={String(vendorName + (companyName ? ' - ' + companyName : ''))}
+                              title={String(vendorName  )}
                             >
-                              {vendorName + (companyName ? ' - ' + companyName : '')}
+                              {vendorName || '-'}
                             </td>
-                            <td style={{ padding: '0.3rem 0.45rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(mobile)}>
-                              {truncateText(mobile)}
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(mobile)}>
+                              {mobile || '-'}
                             </td>
-                            <td style={{ padding: '0.3rem 0.45rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(email)}>
-                              {truncateText(email)}
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '220px' }} title={String(email)}>
+                              {email || '-'}
                             </td>
-                            <td style={{ padding: '0.3rem 0.45rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)'), borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(outstanding)}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)'), borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(outstanding)}>
                               {outstanding}
                             </td>
                             {/* Custom column cells */}
                             {customColumns.map((columnName) => (
-                              <td key={columnName} style={{ padding: '0.3rem 0.45rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(vendor.customFields?.[columnName] || '-')}>{
-                                truncateText(vendor.customFields?.[columnName] || '-')
+                              <td key={columnName} style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '180px' }} title={String(vendor.customFields?.[columnName] || '-')}> {
+                                vendor.customFields?.[columnName] || '-'
                               }</td>
                             ))}
-                            <td style={{ padding: '0.5rem 0.45rem', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {
@@ -2334,268 +2334,268 @@ function Vendor() {
               justifyContent: 'center',
               padding: '1rem'
             }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeInfo()
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              width: 'min(520px, 96vw)',
-              maxHeight: '88vh',
-              overflow: 'auto',
-              padding: '1.25rem'
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeInfo()
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Vendor Details</div>
-                {/* <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+            <div
+              className="card"
+              style={{
+                width: 'min(520px, 96vw)',
+                maxHeight: '88vh',
+                overflow: 'auto',
+                padding: '1.25rem'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Vendor Details</div>
+                  {/* <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                   {infoVendor?.vendorName ? `${infoVendor.vendorName}` : 'Vendor'}
                 </div> */}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <MotionButton
+                    type="button"
+                    onClick={closeInfo}
+                    style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                    title="Close"
+                  >
+                    <X size={18} />
+                  </MotionButton>
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <MotionButton
-                  type="button"
-                  onClick={closeInfo}
-                  style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
-                  title="Close"
-                >
-                  <X size={18} />
-                </MotionButton>
-              </div>
-            </div>
 
-            {/* Vendor Details */}
-            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 200px' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Vendor Name</div>
-                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.vendorName || '-'}</div>
+              {/* Vendor Details */}
+              <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Vendor Name</div>
+                    <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.vendorName || '-'}</div>
+                  </div>
+                  <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Company Name</div>
+                    <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.companyName || '-'}</div>
+                  </div>
                 </div>
-                <div style={{ flex: '1 1 200px' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Company Name</div>
-                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.companyName || '-'}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 200px' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Contact Number</div>
-                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.contactNumber || '-'}</div>
-                </div>
-                <div style={{ flex: '1 1 200px' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Alternate Contact Number</div>
-                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.alternateNumber || '-'}</div>
-                </div>
-                
-                <div style={{ flex: '1 1 200px' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Email</div>
-                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.email || '-'}</div>
-                </div>
-              </div>
-              {infoVendor?.address && (
-                <div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Address</div>
-                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor.address}</div>
-                </div>
-              )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Contact Number</div>
+                    <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.contactNumber || '-'}</div>
+                  </div>
+                  <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Alternate Contact Number</div>
+                    <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.alternateNumber || '-'}</div>
+                  </div>
 
-              {infoVendor?.shippingAddress && (
-                <div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Shipping Address</div>
-                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor.shippingAddress}</div>
+                  <div style={{ flex: '1 1 200px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Email</div>
+                    <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor?.email || '-'}</div>
+                  </div>
                 </div>
-              )}
-              {infoVendor?.note && (
-                <div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Note</div>
-                  <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor.note}</div>
-                </div>
-              )}
-              {/* Custom Fields as individual columns */}
-              {infoVendor?.customFields && (
-                <>
-                  {customFieldNames.length > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                      {customFieldNames.map((fieldName, index) => {
-                        const value = infoVendor.customFields?.[fieldName] || ''
-                        if (!value) return null // Hide if no value
-                        return (
-                          <div key={fieldName} style={{ flex: '1 1 200px' }}>
-                            <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>{fieldName}</div>
-                            <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{value}</div>
+                {infoVendor?.address && (
+                  <div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Address</div>
+                    <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor.address}</div>
+                  </div>
+                )}
+
+                {infoVendor?.shippingAddress && (
+                  <div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Shipping Address</div>
+                    <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor.shippingAddress}</div>
+                  </div>
+                )}
+                {infoVendor?.note && (
+                  <div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Note</div>
+                    <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{infoVendor.note}</div>
+                  </div>
+                )}
+                {/* Custom Fields as individual columns */}
+                {infoVendor?.customFields && (
+                  <>
+                    {customFieldNames.length > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                        {customFieldNames.map((fieldName, index) => {
+                          const value = infoVendor.customFields?.[fieldName] || ''
+                          if (!value) return null // Hide if no value
+                          return (
+                            <div key={fieldName} style={{ flex: '1 1 200px' }}>
+                              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>{fieldName}</div>
+                              <div style={{ color: 'var(--text-header)', fontWeight: 700 }}>{value}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {isAdmin && (
+                (() => {
+                  const record = infoVendor?.id ? `Vendor • ${infoVendor.id}` : 'Vendor'
+                  const createdByName = infoVendor?.createdBy?.fullName || '-'
+                  const createdByEmail = infoVendor?.createdBy?.email || '-'
+                  const updatedByName = infoVendor?.updatedBy?.fullName || infoVendor?.updatedByName || '-'
+                  const updatedByEmail = infoVendor?.updatedBy?.email || infoVendor?.updatedByEmail || '-'
+
+                  const raw = Array.isArray(infoVendor?.activity) ? infoVendor.activity : []
+                  let activities = raw
+                    .filter((a) => a && a.action && a.at)
+                    .slice()
+                    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+
+                  if (activities.length === 0) {
+                    const fallback = []
+                    if (infoVendor?.createdAt) {
+                      fallback.push({
+                        action: 'create',
+                        at: infoVendor.createdAt,
+                        userName: createdByName,
+                        userEmail: createdByEmail,
+                        changes: []
+                      })
+                    }
+                    if (infoVendor?.updatedAt && infoVendor?.createdAt && new Date(infoVendor.updatedAt).getTime() !== new Date(infoVendor.createdAt).getTime()) {
+                      fallback.unshift({
+                        action: 'update',
+                        at: infoVendor.updatedAt,
+                        userName: updatedByName,
+                        userEmail: updatedByEmail,
+                        changes: []
+                      })
+                    }
+                    activities = fallback
+                  }
+
+                  const items = activities.map((a, idx) => {
+                    const isUpdate = a.action === 'update'
+                    // Filter out customFields from changes
+                    const filteredChanges = Array.isArray(a.changes)
+                      ? a.changes.filter(c => c.field !== 'customFields')
+                      : []
+                    return {
+                      key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
+                      chip: isUpdate ? 'Update Vendor' : 'Create Vendor',
+                      method: isUpdate ? 'PUT' : 'POST',
+                      path: isUpdate ? '/api/vendors/:id' : '/api/vendors',
+                      at: a.at,
+                      icon: isUpdate ? '✎' : '+',
+                      iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
+                      iconColor: isUpdate ? '#1d4ed8' : '#065f46',
+                      userName: a.userName || (isUpdate ? updatedByName : createdByName) || '-',
+                      userEmail: a.userEmail || (isUpdate ? updatedByEmail : createdByEmail) || '-',
+                      record,
+                      changes: filteredChanges
+                    }
+                  })
+
+                  return (
+                    <div style={{ marginTop: '1rem' }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)', marginBottom: '0.5rem' }}>Recent Activity</div>
+                      {items.map((a, idx) => (
+                        <div key={a.key} style={{ display: 'flex', gap: '0.9rem', padding: '0.75rem 0' }}>
+                          <div style={{ width: 34, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 10,
+                                background: a.iconBg,
+                                color: a.iconColor,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 900,
+                                border: '1px solid rgba(0,0,0,0.04)'
+                              }}
+                            >
+                              {a.icon}
+                            </div>
+                            {idx !== items.length - 1 && (
+                              <div style={{ flex: 1, width: 2, background: 'var(--border)', opacity: 0.6, marginTop: 8 }} />
+                            )}
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
 
-            {isAdmin && (
-              (() => {
-                const record = infoVendor?.id ? `Vendor • ${infoVendor.id}` : 'Vendor'
-                const createdByName = infoVendor?.createdBy?.fullName || '-'
-                const createdByEmail = infoVendor?.createdBy?.email || '-'
-                const updatedByName = infoVendor?.updatedBy?.fullName || infoVendor?.updatedByName || '-'
-                const updatedByEmail = infoVendor?.updatedBy?.email || infoVendor?.updatedByEmail || '-'
-
-                const raw = Array.isArray(infoVendor?.activity) ? infoVendor.activity : []
-                let activities = raw
-                  .filter((a) => a && a.action && a.at)
-                  .slice()
-                  .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-
-                if (activities.length === 0) {
-                  const fallback = []
-                  if (infoVendor?.createdAt) {
-                    fallback.push({
-                      action: 'create',
-                      at: infoVendor.createdAt,
-                      userName: createdByName,
-                      userEmail: createdByEmail,
-                      changes: []
-                    })
-                  }
-                  if (infoVendor?.updatedAt && infoVendor?.createdAt && new Date(infoVendor.updatedAt).getTime() !== new Date(infoVendor.createdAt).getTime()) {
-                    fallback.unshift({
-                      action: 'update',
-                      at: infoVendor.updatedAt,
-                      userName: updatedByName,
-                      userEmail: updatedByEmail,
-                      changes: []
-                    })
-                  }
-                  activities = fallback
-                }
-
-                const items = activities.map((a, idx) => {
-                  const isUpdate = a.action === 'update'
-                  // Filter out customFields from changes
-                  const filteredChanges = Array.isArray(a.changes) 
-                    ? a.changes.filter(c => c.field !== 'customFields') 
-                    : []
-                  return {
-                    key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
-                    chip: isUpdate ? 'Update Vendor' : 'Create Vendor',
-                    method: isUpdate ? 'PUT' : 'POST',
-                    path: isUpdate ? '/api/vendors/:id' : '/api/vendors',
-                    at: a.at,
-                    icon: isUpdate ? '✎' : '+',
-                    iconBg: isUpdate ? '#dbeafe' : '#d1fae5',
-                    iconColor: isUpdate ? '#1d4ed8' : '#065f46',
-                    userName: a.userName || (isUpdate ? updatedByName : createdByName) || '-',
-                    userEmail: a.userEmail || (isUpdate ? updatedByEmail : createdByEmail) || '-',
-                    record,
-                    changes: filteredChanges
-                  }
-                })
-
-                return (
-                  <div style={{ marginTop: '1rem' }}>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)', marginBottom: '0.5rem' }}>Recent Activity</div>
-                    {items.map((a, idx) => (
-                      <div key={a.key} style={{ display: 'flex', gap: '0.9rem', padding: '0.75rem 0' }}>
-                        <div style={{ width: 34, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <div
                             style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 10,
-                              background: a.iconBg,
-                              color: a.iconColor,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 900,
-                              border: '1px solid rgba(0,0,0,0.04)'
+                              flex: 1,
+                              background: 'transparent',
+                              border: '1px solid var(--border)',
+                              borderRadius: 14,
+                              padding: '0.85rem 0.95rem'
                             }}
                           >
-                            {a.icon}
-                          </div>
-                          {idx !== items.length - 1 && (
-                            <div style={{ flex: 1, width: 2, background: 'var(--border)', opacity: 0.6, marginTop: 8 }} />
-                          )}
-                        </div>
-
-                        <div
-                          style={{
-                            flex: 1,
-                            background: 'transparent',
-                            border: '1px solid var(--border)',
-                            borderRadius: 14,
-                            padding: '0.85rem 0.95rem'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
-                            <div
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                padding: '0.25rem 0.6rem',
-                                borderRadius: 999,
-                                background: 'transparent',
-                                border: '1px solid var(--border)',
-                                color: 'var(--text-header)',
-                                fontWeight: 800,
-                                fontSize: '0.85rem'
-                              }}
-                            >
-                              {a.chip}
-                            </div>
-                            <div
-                              style={{
-                                padding: '0.2rem 0.55rem',
-                                borderRadius: 999,
-                                border: '1px solid var(--border)',
-                                background: 'transparent',
-                                color: 'var(--text-muted)',
-                                fontSize: '0.78rem',
-                                fontWeight: 800,
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {infoLoading ? 'Loading...' : formatTimeAgo(a.at)}
-                            </div>
-                          </div>
-
-                          <div style={{ marginTop: 10, color: 'var(--text-header)', fontWeight: 800, fontSize: '0.93rem' }}>
-                            {infoLoading ? 'Loading...' : a.userName}
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginLeft: 8 }}>
-                              {infoLoading ? '' : a.userEmail && a.userEmail !== '-' ? `• ${a.userEmail}` : ''}
-                            </span>
-                          </div>
-
-                          {Array.isArray(a.changes) && a.changes.length > 0 && (
-                            <div style={{ marginTop: 10 }}>
-                              <div style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '0.85rem' }}>Recent Changes</div>
-                              <div style={{ marginTop: 6, display: 'grid', gap: 4, color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>
-                                {a.changes.map((c, i) => (
-                                  <div key={`${c.field}-${i}`}>
-                                    {c.field}: {c.from || '-'} → {c.to || '-'}
-                                  </div>
-                                ))}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                              <div
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '0.25rem 0.6rem',
+                                  borderRadius: 999,
+                                  background: 'transparent',
+                                  border: '1px solid var(--border)',
+                                  color: 'var(--text-header)',
+                                  fontWeight: 800,
+                                  fontSize: '0.85rem'
+                                }}
+                              >
+                                {a.chip}
+                              </div>
+                              <div
+                                style={{
+                                  padding: '0.2rem 0.55rem',
+                                  borderRadius: 999,
+                                  border: '1px solid var(--border)',
+                                  background: 'transparent',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 800,
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {infoLoading ? 'Loading...' : formatTimeAgo(a.at)}
                               </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()
-            )}
 
+                            <div style={{ marginTop: 10, color: 'var(--text-header)', fontWeight: 800, fontSize: '0.93rem' }}>
+                              {infoLoading ? 'Loading...' : a.userName}
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginLeft: 8 }}>
+                                {infoLoading ? '' : a.userEmail && a.userEmail !== '-' ? `• ${a.userEmail}` : ''}
+                              </span>
+                            </div>
+
+                            {Array.isArray(a.changes) && a.changes.length > 0 && (
+                              <div style={{ marginTop: 10 }}>
+                                <div style={{ color: 'var(--text-muted)', fontWeight: 900, fontSize: '0.85rem' }}>Recent Changes</div>
+                                <div style={{ marginTop: 6, display: 'grid', gap: 4, color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>
+                                  {a.changes.map((c, i) => (
+                                    <div key={`${c.field}-${i}`}>
+                                      {c.field}: {c.from || '-'} → {c.to || '-'}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()
+              )}
+
+            </div>
           </div>
-        </div>
         </ActionMenuPortal>
       )}
 
       {/* Dropdown Menu */}
       {openDropdownId && dropdownVendor && (
         <ActionMenuPortal>
-          <div 
+          <div
             ref={dropdownRef}
             style={{
               position: 'fixed',
@@ -2610,86 +2610,10 @@ function Vendor() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              openInfo(dropdownVendor);
-              setOpenDropdownId(null);
-              setDropdownVendor(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Eye size={14} />
-            View
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditVendor(dropdownVendor);
-              setOpenDropdownId(null);
-              setDropdownVendor(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Edit2 size={14} />
-            Edit
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              generateVendorStatementPdf(dropdownVendor);
-              setOpenDropdownId(null);
-              setDropdownVendor(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <span>📄</span>
-            PDF
-          </MotionButton>
-          {isAdmin && (
             <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteVendor(dropdownVendor._id);
+                openInfo(dropdownVendor);
                 setOpenDropdownId(null);
                 setDropdownVendor(null);
               }}
@@ -2700,7 +2624,7 @@ function Vendor() {
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'var(--danger)',
+                color: 'var(--text-header)',
                 fontSize: '0.875rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -2708,10 +2632,86 @@ function Vendor() {
                 transition: 'all 0.2s'
               }}
             >
-              <Trash2 size={14} />
-              Delete
+              <Eye size={14} />
+              View
             </MotionButton>
-          )}
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditVendor(dropdownVendor);
+                setOpenDropdownId(null);
+                setDropdownVendor(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Edit2 size={14} />
+              Edit
+            </MotionButton>
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                generateVendorStatementPdf(dropdownVendor);
+                setOpenDropdownId(null);
+                setDropdownVendor(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <span>📄</span>
+              PDF
+            </MotionButton>
+            {isAdmin && (
+              <MotionButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteVendor(dropdownVendor._id);
+                  setOpenDropdownId(null);
+                  setDropdownVendor(null);
+                }}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '0.375rem 0.75rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--danger)',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Trash2 size={14} />
+                Delete
+              </MotionButton>
+            )}
           </div>
         </ActionMenuPortal>
       )}
@@ -2727,77 +2727,77 @@ function Vendor() {
               display: 'flex',
               flexDirection: 'column'
             }}
-          onClick={() => setPdfViewerOpen(false)}
-        >
-          <div
-            style={{
-              background: '#f8fafc',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '1rem 1.5rem',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              color: '#1f2937',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-            }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setPdfViewerOpen(false)}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div
+              style={{
+                background: '#f8fafc',
+                borderBottom: '1px solid #e5e7eb',
+                padding: '1rem 1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                color: '#1f2937',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <MotionButton
+                  onClick={() => setPdfViewerOpen(false)}
+                  style={{
+                    background: 'rgba(0,0,0,0.05)',
+                    border: 'none',
+                    borderRadius: '999px',
+                    padding: '0.5rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s',
+                    color: '#1f2937'
+                  }}
+                >
+                  <X size={24} />
+                </MotionButton>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
+                </div>
+              </div>
               <MotionButton
-                onClick={() => setPdfViewerOpen(false)}
+                onClick={handleDownloadPdf}
                 style={{
                   background: 'rgba(0,0,0,0.05)',
                   border: 'none',
                   borderRadius: '999px',
-                  padding: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  color: '#1f2937',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s',
-                  color: '#1f2937'
+                  gap: '0.5rem',
+                  transition: 'all 0.2s'
                 }}
               >
-                <X size={24} />
+                <span>⬇️</span>
+                Download
               </MotionButton>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
-              </div>
             </div>
-            <MotionButton
-              onClick={handleDownloadPdf}
-              style={{
-                background: 'rgba(0,0,0,0.05)',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '0.5rem 1rem',
-                color: '#1f2937',
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>⬇️</span>
-              Download
-            </MotionButton>
-          </div>
 
-          <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-            <iframe
-              src={pdfBlobUrl}
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none'
-              }}
-              title={pdfFileName}
-            />
+            <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+              <iframe
+                src={pdfBlobUrl}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none'
+                }}
+                title={pdfFileName}
+              />
+            </div>
           </div>
-        </div>
         </ActionMenuPortal>
       )}
     </div>

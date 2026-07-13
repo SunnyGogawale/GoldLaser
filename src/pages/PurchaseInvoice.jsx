@@ -1418,41 +1418,41 @@ function PurchaseInvoice() {
                 </div>
               ) : (
                 /* Desktop Table View */
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
                         <th
                           onClick={() => handleSort('invoiceNumber')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           INV No {sortColumn === 'invoiceNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('clientId')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Vendor {sortColumn === 'clientId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('invoiceDate')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Date {sortColumn === 'invoiceDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('transactionDescription')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Txn Description {sortColumn === 'transactionDescription' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('totalAmount')}
-                          style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Total Amount {sortColumn === 'totalAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th style={{ textAlign: 'left', padding: '0.35rem 0.45rem', color: 'var(--text-header)', fontWeight: 700, borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
+                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1464,14 +1464,14 @@ function PurchaseInvoice() {
 
                         return (
                           <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
                               {truncateText(invoice.invoiceNumber || '')}
                             </td>
                             <td
                               style={{
-                                padding: '0.3rem 0.3rem',
+                                textAlign: 'center',
+                                padding: '0.35rem 0.35rem',
                                 color: 'var(--text-main)',
-                                borderLeft: isAdmin ? '1px solid var(--border)' : 'none',
                                 borderRight: isAdmin ? '1px solid var(--border)' : 'none',
                                 whiteSpace: 'normal',
                                 overflowWrap: 'anywhere',
@@ -1482,16 +1482,16 @@ function PurchaseInvoice() {
                             >
                               {label || '-'}
                             </td>
-                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={dateLabel}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={dateLabel}>
                               {dateLabel}
                             </td>
-                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '260px', maxWidth: '420px' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
+                            <td style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '260px', maxWidth: '420px' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
                               {descriptionLabel || '-'}
                             </td>
-                            <td style={{ padding: '0.3rem 0.5rem', color: 'var(--text-main)', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
                               {amountLabel}
                             </td>
-                            <td style={{ padding: '0.3rem 0.5rem', borderLeft: isAdmin ? '1px solid var(--border)' : 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
+                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {
@@ -1871,8 +1871,8 @@ function PurchaseInvoice() {
               transition: 'all 0.2s'
             }}
           >
-            <span>📄</span>
-            PDF
+            <Eye size={14} />
+            View PDF
           </MotionButton>
           {isAdmin && (
             <MotionButton
@@ -1906,10 +1906,9 @@ function PurchaseInvoice() {
       )}
 
       {/* PDF Viewer Modal */}
-      <AnimatePresence>
-        {pdfViewerOpen && pdfBlobUrl && (
+      {pdfViewerOpen && pdfBlobUrl && (
         <ActionMenuPortal>
-          <motion.div
+          <div
             style={{
               position: 'fixed',
               inset: 0,
@@ -1918,97 +1917,84 @@ function PurchaseInvoice() {
               display: 'flex',
               flexDirection: 'column'
             }}
-            initial={overlayMotion.initial}
-            animate={overlayMotion.animate}
-            exit={overlayMotion.exit}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={() => setPdfViewerOpen(false)}
           >
-          {/* Header */}
-          <motion.div
-            style={{
-              background: '#f8fafc',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '1rem 1.5rem',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              color: '#1f2937',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-            }}
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <MotionButton
-                onClick={() => setPdfViewerOpen(false)}
-                style={{
-                  background: 'rgba(0,0,0,0.05)',
-                  border: 'none',
-                  borderRadius: '999px',
-                  padding: '0.5rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s',
-                  color: '#1f2937'
-                }}
-              >
-                <X size={24} />
-              </MotionButton>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
+            {/* Header */}
+            <div
+              style={{
+                background: '#f8fafc',
+                borderBottom: '1px solid #e5e7eb',
+                padding: '1rem 1.5rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: 0, color: '#1e293b' }}>{pdfFileName}</h3>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <MotionButton
+                  onClick={handleDownloadPdf}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Download
+                </MotionButton>
+                <MotionButton
+                  onClick={() => setPdfViewerOpen(false)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: '#e5e7eb',
+                    color: '#1e293b',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </MotionButton>
               </div>
             </div>
-            <MotionButton
-              onClick={handleDownloadPdf}
-              style={{
-                background: 'rgba(0,0,0,0.05)',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '0.5rem 1rem',
-                color: '#1f2937',
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>⬇️</span>
-              Download
-            </MotionButton>
-          </motion.div>
 
-          {/* PDF Viewer */}
-          <motion.div
-            style={{ flex: 1, overflow: 'hidden' }}
-            initial={{ opacity: 0, scale: 0.985 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.985 }}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <iframe
-              src={pdfBlobUrl}
+            {/* PDF Content */}
+            <div
               style={{
-                width: '100%',
-                height: '100%',
-                border: 'none'
+                flex: 1,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '1.5rem',
+                overflow: 'auto'
               }}
-              title={pdfFileName}
-            />
-          </motion.div>
-        </motion.div>
+              onClick={(e) => e.stopPropagation()}
+            >
+              <iframe
+                src={pdfBlobUrl}
+                style={{
+                  width: '100%',
+                  maxWidth: '900px',
+                  height: '100%',
+                  minHeight: '600px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.25)'
+                }}
+                title="PDF Viewer"
+              />
+            </div>
+          </div>
         </ActionMenuPortal>
       )}
-      </AnimatePresence>
 
     </div>
   );

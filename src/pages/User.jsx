@@ -286,27 +286,27 @@ function User() {
                 </div>
               ) : (
                 /* Desktop Table View */
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Name</th>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Email</th>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Role</th>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Created</th>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Name</th>
+                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Email</th>
+                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Role</th>
+                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Created</th>
+                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {users.map((u) => (
                         <tr key={String(u._id)} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>{u.fullName || '-'}</td>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>{u.email || '-'}</td>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>{u.roll || u.role || 'user'}</td>
-                          <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }}>
+                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.fullName || '-'}</td>
+                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '220px' }}>{u.email || '-'}</td>
+                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.roll || u.role || 'user'}</td>
+                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                             {u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}
                           </td>
-                          <td style={{ padding: '0.5rem 0.375rem' }}>
+                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem' }}>
                             <div style={{ position: 'relative' }}>
                               <MotionButton
                                 onClick={(e) => {

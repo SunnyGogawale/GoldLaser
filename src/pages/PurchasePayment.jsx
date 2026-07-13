@@ -62,6 +62,11 @@ function PurchasePayment() {
   const [totalPending, setTotalPending] = useState(0)
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
   const [dragInvoiceId, setDragInvoiceId] = useState(null)
+  const [invoiceSearchText, setInvoiceSearchText] = useState('')
+  const [isInvoiceDropdownOpen, setIsInvoiceDropdownOpen] = useState(false)
+  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(false)
+  const [invoiceInput, setInvoiceInput] = useState('')
+  const [invoiceInputFocused, setInvoiceInputFocused] = useState(false)
 
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(false)
@@ -161,16 +166,22 @@ function PurchasePayment() {
 
   const allClients = useMemo(() => {
     return [
-      ...customers.map(c => ({ ...c, type: 'Customer', name: c.customerName })),
-      ...vendors.map(v => ({ ...v, type: 'Vendor', name: v.vendorName }))
+      ...vendors.map(v => ({
+        ...v,
+        type: 'Vendor',
+        name: v.vendorName,
+        displayName: `${v.vendorName}${v.companyName ? ` - ${v.companyName}` : ''}`
+      }))
     ]
-  }, [customers, vendors])
+  }, [vendors])
 
   const filteredClients = useMemo(() => {
     const q = clientSearchText.trim().toLowerCase()
     if (!q) return []
     return allClients.filter(c =>
-      c.name?.toLowerCase().includes(q) || c.id?.toLowerCase().includes(q)
+      c.name?.toLowerCase().includes(q) ||
+      c.companyName?.toLowerCase().includes(q) ||
+      c.displayName?.toLowerCase().includes(q)
     )
   }, [allClients, clientSearchText])
 
@@ -204,6 +215,59 @@ function PurchasePayment() {
     return ordered
   }, [pendingInvoices, pendingInvoiceOrder])
 
+  const parseInvoiceTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim().toLowerCase()).filter(Boolean)
+  const parseInvoiceRawTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim()).filter(Boolean)
+
+  const getInvoiceInputFragment = (value) => {
+    const input = String(value || '')
+    if (/[;,\s]$/.test(input)) return ''
+    const parts = input.split(/[;,\s]+/)
+    return String(parts.pop() || '').trim()
+  }
+
+  const getInvoiceInputSelectedTokens = (value) => {
+    const input = String(value || '')
+    const tokens = parseInvoiceRawTokens(input)
+    if (/[;,\s]$/.test(input)) return tokens
+    return tokens.slice(0, -1)
+  }
+
+  const buildInvoiceInputValue = (selectedTokens, fragment) => {
+    const tokens = (Array.isArray(selectedTokens) ? selectedTokens : []).filter(Boolean)
+    if (!tokens.length) return String(fragment || '')
+    if (!String(fragment || '').trim()) return `${tokens.join(', ')}, `
+    return `${tokens.join(', ')}, ${fragment}`
+  }
+
+  const invoiceInputParts = useMemo(() => {
+    const selectedTokens = getInvoiceInputSelectedTokens(invoiceInput)
+    const fragment = getInvoiceInputFragment(invoiceInput)
+    return { selectedTokens, fragment }
+  }, [invoiceInput])
+
+  const filteredPendingInvoices = useMemo(() => {
+    const tokens = parseInvoiceTokens(invoiceInput)
+    if (tokens.length === 0) return orderedPendingInvoices
+    return orderedPendingInvoices.filter((inv) => {
+      const invoiceNumber = String(inv.invoiceNumber || '').toLowerCase()
+      return tokens.some(t => invoiceNumber.includes(t))
+    })
+  }, [invoiceInput, orderedPendingInvoices])
+
+  const invoiceSuggestions = useMemo(() => {
+    const last = String(invoiceInputParts.fragment || '').trim().toLowerCase()
+    if (!last) return []
+    return orderedPendingInvoices.filter((inv) => String(inv.invoiceNumber || '').toLowerCase().includes(last)).slice(0, 10)
+  }, [invoiceInputParts.fragment, orderedPendingInvoices])
+
+  const selectedInvoiceSet = useMemo(() => {
+    return new Set(parseInvoiceTokens(invoiceInput))
+  }, [invoiceInput])
+
+  const filteredPendingTotal = useMemo(() => {
+    return filteredPendingInvoices.reduce((sum, inv) => sum + Math.max(0, Number(inv.pendingAmount) || 0), 0)
+  }, [filteredPendingInvoices])
+
   const moveInvoiceBefore = (dragId, hoverId) => {
     const fromId = String(dragId || '')
     const toId = String(hoverId || '')
@@ -225,7 +289,7 @@ function PurchasePayment() {
     const amount = Math.min(inputAmount, Math.max(0, Number(totalPending) || 0))
     let remaining = amount
     const allocationMap = new Map()
-    for (const inv of orderedPendingInvoices) {
+    for (const inv of filteredPendingInvoices) {
       if (remaining <= 0) break
       const pending = Math.max(0, Number(inv.pendingAmount) || 0)
       const payNow = Math.min(pending, remaining)
@@ -234,7 +298,7 @@ function PurchasePayment() {
     }
     const allocatedTotal = amount - Math.max(0, remaining)
     return { allocationMap, allocatedTotal, remaining: 0 }
-  }, [orderedPendingInvoices, paymentForm.amount, totalPending])
+  }, [filteredPendingInvoices, paymentForm.amount, totalPending])
 
   const fetchNextPaymentNumber = async () => {
     try {
@@ -385,6 +449,8 @@ function PurchasePayment() {
       setPendingInvoiceOrder([])
       setDragInvoiceId(null)
       setClientSearchText('')
+      setInvoiceSearchText('')
+      setInvoiceInput('')
       setErrors({})
       setFormSubmitted(false)
       setFormOpen(false)
@@ -452,6 +518,8 @@ function PurchasePayment() {
     setPendingInvoiceOrder([])
     setDragInvoiceId(null)
     setClientSearchText('')
+    setInvoiceSearchText('')
+    setInvoiceInput('')
     setErrors({})
     setFormSubmitted(false)
     await fetchNextPaymentNumber()
@@ -466,8 +534,9 @@ function PurchasePayment() {
       const clientType = data.clientType || 'Vendor'
       const clientId = data.clientId || data.vendorId?._id || data.vendorId
       const client = data.vendorId
-      const clientName = client?.customerName || client?.vendorName || ''
-      const clientIdStr = client?.id || ''
+      const vendorName = client?.vendorName || ''
+      const companyName = client?.companyName || ''
+      const displayName = vendorName ? `${vendorName}${companyName ? ` - ${companyName}` : ''}` : ''
 
       setPaymentForm({
         paymentNumber: data.paymentNumber,
@@ -477,7 +546,7 @@ function PurchasePayment() {
         amount: data.amount || 0,
         description: data.description || ''
       })
-      setClientSearchText(clientName ? `${clientName} (${clientIdStr}) - ${clientType}` : '')
+      setClientSearchText(displayName)
       setEditingPaymentId(data._id)
       setErrors({})
       setFormSubmitted(false)
@@ -504,6 +573,8 @@ function PurchasePayment() {
     setPendingInvoiceOrder([])
     setDragInvoiceId(null)
     setClientSearchText('')
+    setInvoiceSearchText('')
+    setInvoiceInput('')
     setIsClientDropdownOpen(false)
     setErrors({})
     setFormSubmitted(false)
@@ -566,6 +637,17 @@ function PurchasePayment() {
 
   const formatMoney = (value) =>
     Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  const formatDate = (value) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '-'
+    const day = String(date.getDate()).padStart(2, '0')
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const month = monthNames[date.getMonth()]
+    const year = date.getFullYear()
+    return `${day}-${month}-${year}`
+  }
 
   const statusStyles = (status) => {
     if (status === 'Paid') return { background: 'rgba(34,197,94,0.12)', color: 'rgb(34,197,94)' }
@@ -935,12 +1017,12 @@ function PurchasePayment() {
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 280px', position: 'relative' }}>
                   <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Client <span style={{ color: 'var(--danger)' }}>*</span>
+                    Select Vendor
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="text"
-                      placeholder="Search client (customer or vendor)..."
+                      placeholder="Search vendor..."
                       value={clientSearchText}
                       onChange={(e) => {
                         setClientSearchText(e.target.value)
@@ -994,7 +1076,7 @@ function PurchasePayment() {
                             key={client._id + client.type}
                             onClick={() => {
                               setPaymentForm(prev => ({ ...prev, clientId: client._id, clientType: client.type }))
-                              setClientSearchText(`${client.name} (${client.id}) - ${client.type}`)
+                              setClientSearchText(client.displayName)
                               setIsClientDropdownOpen(false)
                             }}
                             style={{
@@ -1008,7 +1090,7 @@ function PurchasePayment() {
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                           >
-                            {client.name} ({client.id}) - {client.type}
+                            {client.displayName}
                           </li>
                         ))}
                       </ul>
@@ -1110,6 +1192,218 @@ function PurchasePayment() {
                     }}
                   />
                 </div>
+                </div>
+
+              <div style={{ marginTop: '0.6rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label style={{ fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem', margin: 0 }}>Search INV No</label>
+                </div>
+                <div style={{ position: 'relative', width: 'min(520px, 100%)' }}>
+                      {/* Selected chips */}
+                    <div style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      width: '100%',
+                      minHeight: '2.4rem',
+                      padding: '0.4rem 0.55rem',
+                      border: `1px solid ${invoiceInputFocused ? 'rgba(99,102,241,0.6)' : 'var(--border)'}`,
+                      borderRadius: 6,
+                      background: 'var(--bg-card)'
+                    }}>
+                      {invoiceInputParts.selectedTokens.map((token) => (
+                        <span
+                          key={token}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '0.2rem 0.5rem',
+                            border: '1px solid var(--border)',
+                            borderRadius: '999px',
+                            background: 'rgba(99,102,241,0.08)',
+                            color: 'var(--text-header)',
+                            fontSize: '0.85rem'
+                          }}
+                        >
+                          {token}
+                          <button
+                            type="button"
+                            aria-label={`Remove ${token}`}
+                            onClick={() => {
+                              const remaining = invoiceInputParts.selectedTokens.filter((t) => t !== token)
+                              const combined = buildInvoiceInputValue(remaining, '')
+                              setInvoiceSearchText(combined)
+                              setInvoiceInput(combined)
+                              setIsInvoiceDropdownOpen(false)
+                            }}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              padding: 0,
+                              fontSize: '1rem',
+                              lineHeight: 1
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        aria-label="Search Invoice Number"
+                        type="search"
+                        placeholder={!invoiceInputParts.selectedTokens.length && !invoiceInputParts.fragment ? 'Search INV No' : ''}
+                        value={invoiceInputParts.fragment || ''}
+                        onChange={(e) => {
+                          const fragment = e.target.value
+                          const nextValue = buildInvoiceInputValue(invoiceInputParts.selectedTokens, fragment)
+                          setInvoiceInput(nextValue)
+                          setInvoiceSearchText(nextValue)
+                          setIsInvoiceDropdownOpen(String(fragment).trim().length > 0 && !!paymentForm.clientId)
+                        }}
+                        onFocus={(e) => { setInvoiceInputFocused(true); if (String(e.target.value || '').trim().length > 0 && paymentForm.clientId) setIsInvoiceDropdownOpen(true) }}
+                        onBlur={() => setTimeout(() => { setInvoiceInputFocused(false); setIsInvoiceDropdownOpen(false) }, 200)}
+                        onKeyDown={(e) => {
+                          const isSeparator = e.key === ',' || e.key === ';' || e.key === ' '
+                          const fragment = String(invoiceInputParts.fragment || '').trim()
+                          if (e.key === 'Backspace' && !fragment && invoiceInputParts.selectedTokens.length > 0) {
+                            const remaining = invoiceInputParts.selectedTokens.slice(0, -1)
+                            const combined = buildInvoiceInputValue(remaining, '')
+                            setInvoiceSearchText(combined)
+                            setInvoiceInput(combined)
+                            setIsInvoiceDropdownOpen(false)
+                            e.preventDefault()
+                            return
+                          }
+                          if (e.key === 'Enter' || isSeparator) {
+                            if (fragment) {
+                              const parts = [...invoiceInputParts.selectedTokens]
+                              if (!parts.map((t) => t.toLowerCase()).includes(fragment.toLowerCase())) parts.push(fragment)
+                              const combined = buildInvoiceInputValue(parts, '')
+                              setInvoiceSearchText(combined)
+                              setInvoiceInput(combined)
+                            }
+                            setIsInvoiceDropdownOpen(false)
+                            if (isSeparator) e.preventDefault()
+                          }
+                        }}
+                        onPaste={(e) => {
+                          try {
+                            const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+                            if (!pasted) return
+                            e.preventDefault()
+                            const tokens = parseInvoiceRawTokens(pasted)
+                            if (tokens.length === 0) return
+                            const lowerSet = new Set(invoiceInputParts.selectedTokens.map((t) => t.toLowerCase()))
+                            if (invoiceInputParts.fragment) lowerSet.add(invoiceInputParts.fragment.toLowerCase())
+                            const parts = [...invoiceInputParts.selectedTokens]
+                            if (invoiceInputParts.fragment && !parts.map((t) => t.toLowerCase()).includes(invoiceInputParts.fragment.toLowerCase())) {
+                              parts.push(invoiceInputParts.fragment)
+                            }
+                            for (const t of tokens) {
+                              if (!lowerSet.has(t.toLowerCase())) {
+                                parts.push(t)
+                                lowerSet.add(t.toLowerCase())
+                              }
+                            }
+                            const combined = buildInvoiceInputValue(parts, '')
+                            setInvoiceSearchText(combined)
+                            setInvoiceInput(combined)
+                            setIsInvoiceDropdownOpen(false)
+                            if (autoAllocateOnSelect) {
+                              const matchedIds = []
+                              for (const t of parseInvoiceTokens(combined)) {
+                                const inv = orderedPendingInvoices.find(i => String(i.invoiceNumber || '').toLowerCase().includes(t))
+                                if (inv) {
+                                  const id = String(inv._id)
+                                  if (!matchedIds.includes(id)) matchedIds.push(id)
+                                }
+                              }
+                              if (matchedIds.length > 0) {
+                                setPendingInvoiceOrder((prev) => {
+                                  const next = Array.isArray(prev) ? [...prev] : []
+                                  for (const id of matchedIds) {
+                                    const idx = next.indexOf(id)
+                                    if (idx !== -1) next.splice(idx, 1)
+                                  }
+                                  for (let i = matchedIds.length - 1; i >= 0; i--) next.unshift(matchedIds[i])
+                                  return next
+                                })
+                              }
+                            }
+                          } catch (err) {
+                            // ignore
+                          }
+                        }}
+                        disabled={!paymentForm.clientId || loading}
+                        style={{
+                          flex: 1,
+                          minWidth: '120px',
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          color: 'var(--text-header)',
+                          fontSize: '0.9rem',
+                          padding: 0,
+                          margin: 0
+                        }}
+                      />
+                    </div>
+                  {isInvoiceDropdownOpen && invoiceSuggestions.length > 0 && (
+                    <ul style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      maxHeight: '260px',
+                      overflowY: 'auto',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      marginTop: '6px',
+                      padding: 0,
+                      listStyle: 'none',
+                      zIndex: 60,
+                      boxShadow: '0 8px 16px rgba(0,0,0,0.12)'
+                    }}>
+                      {invoiceSuggestions.map((inv) => (
+                        <li
+                          key={String(inv._id)}
+                          onClick={() => {
+                            const parts = [...invoiceInputParts.selectedTokens]
+                            const invNum = String(inv.invoiceNumber || '')
+                            if (!parts.map((t) => t.toLowerCase()).includes(invNum.toLowerCase())) parts.push(invNum)
+                            const combined = buildInvoiceInputValue(parts, '')
+                            setInvoiceSearchText(combined)
+                            setInvoiceInput(combined)
+                            setIsInvoiceDropdownOpen(false)
+                            if (autoAllocateOnSelect) {
+                              // move selected invoice id(s) to front of pendingInvoiceOrder
+                              setPendingInvoiceOrder((prev) => {
+                                const id = String(inv._id)
+                                const list = Array.isArray(prev) ? [...prev] : []
+                                const idx = list.indexOf(id)
+                                if (idx !== -1) list.splice(idx, 1)
+                                list.unshift(id)
+                                return list
+                              })
+                            }
+                          }}
+                          style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', borderBottom: '1px solid var(--border)', color: 'var(--text-header)' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                        >
+                          <div style={{ fontWeight: 700 }}>{inv.invoiceNumber}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '3px' }}>₹{formatMoney(inv.pendingAmount || inv.invoiceAmount)}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                </div>
               </div>
 
               <div>
@@ -1129,20 +1423,22 @@ function PurchasePayment() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orderedPendingInvoices.length === 0 ? (
+                      {filteredPendingInvoices.length === 0 ? (
                         <tr>
                           <td colSpan={8} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                            {paymentForm.clientId ? 'No pending invoices for this client.' : 'Select a client to view pending invoices.'}
+                            {paymentForm.clientId ? (invoiceInput ? 'No pending invoices match this search.' : 'No pending invoices for this client.') : 'Select a client to view pending invoices.'}
                           </td>
                         </tr>
                       ) : (
-                        orderedPendingInvoices.map((inv, idx) => (
+                        filteredPendingInvoices.map((inv, idx) => (
                           <tr
                             key={inv._id}
                             style={{
-                              borderTop: '1px solid var(--border)',
-                              background: dragInvoiceId && String(inv._id) === String(dragInvoiceId) ? 'rgba(59,130,246,0.10)' : 'transparent'
-                            }}
+                                borderTop: '1px solid var(--border)',
+                                background: dragInvoiceId && String(inv._id) === String(dragInvoiceId)
+                                  ? 'rgba(59,130,246,0.10)'
+                                  : (selectedInvoiceSet.has(String(inv.invoiceNumber || '').toLowerCase()) ? 'rgba(99,102,241,0.06)' : 'transparent')
+                              }}
                             onDragOver={(e) => {
                               if (!dragInvoiceId) return
                               e.preventDefault()
@@ -1182,7 +1478,7 @@ function PurchasePayment() {
                               </div>
                             </td>
                             <td style={{ padding: '0.75rem 0.5rem' }}>{inv.invoiceNumber}</td>
-                            <td style={{ padding: '0.75rem 0.5rem' }}>{new Date(inv.invoiceDate).toLocaleDateString()}</td>
+                            <td style={{ padding: '0.75rem 0.5rem' }}>{formatDate(inv.invoiceDate)}</td>
                             <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(inv.invoiceAmount)}</td>
                             <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
                               ₹{formatMoney((Number(inv.paidAmount) || 0) + (allocationPreview.allocationMap.get(String(inv._id)) || 0))}
@@ -1215,7 +1511,7 @@ function PurchasePayment() {
                           Total Pending:
                         </td>
                         <td colSpan={3} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
-                          ₹{formatMoney(totalPending)}
+                          ₹{formatMoney(filteredPendingTotal)}
                         </td>
                       </tr>
                     </tfoot>
@@ -1251,6 +1547,9 @@ function PurchasePayment() {
                       setPendingInvoiceOrder([])
                       setDragInvoiceId(null)
                       setClientSearchText('')
+                      setInvoiceSearchText('')
+                      setInvoiceInput('')
+                      setInvoiceInput('')
                       setErrors({})
                       setFormSubmitted(false)
                       await fetchNextPaymentNumber()
@@ -1342,13 +1641,10 @@ function PurchasePayment() {
               {isMobile ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {payments.map((payment) => {
-                    const name =
-                      payment.vendorId?.vendorName ||
-                      payment.vendorId?.customerName ||
-                      `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                      'Unknown'
-                    const vendorLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
-                    const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
+                    const vendorName = payment.vendorId?.vendorName || ''
+                    const companyName = payment.vendorId?.companyName || ''
+                    const vendorLabel = vendorName ? (companyName ? `${vendorName} - ${companyName}` : vendorName) : (companyName ? companyName : '-')
+                    const dateLabel = formatDate(payment.paymentDate)
                     const amountLabel = `₹${formatMoney(payment.amount)}`
                     const descriptionLabel = payment.description ? String(payment.description) : '-'
 
@@ -1438,82 +1734,82 @@ function PurchasePayment() {
                 </div>
               ) : (
                 /* Desktop Table View */
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
                         <th
                           onClick={() => handleSort('paymentNumber')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
-                          Payment No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          INV No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('vendorId')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
-                          Client {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
+                          Vendor {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('paymentDate')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Date {sortColumn === 'paymentDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('description')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Description {sortColumn === 'description' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('amount')}
-                          style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Amount {sortColumn === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                        <th style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {payments.map((payment) => {
-                        const name =
-                          payment.vendorId?.vendorName ||
-                          payment.vendorId?.customerName ||
-                          `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
-                          'Unknown'
-                        const vendorLabel = payment.vendorId?.id ? `${name} (${payment.vendorId.id})` : name
-                        const dateLabel = new Date(payment.paymentDate).toLocaleDateString()
+                        const vendorName = payment.vendorId?.vendorName || ''
+                        const companyName = payment.vendorId?.companyName || ''
+                        const vendorLabel = vendorName ? (companyName ? `${vendorName} - ${companyName}` : vendorName) : (companyName ? companyName : '-')
+                        const dateLabel = formatDate(payment.paymentDate)
                         const amountLabel = `₹${formatMoney(payment.amount)}`
                         const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                         return (
                           <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
-                              {truncateText(payment.paymentNumber || '')}
+                            <td style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(payment.paymentNumber || '')}>
+                              {payment.paymentNumber || '-'}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(vendorLabel)}>
-                              {truncateText(vendorLabel)}
+                            <td style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '140px' }} title={String(vendorLabel)}>
+                              {vendorLabel}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(dateLabel)}>
-                              {truncateText(dateLabel)}
+                            <td style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(dateLabel)}>
+                              {dateLabel}
                             </td>
                             <td
                               style={{
-                                padding: '0.5rem 0.375rem',
-                                maxWidth: 260,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
+                                textAlign: 'left',
+                                padding: '0.25rem 0.25rem',
+                                color: 'var(--text-main)',
+                                borderRight: isAdmin ? '1px solid var(--border)' : 'none',
+                                whiteSpace: 'normal',
+                                overflowWrap: 'anywhere',
+                                wordBreak: 'break-word',
+                                maxWidth: '260px'
                               }}
                               title={String(descriptionLabel === '-' ? '' : descriptionLabel)}
                             >
-                              {descriptionLabel === '-' ? '-' : truncateText(descriptionLabel)}
+                              {descriptionLabel || '-'}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={amountLabel}>
+                            <td style={{ textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
                               {amountLabel}
                             </td>
-                            <td style={{ padding: '0.5rem 0.375rem' }}>
+                            <td style={{ textAlign: 'center', padding: '0.25rem 0.25rem' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {
@@ -1697,7 +1993,7 @@ function PurchasePayment() {
                   <div style={{ display: 'grid', gap: '0.75rem' }}>
                     {(() => {
                       const client = infoPayment?.vendorId;
-                      const paymentDate = infoPayment?.paymentDate ? new Date(infoPayment.paymentDate).toLocaleDateString() : '-';
+                      const paymentDate = formatDate(infoPayment?.paymentDate)
                       const description = infoPayment?.description || '-';
 
                       return (
@@ -1901,31 +2197,6 @@ function PurchasePayment() {
           >
             <Eye size={14} />
             View PDF
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              alert('PDF feature coming soon!');
-              setOpenDropdownId(null);
-              setDropdownPurchasePayment(null);
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <span>📄</span>
-            PDF
           </MotionButton>
           {isAdmin && (
             <MotionButton
