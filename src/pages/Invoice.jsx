@@ -823,10 +823,6 @@ function Invoice() {
   };
 
   const handleDeleteInvoice = async (id) => {
-    if (!isAdmin) {
-      alert('Only admin can delete.');
-      return;
-    }
     if (window.confirm('Are you sure you want to delete this invoice?')) {
       try {
         const token = getAuthToken();
@@ -840,11 +836,15 @@ function Invoice() {
         }
         await fetchInvoices(currentPage);
         alert('Invoice deleted successfully!');
+        return true;
       } catch (err) {
         console.error('Error deleting invoice:', err);
         alert('Error deleting invoice!');
+        return false;
       }
     }
+
+    return false;
   };
 
   return (
@@ -1346,7 +1346,25 @@ function Invoice() {
                               {label}
                             </div>
                           </div>
-                          <div style={{ position: 'relative' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', position: 'relative' }}>
+                            <MotionButton
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await handleDeleteInvoice(invoice._id);
+                              }}
+                              style={{
+                                padding: '0.25rem',
+                                background: 'transparent',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                color: 'var(--danger)',
+                                transition: 'all 0.2s'
+                              }}
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </MotionButton>
                             <MotionButton
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1494,7 +1512,25 @@ function Invoice() {
                               ₹{invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                             <td style={{ textAlign: 'left', padding: '0.35rem 0.35rem', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
-                              <div style={{ position: 'relative' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', position: 'relative' }}>
+                                <MotionButton
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    await handleDeleteInvoice(invoice._id);
+                                  }}
+                                  style={{
+                                    padding: '0.25rem',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    color: 'var(--danger)',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  title="Delete"
+                                >
+                                  <Trash2 size={16} />
+                                </MotionButton>
                                 <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1867,33 +1903,33 @@ function Invoice() {
               <Eye size={14} />
               View PDF
             </MotionButton>
-            {isAdmin && (
-              <MotionButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteInvoice(dropdownInvoice._id);
+            <MotionButton
+              onClick={async (e) => {
+                e.stopPropagation();
+                const deleted = await handleDeleteInvoice(dropdownInvoice._id);
+                if (deleted) {
                   setOpenDropdownId(null);
                   setDropdownInvoice(null);
-                }}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '0.375rem 0.75rem',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--danger)',
-                  fontSize: '0.875rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <Trash2 size={14} />
-                Delete
-              </MotionButton>
-            )}
+                }
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--danger)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Trash2 size={14} />
+              Delete
+            </MotionButton>
           </div>
         </ActionMenuPortal>
       )}

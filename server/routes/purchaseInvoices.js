@@ -488,7 +488,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete an invoice
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid invoice id' });
     await Invoice.findByIdAndDelete(req.params.id);
