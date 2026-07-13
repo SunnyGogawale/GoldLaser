@@ -2116,36 +2116,36 @@ function Vendor() {
               ) : (
                 /* Desktop Table View */
                 <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
+                  <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
                         <th
                           onClick={() => handleSort('companyName')}
-                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '18%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Company Name {sortColumn === 'companyName' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('vendorName')}
-                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '18%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Vendor Name {sortColumn === 'vendorName' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('contactNumber')}
-                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '14%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Mobile {sortColumn === 'contactNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('email')}
-                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '24%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Email {sortColumn === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('outstanding')}
-                          style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '16%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Outstanding {sortColumn === 'outstanding' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
@@ -2154,12 +2154,12 @@ function Vendor() {
                           <th
                             key={columnName}
                             onClick={() => handleSort(`customField_${columnName}`)}
-                            style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                            style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                           >
                             {columnName} {sortColumn === `customField_${columnName}` && (sortOrder === 'asc' ? '↑' : '↓')}
                           </th>
                         ))}
-                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
+                        <th style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2174,40 +2174,40 @@ function Vendor() {
                         const outstanding = formatMoney(outstandingAmount)
                         return (
                           <tr key={vendor._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '180px' }} title={String(companyName)}>
+                            <td style={{ width: '18%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }} title={String(companyName)}>
                               {companyName || '-'}
                             </td>
                             <td
                               style={{
-                                textAlign: 'center',
+                                width: '18%',
+                                textAlign: 'left',
                                 padding: '0.35rem 0.35rem',
                                 color: 'var(--text-main)',
                                 borderRight: isAdmin ? '1px solid var(--border)' : 'none',
                                 whiteSpace: 'normal',
                                 overflowWrap: 'anywhere',
-                                wordBreak: 'break-word',
-                                minWidth: '220px'
+                                wordBreak: 'break-word'
                               }}
                               title={String(vendorName  )}
                             >
                               {vendorName || '-'}
                             </td>
-                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(mobile)}>
+                            <td style={{ width: '14%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(mobile)}>
                               {mobile || '-'}
                             </td>
-                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '220px' }} title={String(email)}>
+                            <td style={{ width: '24%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }} title={String(email)}>
                               {email || '-'}
                             </td>
-                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)'), borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(outstanding)}>
+                            <td style={{ width: '16%', textAlign: 'left', padding: '0.35rem 0.35rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)'), borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(outstanding)}>
                               {outstanding}
                             </td>
                             {/* Custom column cells */}
                             {customColumns.map((columnName) => (
-                              <td key={columnName} style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '180px' }} title={String(vendor.customFields?.[columnName] || '-')}> {
+                              <td key={columnName} style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '180px' }} title={String(vendor.customFields?.[columnName] || '-')}> {
                                 vendor.customFields?.[columnName] || '-'
                               }</td>
                             ))}
-                            <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem' }}>
+                            <td style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {

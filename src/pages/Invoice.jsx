@@ -1490,7 +1490,7 @@ function Invoice() {
                             >
                               {invoice.transactionDescription || '-'}
                             </td>
-                            <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={`₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                            <td style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={`₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
                               ₹{invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                             <td style={{ textAlign: 'left', padding: '0.35rem 0.35rem', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
