@@ -40,7 +40,7 @@ app.use((err, req, res, next) => {
 
 // MongoDB Connection
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = (process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/goldflow').trim();
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow';
 
 let cached = global._mongoose;
 if (!cached) {
@@ -57,10 +57,10 @@ const connectToDatabase = async () => {
 };
 
 if (require.main === module) {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   connectToDatabase()
     .then(async () => {
       console.log('Connected to MongoDB');
-      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
       try {
         const Payment = require('./models/SalePayment');
         await Payment.updateMany(
@@ -71,10 +71,7 @@ if (require.main === module) {
         console.error('Could not cleanup unappliedAmount field', err);
       }
     })
-    .catch(err => {
-      console.error('Could not connect to MongoDB', err);
-      process.exit(1);
-    });
+    .catch(err => console.error('Could not connect to MongoDB', err));
 }
 
 module.exports = { app, connectToDatabase };
