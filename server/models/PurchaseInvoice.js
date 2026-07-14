@@ -51,6 +51,21 @@ const invoiceItemSchema = new mongoose.Schema({
   }
 });
 
+const invoiceAttachmentSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  type: {
+    type: String,
+    required: true
+  },
+  dataUrl: {
+    type: String,
+    required: true
+  }
+}, { _id: false });
+
 const invoiceSchema = new mongoose.Schema({
   invoiceNumber: {
     type: String,
@@ -106,6 +121,10 @@ const invoiceSchema = new mongoose.Schema({
     default: Date.now
   },
   items: [invoiceItemSchema],
+  attachments: {
+    type: [invoiceAttachmentSchema],
+    default: []
+  },
   totalAmount: {
     type: Number,
     required: true,

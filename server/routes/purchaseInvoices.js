@@ -117,6 +117,15 @@ const normalizeInvoiceValue = (field, value) => {
     }));
   }
 
+  if (field === 'attachments') {
+    const arr = Array.isArray(value) ? value : [];
+    return arr.map((attachment) => ({
+      name: String(attachment?.name || ''),
+      type: String(attachment?.type || ''),
+      dataUrl: String(attachment?.dataUrl || '')
+    }));
+  }
+
   return value;
 };
 
@@ -392,6 +401,7 @@ router.post('/', async (req, res) => {
       clientType: req.body.clientType || 'Vendor',
       invoiceDate: req.body.invoiceDate,
       items: req.body.items,
+      attachments: normalizeInvoiceValue('attachments', req.body.attachments),
       totalAmount: req.body.totalAmount,
       createdBy: authUser?.id || null,
       createdByName: authUser?.fullName || '',

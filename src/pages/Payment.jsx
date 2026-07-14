@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
@@ -13,6 +13,62 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'htt
 const API_URL = `${API_BASE_URL}/api/payments`
 const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
 const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`
+const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024
+const ATTACHMENT_ACCEPT = '.jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf'
+const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'application/pdf'
+])
+const ALLOWED_ATTACHMENT_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf'])
+
+const isAllowedAttachmentFile = (file) => {
+  const fileType = String(file?.type || '').toLowerCase()
+  if (ALLOWED_ATTACHMENT_MIME_TYPES.has(fileType)) return true
+
+  const fileName = String(file?.name || '')
+  const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : ''
+  return ALLOWED_ATTACHMENT_EXTENSIONS.has(extension)
+}
+
+const getAttachmentMimeType = (attachment) => {
+  const fileType = String(attachment?.type || '').toLowerCase()
+  if (fileType) return fileType
+
+  const dataUrl = String(attachment?.dataUrl || '')
+  const mimeMatch = dataUrl.match(/^data:([^;]+);/i)
+  return String(mimeMatch?.[1] || '').toLowerCase()
+}
+
+const isImageAttachment = (attachment) => getAttachmentMimeType(attachment).startsWith('image/')
+
+const isPdfAttachment = (attachment) => getAttachmentMimeType(attachment) === 'application/pdf'
+
+const getAttachmentMenuItems = (attachments = []) => {
+  let imageIndex = 0
+  let pdfIndex = 0
+  let attachmentIndex = 0
+
+  return attachments
+    .filter((attachment) => attachment?.dataUrl)
+    .map((attachment) => {
+      if (isImageAttachment(attachment)) {
+        imageIndex += 1
+        return { attachment, label: `Image ${imageIndex}` }
+      }
+
+      if (isPdfAttachment(attachment)) {
+        pdfIndex += 1
+        return { attachment, label: `PDF ${pdfIndex}` }
+      }
+
+      attachmentIndex += 1
+      return { attachment, label: `Attachment ${attachmentIndex}` }
+    })
+}
 
 function Payment() {
   // Responsive state
@@ -32,11 +88,14 @@ function Payment() {
     clientType: 'Customer',
     paymentDate: new Date().toISOString().split('T')[0],
     amount: 0,
-    description: ''
+    description: '',
+    attachments: []
   })
 
   const [errors, setErrors] = useState({})
   const [formSubmitted, setFormSubmitted] = useState(false)
+  const [attachmentError, setAttachmentError] = useState('')
+  const [isAttachmentDragging, setIsAttachmentDragging] = useState(false)
   const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
 
@@ -81,7 +140,9 @@ function Payment() {
   const [dropdownPayment, setDropdownPayment] = useState(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [dropdownUp, setDropdownUp] = useState(false)
+  const [attachmentsMenuOpen, setAttachmentsMenuOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const attachmentInputRef = useRef(null)
   const [companySettings, setCompanySettings] = useState({
     companyName: '',
     companyAddress: '',
@@ -97,6 +158,8 @@ function Payment() {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
   const [pdfFileName, setPdfFileName] = useState('payment.pdf')
+  const [attachmentViewerOpen, setAttachmentViewerOpen] = useState(false)
+  const [selectedAttachment, setSelectedAttachment] = useState(null)
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -104,6 +167,7 @@ function Payment() {
       if (openDropdownId && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setOpenDropdownId(null);
         setDropdownPayment(null);
+        setAttachmentsMenuOpen(false)
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -142,6 +206,14 @@ function Payment() {
     const month = monthNames[d.getMonth()]
     const year = d.getFullYear()
     return `${day}-${month}-${year}`
+  }
+
+  const formatFileSize = (sizeBytes) => {
+    const size = Number(sizeBytes || 0)
+    if (!size || Number.isNaN(size)) return '-'
+    if (size < 1024) return `${size} B`
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`
   }
 
   const allClients = useMemo(() => [
@@ -407,6 +479,7 @@ function Payment() {
         paymentDate: paymentForm.paymentDate,
         amount: Math.min(Math.max(0, Number(paymentForm.amount) || 0), Math.max(0, Number(totalPending) || 0)),
         description: paymentForm.description || '',
+        attachments: Array.isArray(paymentForm.attachments) ? paymentForm.attachments : [],
         invoiceOrder: orderedPendingInvoices.map((inv) => String(inv._id))
       }
 
@@ -433,11 +506,13 @@ function Payment() {
         clientType: 'Customer',
         paymentDate: new Date().toISOString().split('T')[0],
         amount: 0,
-        description: ''
+        description: '',
+        attachments: []
       })
       setPendingInvoiceOrder([])
       setDragInvoiceId(null)
       setClientSearchText('')
+      setAttachmentError('')
       setErrors({})
       setFormSubmitted(false)
       setFormOpen(false)
@@ -500,11 +575,13 @@ function Payment() {
       clientType: 'Customer',
       paymentDate: new Date().toISOString().split('T')[0],
       amount: 0,
-      description: ''
+      description: '',
+      attachments: []
     })
     setPendingInvoiceOrder([])
     setDragInvoiceId(null)
     setClientSearchText('')
+    setAttachmentError('')
     setErrors({})
     setFormSubmitted(false)
     await fetchNextPaymentNumber()
@@ -528,7 +605,8 @@ function Payment() {
         clientType: clientType,
         paymentDate: new Date(data.paymentDate).toISOString().split('T')[0],
         amount: data.amount || 0,
-        description: data.description || ''
+        description: data.description || '',
+        attachments: Array.isArray(data.attachments) ? data.attachments : []
       })
       setClientSearchText(clientName ? (companyName ? `${clientName} - ${companyName}` : clientName) : '')
       setEditingPaymentId(data._id)
@@ -552,16 +630,164 @@ function Payment() {
       clientType: 'Customer',
       paymentDate: new Date().toISOString().split('T')[0],
       amount: 0,
-      description: ''
+      description: '',
+      attachments: []
     })
     setPendingInvoiceOrder([])
     setDragInvoiceId(null)
     setClientSearchText('')
     setIsClientDropdownOpen(false)
+    setAttachmentError('')
     setErrors({})
     setFormSubmitted(false)
     await fetchNextPaymentNumber()
     setFormOpen(true)
+  }
+
+  const handleAttachmentChange = async (event) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    const currentAttachments = Array.isArray(paymentForm.attachments) ? paymentForm.attachments : []
+    const remainingSlots = Math.max(0, 5 - currentAttachments.length)
+
+    if (remainingSlots === 0) {
+      setAttachmentError('You can upload up to 5 files only.')
+      event.target.value = ''
+      return
+    }
+
+    const supportedFiles = files.filter(isAllowedAttachmentFile)
+    const sizeAllowedFiles = supportedFiles.filter((file) => Number(file?.size || 0) <= MAX_ATTACHMENT_SIZE_BYTES)
+    const selectedFiles = sizeAllowedFiles.slice(0, remainingSlots)
+    const hasUnsupportedFiles = supportedFiles.length !== files.length
+    const hasOversizedFiles = sizeAllowedFiles.length !== supportedFiles.length
+
+    if (selectedFiles.length === 0) {
+      const blockingMessages = []
+      if (hasUnsupportedFiles) {
+        blockingMessages.push('Only JPEG, JPG, PNG, GIF, WebP, SVG, and PDF files are supported.')
+      }
+      if (hasOversizedFiles) {
+        blockingMessages.push('Each uploaded file must be 25 MB or smaller.')
+      }
+      setAttachmentError(blockingMessages.join(' ') || 'No valid files were selected.')
+      event.target.value = ''
+      return
+    }
+
+    const errorMessages = []
+    if (hasUnsupportedFiles) {
+      errorMessages.push('Only JPEG, JPG, PNG, GIF, WebP, SVG, and PDF files are supported.')
+    }
+    if (hasOversizedFiles) {
+      errorMessages.push('Each uploaded file must be 25 MB or smaller.')
+    }
+    if (sizeAllowedFiles.length > remainingSlots) {
+      errorMessages.push('Only 5 files are allowed. Extra files were ignored.')
+    }
+    setAttachmentError(errorMessages.join(' '))
+
+    const toDataUrl = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve({ name: file.name, type: file.type, size: file.size, dataUrl: String(reader.result || '') })
+      reader.onerror = () => reject(new Error(`Unable to read file ${file.name}`))
+      reader.readAsDataURL(file)
+    })
+
+    try {
+      const attachments = await Promise.all(selectedFiles.map(toDataUrl))
+      setPaymentForm(prev => ({
+        ...prev,
+        attachments: [...(Array.isArray(prev.attachments) ? prev.attachments : []), ...attachments]
+      }))
+    } catch (err) {
+      console.error('Error reading attachment files:', err)
+      setAttachmentError('Could not read one or more photos.')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  const handleAttachmentDrop = async (event) => {
+    event.preventDefault()
+    setIsAttachmentDragging(false)
+    const files = Array.from(event.dataTransfer?.files || [])
+    if (files.length === 0) return
+
+    const currentAttachments = Array.isArray(paymentForm.attachments) ? paymentForm.attachments : []
+    const remainingSlots = Math.max(0, 5 - currentAttachments.length)
+
+    if (remainingSlots === 0) {
+      setAttachmentError('You can upload up to 5 files only.')
+      return
+    }
+
+    const supportedFiles = files.filter(isAllowedAttachmentFile)
+    const sizeAllowedFiles = supportedFiles.filter((file) => Number(file?.size || 0) <= MAX_ATTACHMENT_SIZE_BYTES)
+    const selectedFiles = sizeAllowedFiles.slice(0, remainingSlots)
+    const hasUnsupportedFiles = supportedFiles.length !== files.length
+    const hasOversizedFiles = sizeAllowedFiles.length !== supportedFiles.length
+
+    if (selectedFiles.length === 0) {
+      const blockingMessages = []
+      if (hasUnsupportedFiles) {
+        blockingMessages.push('Only JPEG, JPG, PNG, GIF, WebP, SVG, and PDF files are supported.')
+      }
+      if (hasOversizedFiles) {
+        blockingMessages.push('Each uploaded file must be 25 MB or smaller.')
+      }
+      setAttachmentError(blockingMessages.join(' ') || 'No valid files were selected.')
+      return
+    }
+
+    const errorMessages = []
+    if (hasUnsupportedFiles) {
+      errorMessages.push('Only JPEG, JPG, PNG, GIF, WebP, SVG, and PDF files are supported.')
+    }
+    if (hasOversizedFiles) {
+      errorMessages.push('Each uploaded file must be 25 MB or smaller.')
+    }
+    if (sizeAllowedFiles.length > remainingSlots) {
+      errorMessages.push('Only 5 files are allowed. Extra files were ignored.')
+    }
+    setAttachmentError(errorMessages.join(' '))
+
+    const toDataUrl = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve({ name: file.name, type: file.type, size: file.size, dataUrl: String(reader.result || '') })
+      reader.onerror = () => reject(new Error(`Unable to read file ${file.name}`))
+      reader.readAsDataURL(file)
+    })
+
+    try {
+      const attachments = await Promise.all(selectedFiles.map(toDataUrl))
+      setPaymentForm(prev => ({
+        ...prev,
+        attachments: [...(Array.isArray(prev.attachments) ? prev.attachments : []), ...attachments]
+      }))
+    } catch (err) {
+      console.error('Error reading attachment files:', err)
+      setAttachmentError('Could not read one or more photos.')
+    }
+  }
+
+  const handleAttachmentDragOver = (event) => {
+    event.preventDefault()
+    if (!loading) setIsAttachmentDragging(true)
+  }
+
+  const handleAttachmentDragLeave = (event) => {
+    event.preventDefault()
+    setIsAttachmentDragging(false)
+  }
+
+  const removeAttachment = (index) => {
+    setPaymentForm(prev => ({
+      ...prev,
+      attachments: (Array.isArray(prev.attachments) ? prev.attachments : []).filter((_, i) => i !== index)
+    }))
+    setAttachmentError('')
   }
 
   const closePaymentForm = () => {
@@ -887,6 +1113,28 @@ function Payment() {
     document.body.removeChild(a)
   }
 
+  const closeActionDropdown = () => {
+    setOpenDropdownId(null)
+    setDropdownPayment(null)
+    setAttachmentsMenuOpen(false)
+  }
+
+  const openAttachmentPreview = (attachment) => {
+    setSelectedAttachment(attachment)
+    setAttachmentViewerOpen(true)
+    closeActionDropdown()
+  }
+
+  const closeAttachmentPreview = () => {
+    setAttachmentViewerOpen(false)
+    setSelectedAttachment(null)
+  }
+
+  const openAttachmentPicker = () => {
+    if (loading || (paymentForm.attachments?.length || 0) >= 5) return
+    attachmentInputRef.current?.click()
+  }
+
   const formatMoney = (value) =>
     Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -1173,6 +1421,155 @@ function Payment() {
                         color: 'var(--text-header)'
                       }}
                     />
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>File Attachment</h3>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Max 5 files</div>
+                  </div>
+                  <div
+                    onDrop={handleAttachmentDrop}
+                    onDragOver={handleAttachmentDragOver}
+                    onDragLeave={handleAttachmentDragLeave}
+                    style={{
+                      border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
+                      borderRadius: '16px',
+                      padding: '2rem 1rem',
+                      background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
+                      minHeight: '220px',
+                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <input
+                      ref={attachmentInputRef}
+                      id="payment-attachment-input"
+                      type="file"
+                      accept={ATTACHMENT_ACCEPT}
+                      multiple
+                      onChange={handleAttachmentChange}
+                      disabled={loading || (Array.isArray(paymentForm.attachments) && paymentForm.attachments.length >= 5)}
+                      style={{ display: 'none' }}
+                    />
+                    {(paymentForm.attachments?.length || 0) < 5 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.55rem',
+                          textAlign: 'center'
+                        }}
+                      >
+                        {!paymentForm.attachments?.length && (
+                          <>
+                            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-header)' }}>
+                              Upload File
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.45, maxWidth: '420px' }}>
+                              Drag and drop files here or click to upload
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                              Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each
+                            </div>
+                          </>
+                        )}
+                        <MotionButton
+                          type="button"
+                          onClick={openAttachmentPicker}
+                          disabled={loading}
+                          style={{
+                            marginTop: '0.35rem',
+                            padding: '0.55rem 1.2rem',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: '0.9rem',
+                            boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
+                            border: 'none',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.7 : 1
+                          }}
+                        >
+                          Browse Files
+                        </MotionButton>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '0.9rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {paymentForm.attachments?.length || 0}/5 selected
+                    </div>
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {(paymentForm.attachments || []).map((attachment, index) => (
+                        <div
+                          key={`${attachment.name}-${index}`}
+                          style={{
+                            border: '1px solid var(--border)',
+                            borderRadius: '14px',
+                            background: 'var(--bg-card)',
+                            padding: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem'
+                          }}
+                        >
+                          <div style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--bg-main)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            color: 'var(--text-muted)',
+                            flex: '0 0 auto'
+                          }}>
+                            {String(attachment.type || '').startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
+                          </div>
+
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 500, color: 'var(--text-header)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={attachment.name}>
+                              {attachment.name}
+                            </div>
+                            <div style={{ fontSize: '1rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                              {formatFileSize(attachment.size)}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: '0 0 auto' }}>
+                            <button
+                              type="button"
+                              style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+                              title="More"
+                            >
+                              <MoreHorizontal size={20} />
+                            </button>
+                            <a
+                              href={attachment.dataUrl}
+                              download={attachment.name}
+                              style={{ color: 'var(--text-muted)', display: 'grid', placeItems: 'center' }}
+                              title="Download"
+                            >
+                              <Download size={18} />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => removeAttachment(index)}
+                              style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+                              title="Remove file"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {attachmentError && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.5rem' }}>{attachmentError}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1521,11 +1918,13 @@ function Payment() {
                           clientType: 'Customer',
                           paymentDate: new Date().toISOString().split('T')[0],
                           amount: 0,
-                          description: ''
+                          description: '',
+                          attachments: []
                         })
                         setPendingInvoiceOrder([])
                         setDragInvoiceId(null)
                         setClientSearchText('')
+                        setAttachmentError('')
                         setErrors({})
                         setFormSubmitted(false)
                         await fetchNextPaymentNumber()
@@ -1661,18 +2060,18 @@ function Payment() {
                             onClick={(e) => {
                               e.stopPropagation();
                               if (openDropdownId === payment._id) {
-                                setOpenDropdownId(null);
-                                setDropdownPayment(null);
+                                closeActionDropdown();
                               } else {
                                 const rect = e.currentTarget.getBoundingClientRect();
                                 const { top, left, shouldOpenUp } = getActionDropdownPosition({
                                   rect,
-                                  dropdownHeight: isAdmin ? 160 : 120
+                                  dropdownHeight: 280
                                 });
                                 setDropdownPosition({ top, left });
                                 setDropdownUp(shouldOpenUp);
                                 setDropdownPayment(payment);
                                 setOpenDropdownId(payment._id);
+                                setAttachmentsMenuOpen(false)
                               }
                             }}
                             style={{
@@ -1787,18 +2186,18 @@ function Payment() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (openDropdownId === payment._id) {
-                                    setOpenDropdownId(null);
-                                    setDropdownPayment(null);
+                                    closeActionDropdown();
                                   } else {
                                     const rect = e.currentTarget.getBoundingClientRect();
                                     const { top, left, shouldOpenUp } = getActionDropdownPosition({
                                       rect,
-                                      dropdownHeight: isAdmin ? 160 : 120
+                                      dropdownHeight: 280
                                     });
                                     setDropdownPosition({ top, left });
                                     setDropdownUp(shouldOpenUp);
                                     setDropdownPayment(payment);
                                     setOpenDropdownId(payment._id);
+                                    setAttachmentsMenuOpen(false)
                                   }
                                 }}
                                 style={{
@@ -2071,6 +2470,10 @@ function Payment() {
       {/* Dropdown Menu */}
       {openDropdownId && dropdownPayment && (
         <ActionMenuPortal>
+          {(() => {
+            const attachmentMenuItems = getAttachmentMenuItems(dropdownPayment.attachments || [])
+
+            return (
           <div
             ref={dropdownRef}
             style={{
@@ -2082,7 +2485,10 @@ function Payment() {
               borderRadius: '8px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               zIndex: 99999,
-              minWidth: '140px'
+              minWidth: '220px',
+              maxWidth: '260px',
+              maxHeight: 'min(320px, 70vh)',
+              overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2091,8 +2497,7 @@ function Payment() {
                 e.stopPropagation();
                 setInfoPayment(dropdownPayment);
                 setInfoOpen(true);
-                setOpenDropdownId(null);
-                setDropdownPayment(null);
+                closeActionDropdown()
               }}
               style={{
                 width: '100%',
@@ -2114,10 +2519,78 @@ function Payment() {
             </MotionButton>
             <MotionButton
               onClick={(e) => {
+                e.stopPropagation()
+                if (attachmentMenuItems.length > 0) {
+                  setAttachmentsMenuOpen(prev => !prev)
+                }
+              }}
+              disabled={attachmentMenuItems.length === 0}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: attachmentsMenuOpen ? 'var(--bg-main)' : 'transparent',
+                border: 'none',
+                cursor: attachmentMenuItems.length === 0 ? 'not-allowed' : 'pointer',
+                color: attachmentMenuItems.length === 0 ? 'var(--text-muted)' : 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+                transition: 'all 0.2s',
+                opacity: attachmentMenuItems.length === 0 ? 0.7 : 1
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ImageIcon size={14} />
+                View Attachments
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                {attachmentMenuItems.length}
+              </span>
+            </MotionButton>
+            {attachmentsMenuOpen && attachmentMenuItems.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '0.35rem 0' }}>
+                {attachmentMenuItems.map(({ attachment, label }, index) => (
+                  <MotionButton
+                    key={`${attachment.name || 'attachment'}-${index}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openAttachmentPreview(attachment)
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.45rem 0.75rem',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-header)',
+                      fontSize: '0.84rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'all 0.2s'
+                    }}
+                    title={attachment.name || label}
+                  >
+                    {isImageAttachment(attachment) ? <ImageIcon size={13} /> : <FileText size={13} />}
+                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                      <span>{label}</span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
+                        {attachment.name || 'Unnamed file'}
+                      </span>
+                    </span>
+                  </MotionButton>
+                ))}
+              </div>
+            )}
+            <MotionButton
+              onClick={(e) => {
                 e.stopPropagation();
                 generatePaymentPDF(dropdownPayment);
-                setOpenDropdownId(null);
-                setDropdownPayment(null);
+                closeActionDropdown()
               }}
               style={{
                 width: '100%',
@@ -2141,8 +2614,7 @@ function Payment() {
               onClick={(e) => {
                 e.stopPropagation();
                 handleEditPayment(dropdownPayment);
-                setOpenDropdownId(null);
-                setDropdownPayment(null);
+                closeActionDropdown()
               }}
               style={{
                 width: '100%',
@@ -2162,38 +2634,12 @@ function Payment() {
               <Edit2 size={14} />
               Edit
             </MotionButton>
-            <MotionButton
-              onClick={(e) => {
-                e.stopPropagation();
-                alert('PDF feature coming soon!');
-                setOpenDropdownId(null);
-                setDropdownPayment(null);
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '0.375rem 0.75rem',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-header)',
-                fontSize: '0.875rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>📄</span>
-              PDF
-            </MotionButton>
             {isAdmin && (
               <MotionButton
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDeletePayment(dropdownPayment._id);
-                  setOpenDropdownId(null);
-                  setDropdownPayment(null);
+                  closeActionDropdown()
                 }}
                 style={{
                   width: '100%',
@@ -2214,6 +2660,126 @@ function Payment() {
                 Delete
               </MotionButton>
             )}
+          </div>
+            )
+          })()}
+        </ActionMenuPortal>
+      )}
+
+      {attachmentViewerOpen && selectedAttachment && (
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.78)',
+              zIndex: 100000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeAttachmentPreview()
+            }}
+          >
+            <div
+              style={{
+                width: isPdfAttachment(selectedAttachment) ? 'min(1000px, 94vw)' : 'auto',
+                maxWidth: '94vw',
+                maxHeight: '92vh',
+                background: '#fff',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 20px 45px rgba(0,0,0,0.28)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  padding: '0.9rem 1rem',
+                  borderBottom: '1px solid #e5e7eb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1rem',
+                  background: '#f8fafc'
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>
+                    {selectedAttachment.name || 'Attachment Preview'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>
+                    {isImageAttachment(selectedAttachment) ? 'Image preview' : isPdfAttachment(selectedAttachment) ? 'PDF preview' : 'Attachment preview'}
+                  </div>
+                </div>
+                <MotionButton
+                  type="button"
+                  onClick={closeAttachmentPreview}
+                  style={{
+                    border: '1px solid #cbd5e1',
+                    background: '#fff',
+                    borderRadius: 10,
+                    padding: '0.45rem',
+                    cursor: 'pointer',
+                    color: '#475569'
+                  }}
+                  title="Close"
+                >
+                  <X size={18} />
+                </MotionButton>
+              </div>
+
+              <div
+                style={{
+                  padding: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#e2e8f0',
+                  overflow: 'auto',
+                  maxHeight: 'calc(92vh - 72px)'
+                }}
+              >
+                {isImageAttachment(selectedAttachment) ? (
+                  <img
+                    src={selectedAttachment.dataUrl}
+                    alt={selectedAttachment.name || 'Attachment preview'}
+                    style={{
+                      display: 'block',
+                      maxWidth: 'min(90vw, 1100px)',
+                      maxHeight: 'calc(92vh - 120px)',
+                      width: 'auto',
+                      height: 'auto',
+                      objectFit: 'contain',
+                      borderRadius: '12px',
+                      background: '#fff',
+                      boxShadow: '0 10px 30px rgba(15, 23, 42, 0.18)'
+                    }}
+                  />
+                ) : isPdfAttachment(selectedAttachment) ? (
+                  <iframe
+                    src={selectedAttachment.dataUrl}
+                    title={selectedAttachment.name || 'PDF preview'}
+                    style={{
+                      width: 'min(90vw, 980px)',
+                      height: 'min(78vh, 900px)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      background: '#fff',
+                      boxShadow: '0 10px 30px rgba(15, 23, 42, 0.18)'
+                    }}
+                  />
+                ) : (
+                  <div style={{ padding: '2rem', color: '#475569', fontWeight: 600, background: '#fff', borderRadius: '12px' }}>
+                    Preview is not available for this attachment type.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </ActionMenuPortal>
       )}

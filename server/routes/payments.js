@@ -107,6 +107,15 @@ const normalizePaymentValue = (field, value) => {
     return Number.isFinite(n) ? n : value;
   }
 
+  if (field === 'attachments') {
+    const arr = Array.isArray(value) ? value : [];
+    return arr.map((attachment) => ({
+      name: String(attachment?.name || ''),
+      type: String(attachment?.type || ''),
+      dataUrl: String(attachment?.dataUrl || '')
+    }));
+  }
+
   return value;
 };
 
@@ -511,6 +520,7 @@ router.post('/', async (req, res) => {
     const amount = Number(req.body.amount) || 0;
     const description = req.body.description || '';
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
+    const attachments = normalizePaymentValue('attachments', req.body.attachments);
 
     if (!clientId) return res.status(400).json({ message: 'Client is required' });
     if (!paymentDate) return res.status(400).json({ message: 'Payment date is required' });
@@ -531,6 +541,7 @@ router.post('/', async (req, res) => {
       amount: appliedAmount,
       description,
       allocations,
+      attachments,
       createdBy: authUser?.id || null,
       createdByName: authUser?.fullName || '',
       createdByEmail: authUser?.email || '',
@@ -568,6 +579,7 @@ router.put('/:id', async (req, res) => {
     const amount = Number(req.body.amount ?? existing.amount) || 0;
     const description = req.body.description ?? existing.description;
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
+    const attachments = normalizePaymentValue('attachments', req.body.attachments ?? existing.attachments);
 
     if (!clientId) return res.status(400).json({ message: 'Client is required' });
     if (!paymentDate) return res.status(400).json({ message: 'Payment date is required' });
@@ -596,6 +608,7 @@ router.put('/:id', async (req, res) => {
     recordChange('paymentDate', existing.paymentDate, paymentDate);
     recordChange('amount', existing.amount, appliedAmount);
     recordChange('description', existing.description, description);
+    recordChange('attachments', existing.attachments, attachments);
 
     existing.clientId = clientId;
     existing.clientType = clientType;
@@ -603,6 +616,7 @@ router.put('/:id', async (req, res) => {
     existing.amount = appliedAmount;
     existing.description = description;
     existing.allocations = allocations;
+    existing.attachments = attachments;
     const authUser = await getAuthUserInfo(req);
     existing.updatedBy = authUser?.id || null;
     existing.updatedByName = authUser?.fullName || '';

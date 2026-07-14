@@ -48,6 +48,21 @@ const paymentAllocationSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const paymentAttachmentSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  type: {
+    type: String,
+    required: true
+  },
+  dataUrl: {
+    type: String,
+    required: true
+  }
+}, { _id: false });
+
 const paymentSchema = new mongoose.Schema({
   paymentNumber: {
     type: String,
@@ -109,6 +124,10 @@ const paymentSchema = new mongoose.Schema({
   },
   allocations: {
     type: [paymentAllocationSchema],
+    default: []
+  },
+  attachments: {
+    type: [paymentAttachmentSchema],
     default: []
   }
 }, {
