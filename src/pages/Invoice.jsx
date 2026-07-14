@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus } from 'lucide-react';
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, UploadCloud, FileText, Image as ImageIcon, MoreHorizontal, Download } from 'lucide-react';
 import EmptyDataCard from '../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../utils/authStorage';
 import { readJsonResponse } from '../utils/api';
@@ -65,12 +65,15 @@ function Invoice() {
     items: [
       { product: '', description: '', amount: 0 }
     ],
+    attachments: [],
     totalAmount: 0
   });
 
   // Validation errors state
   const [errors, setErrors] = useState({});
   const [formSubmitted, setFormSubmitted] = useState(false);
+  const [attachmentError, setAttachmentError] = useState('');
+  const [isAttachmentDragging, setIsAttachmentDragging] = useState(false);
 
   // Edit mode state
   const [editingInvoiceId, setEditingInvoiceId] = useState(null);
@@ -171,6 +174,14 @@ function Invoice() {
     const mmm = months[d.getMonth()] || ''
     const yyyy = d.getFullYear()
     return `${dd}-${mmm}-${yyyy}`
+  }
+
+  const formatFileSize = (sizeBytes) => {
+    const size = Number(sizeBytes || 0)
+    if (!size || Number.isNaN(size)) return '-'
+    if (size < 1024) return `${size} B`
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`
   }
 
   // Customer dropdown autocomplete state
@@ -352,6 +363,97 @@ function Invoice() {
     }
   };
 
+  const handleAttachmentChange = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    const currentAttachments = Array.isArray(invoiceForm.attachments) ? invoiceForm.attachments : [];
+    const remainingSlots = Math.max(0, 5 - currentAttachments.length);
+
+    if (remainingSlots === 0) {
+      setAttachmentError('You can upload up to 5 photos only.');
+      event.target.value = '';
+      return;
+    }
+
+    const selectedFiles = files.slice(0, remainingSlots);
+    setAttachmentError(files.length > remainingSlots ? 'Only 5 files are allowed. Extra files were ignored.' : '');
+
+    const toDataUrl = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, type: file.type, size: file.size, dataUrl: String(reader.result || '') });
+      reader.onerror = () => reject(new Error(`Unable to read file ${file.name}`));
+      reader.readAsDataURL(file);
+    });
+
+    try {
+      const attachments = await Promise.all(selectedFiles.map(toDataUrl));
+      setInvoiceForm(prev => ({
+        ...prev,
+        attachments: [...(Array.isArray(prev.attachments) ? prev.attachments : []), ...attachments]
+      }));
+    } catch (err) {
+      console.error('Error reading attachment files:', err);
+      setAttachmentError('Could not read one or more photos.');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handleAttachmentDrop = async (event) => {
+    event.preventDefault();
+    setIsAttachmentDragging(false);
+    const files = Array.from(event.dataTransfer?.files || []);
+    if (files.length === 0) return;
+
+    const currentAttachments = Array.isArray(invoiceForm.attachments) ? invoiceForm.attachments : [];
+    const remainingSlots = Math.max(0, 5 - currentAttachments.length);
+
+    if (remainingSlots === 0) {
+      setAttachmentError('You can upload up to 5 photos only.');
+      return;
+    }
+
+    const selectedFiles = files.slice(0, remainingSlots);
+    setAttachmentError(files.length > remainingSlots ? 'Only 5 files are allowed. Extra files were ignored.' : '');
+
+    const toDataUrl = (file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, type: file.type, size: file.size, dataUrl: String(reader.result || '') });
+      reader.onerror = () => reject(new Error(`Unable to read file ${file.name}`));
+      reader.readAsDataURL(file);
+    });
+
+    try {
+      const attachments = await Promise.all(selectedFiles.map(toDataUrl));
+      setInvoiceForm(prev => ({
+        ...prev,
+        attachments: [...(Array.isArray(prev.attachments) ? prev.attachments : []), ...attachments]
+      }));
+    } catch (err) {
+      console.error('Error reading attachment files:', err);
+      setAttachmentError('Could not read one or more photos.');
+    }
+  };
+
+  const handleAttachmentDragOver = (event) => {
+    event.preventDefault();
+    if (!loading) setIsAttachmentDragging(true);
+  };
+
+  const handleAttachmentDragLeave = (event) => {
+    event.preventDefault();
+    setIsAttachmentDragging(false);
+  };
+
+  const removeAttachment = (index) => {
+    setInvoiceForm(prev => ({
+      ...prev,
+      attachments: (Array.isArray(prev.attachments) ? prev.attachments : []).filter((_, i) => i !== index)
+    }));
+    setAttachmentError('');
+  };
+
   const handleInvoiceSubmit = async (e) => {
     e.preventDefault();
     setFormSubmitted(true);
@@ -408,9 +510,11 @@ function Invoice() {
         invoiceDate: new Date().toISOString().split('T')[0],
         transactionDescription: '',
         items: [{ product: '', description: '', amount: 0 }],
+        attachments: [],
         totalAmount: 0
       });
       setClientSearchText('');
+      setAttachmentError('');
       await fetchNextInvoiceNumber();
       setErrors({});
       setFormSubmitted(false);
@@ -500,6 +604,7 @@ function Invoice() {
         description: item.description,
         amount: item.amount
       })),
+      attachments: Array.isArray(invoice.attachments) ? invoice.attachments : [],
       totalAmount: invoice.totalAmount
     });
     setCustomerSearchText(displayName ? `${displayName} (${clientIdStr})` : '');
@@ -518,9 +623,11 @@ function Invoice() {
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
       items: [{ product: '', description: '', amount: 0 }],
+      attachments: [],
       totalAmount: 0
     });
     setCustomerSearchText('');
+    setAttachmentError('');
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -537,10 +644,12 @@ function Invoice() {
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
       items: [{ product: '', description: '', amount: 0 }],
+      attachments: [],
       totalAmount: 0
     });
     setCustomerSearchText('');
     setIsCustomerDropdownOpen(false);
+    setAttachmentError('');
     await fetchNextInvoiceNumber();
     setErrors({});
     setFormSubmitted(false);
@@ -1197,6 +1306,174 @@ function Invoice() {
                   {formSubmitted && errors.items && (
                     <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.items}</p>
                   )}
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>File Attachment</h3>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Max 5 files</div>
+                  </div>
+                  <div
+                    onDrop={handleAttachmentDrop}
+                    onDragOver={handleAttachmentDragOver}
+                    onDragLeave={handleAttachmentDragLeave}
+                    style={{
+                      border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
+                      borderRadius: '16px',
+                      padding: '2rem 1rem',
+                      background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
+                      minHeight: '220px',
+                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <input
+                      id="invoice-attachment-input"
+                      type="file"
+                      accept="*/*"
+                      multiple
+                      onChange={handleAttachmentChange}
+                      disabled={loading || (Array.isArray(invoiceForm.attachments) && invoiceForm.attachments.length >= 5)}
+                      style={{ display: 'none' }}
+                    />
+                    <label
+                      htmlFor="invoice-attachment-input"
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.55rem',
+                        cursor: loading || (Array.isArray(invoiceForm.attachments) && invoiceForm.attachments.length >= 5) ? 'not-allowed' : 'pointer',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <div style={{ position: 'relative', width: '52px', height: '52px', display: 'grid', placeItems: 'center' }}>
+                        <div style={{
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(209, 213, 219, 0.9)',
+                          background: '#fff',
+                          display: 'grid',
+                          placeItems: 'center',
+                          color: 'rgba(107, 114, 128, 0.9)'
+                        }}>
+                          <UploadCloud size={18} />
+                        </div>
+                        <div style={{
+                          position: 'absolute',
+                          right: 0,
+                          bottom: 0,
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '999px',
+                          background: '#2f80ed',
+                          color: '#fff',
+                          display: 'grid',
+                          placeItems: 'center',
+                          boxShadow: '0 6px 12px rgba(47, 128, 237, 0.28)'
+                        }}>
+                          ↑
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-header)' }}>
+                        Upload File
+                      </div>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.45, maxWidth: '420px' }}>
+                        Drag and drop files here or click to upload
+                      </div>
+                      <div style={{
+                        fontSize: '0.85rem',
+                        color: 'var(--text-muted)'
+                      }}>
+                        Supported formats: any file type
+                      </div>
+                      <div style={{
+                        marginTop: '0.35rem',
+                        padding: '0.55rem 1.2rem',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)'
+                      }}>
+                        Browse Files
+                      </div>
+                    </label>
+                    <div style={{ marginTop: '0.9rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {invoiceForm.attachments?.length || 0}/5 selected
+                    </div>
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {(invoiceForm.attachments || []).map((attachment, index) => (
+                        <div
+                          key={`${attachment.name}-${index}`}
+                          style={{
+                            border: '1px solid var(--border)',
+                            borderRadius: '14px',
+                            background: 'var(--bg-card)',
+                            padding: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem'
+                          }}
+                        >
+                          <div style={{
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--bg-main)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            color: 'var(--text-muted)',
+                            flex: '0 0 auto'
+                          }}>
+                            {String(attachment.type || '').startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
+                          </div>
+
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: '1.05rem', fontWeight: 500, color: 'var(--text-header)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={attachment.name}>
+                              {attachment.name}
+                            </div>
+                            <div style={{ fontSize: '1rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                              {formatFileSize(attachment.size)}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: '0 0 auto' }}>
+                            <button
+                              type="button"
+                              style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+                              title="More"
+                            >
+                              <MoreHorizontal size={20} />
+                            </button>
+                            <a
+                              href={attachment.dataUrl}
+                              download={attachment.name}
+                              style={{ color: 'var(--text-muted)', display: 'grid', placeItems: 'center' }}
+                              title="Download"
+                            >
+                              <Download size={18} />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => removeAttachment(index)}
+                              style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+                              title="Remove file"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {attachmentError && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.5rem' }}>{attachmentError}</p>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', flexDirection: 'column', gap: '0.75rem' }}>
