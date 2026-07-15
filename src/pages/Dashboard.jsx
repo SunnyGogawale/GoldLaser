@@ -779,16 +779,14 @@ function Dashboard() {
         </div>
 
         <div style={{ marginTop: '1rem', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Company Name</th>
-                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>{overviewViewType === 'customers' ? 'Customer Name' : 'Vendor Name'}</th>
-                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Mobile</th>
-                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Email</th>
-                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Address</th>
-                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Shipping Address</th>
-                <th style={{ textAlign: 'right', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>{overviewViewType === 'customers' ? 'Outstanding' : 'Payable'}</th>
+                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>Company Name</th>
+                <th style={{ textAlign: 'center', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{overviewViewType === 'customers' ? 'Customer Name' : 'Vendor Name'}</th>
+                <th style={{ textAlign: 'center', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mobile</th>
+                <th style={{ textAlign: 'center', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>Email</th>
+                <th style={{ textAlign: 'right', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{overviewViewType === 'customers' ? 'Outstanding' : 'Payable'}</th>
               </tr>
             </thead>
             <tbody>
@@ -807,25 +805,19 @@ function Dashboard() {
                   ) : (
                     customerOverview.map((c) => (
                       <tr key={String(c.customerId)} style={{ borderBottom: '1px solid var(--border)', height: 'auto' }}>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5' }}>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {c.companyName || '-'}
                         </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5' }}>
-                          {(c.customerName || `${c.firstName || ''} ${c.lastName || ''}`.replace(/\s+/g, ' ').trim())}{c.id ? ` (${c.id})` : ''}
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'center',color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {(c.customerName || `${c.firstName || ''} ${c.lastName || ''}`.replace(/\s+/g, ' ').trim()) || '-'}
                         </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'center',color: 'var(--text-main)', lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {c.contactNumber || '-'}
                         </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                        <td style={{ padding: '1rem 0.75rem',textAlign: 'center', color: 'var(--text-main)', lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {c.email || '-'}
                         </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
-                          {c.address || '-'}
-                        </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
-                          {c.shippingAddress || '-'}
-                        </td>
-                        <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: c.pendingAmount < 0 ? 'rgb(34, 197, 94)' : c.pendingAmount > 0 ? 'rgb(249, 115, 22)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5' }}>
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: c.pendingAmount < 0 ? 'rgb(34, 197, 94)' : c.pendingAmount > 0 ? 'rgb(249, 115, 22)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           ₹{formatMoney(c.pendingAmount, 2)}
                         </td>
                       </tr>
@@ -847,25 +839,19 @@ function Dashboard() {
                   ) : (
                     vendorOverview.map((v) => (
                       <tr key={String(v.vendorId)} style={{ borderBottom: '1px solid var(--border)', height: 'auto' }}>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5' }}>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.companyName || '-'}
                         </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5' }}>
-                          {(v.vendorName || `${v.firstName || ''} ${v.lastName || ''}`.replace(/\s+/g, ' ').trim())}{v.id ? ` (${v.id})` : ''}
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'center', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {(v.vendorName || `${v.firstName || ''} ${v.lastName || ''}`.replace(/\s+/g, ' ').trim()) || '-'}
                         </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'center', color: 'var(--text-main)', lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.contactNumber || '-'}
                         </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                        <td style={{ padding: '1rem 0.75rem',  textAlign: 'center', color: 'var(--text-main)', lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.email || '-'}
                         </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
-                          {v.address || '-'}
-                        </td>
-                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
-                          {v.shippingAddress || '-'}
-                        </td>
-                        <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: v.payableAmount < 0 ? 'rgb(34, 197, 94)' : v.payableAmount > 0 ? 'rgb(239, 68, 68)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5' }}>
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: v.payableAmount < 0 ? 'rgb(34, 197, 94)' : v.payableAmount > 0 ? 'rgb(239, 68, 68)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           ₹{formatMoney(v.payableAmount || 0, 2)}
                         </td>
                       </tr>
