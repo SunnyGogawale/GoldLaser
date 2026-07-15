@@ -1573,25 +1573,24 @@ function Payment() {
                   </div>
                 </div>
 
-                <div style={{ marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {paymentForm.clientId && (
-                    <>
-                      <label style={{ fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem', margin: 0 }}>
-                        Search INV No
-                      </label>
-                      <div style={{ position: 'relative', width: 'min(520px, 100%)' }}>
+                <div style={{ marginTop: '0.6rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Pending Invoices</h3>
+                    {paymentForm.clientId && (
+                      <div style={{ position: 'relative', width: 'min(420px, 100%)' }}>
                         <div style={{
                           display: 'flex',
                           flexWrap: 'wrap',
                           alignItems: 'center',
                           gap: '0.45rem',
                           width: '100%',
-                          minHeight: '2.4rem',
-                          padding: '0.4rem 0.55rem',
-                          border: `1px solid ${invoiceInputFocused ? 'rgba(99,102,241,0.6)' : 'var(--border)'}`,
-                          borderRadius: 6,
-                          background: 'var(--bg-card)'
+                          minHeight: '2.1rem',
+                          padding: '0.35rem 0.6rem',
+                          border: `1px solid ${invoiceInputFocused ? 'var(--text-muted)' : 'var(--border)'}`,
+                          borderRadius: '8px',
+                          background: 'var(--bg-main)'
                         }}>
+                          <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.1rem', flex: '0 0 auto' }} />
                           {invoiceInputParts.selectedTokens.map((token) => (
                             <span
                               key={token}
@@ -1599,12 +1598,12 @@ function Payment() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 6,
-                                padding: '0.2rem 0.5rem',
+                                padding: '0.15rem 0.45rem',
                                 border: '1px solid var(--border)',
                                 borderRadius: '999px',
-                                background: 'rgba(99,102,241,0.08)',
+                                background: 'var(--bg-card)',
                                 color: 'var(--text-header)',
-                                fontSize: '0.85rem'
+                                fontSize: '0.8rem'
                               }}
                             >
                               {token}
@@ -1726,7 +1725,7 @@ function Payment() {
                               outline: 'none',
                               background: 'transparent',
                               color: 'var(--text-header)',
-                              fontSize: '0.9rem',
+                              fontSize: '0.8125rem',
                               padding: 0,
                               margin: 0
                             }}
@@ -1782,10 +1781,8 @@ function Payment() {
                           </ul>
                         )}
                       </div>
-                    </>
-                  )}
-
-                  <h3 style={{ fontSize: '1rem', margin: '0 0 0.5rem 0', color: 'var(--text-header)' }}>Pending Invoices</h3>
+                    )}
+                  </div>
                   <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                       <thead style={{ background: 'var(--bg-main)' }}>
