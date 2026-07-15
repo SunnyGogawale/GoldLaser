@@ -107,12 +107,14 @@ function Payment() {
   const [pendingInvoices, setPendingInvoices] = useState([])
   const [totalPending, setTotalPending] = useState(0)
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
-  const [dragInvoiceId, setDragInvoiceId] = useState(null)
   const [invoiceSearchText, setInvoiceSearchText] = useState('')
   const [invoiceInput, setInvoiceInput] = useState('')
   const [invoiceInputFocused, setInvoiceInputFocused] = useState(false)
   const [isInvoiceDropdownOpen, setIsInvoiceDropdownOpen] = useState(false)
   const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(false)
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([])
+  const [invoicePaymentAmounts, setInvoicePaymentAmounts] = useState({})
+  const [invoiceDescriptions, setInvoiceDescriptions] = useState({})
 
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(false)
@@ -310,39 +312,109 @@ function Payment() {
 
   const selectedInvoiceSet = useMemo(() => new Set(parseInvoiceTokens(invoiceInput)), [invoiceInput])
 
-  const filteredPendingTotal = useMemo(() => filteredPendingInvoices.reduce((sum, inv) => sum + Math.max(0, Number(inv.pendingAmount) || 0), 0), [filteredPendingInvoices])
+  const selectedInvoiceIdSet = useMemo(() => new Set((selectedInvoiceIds || []).map((id) => String(id))), [selectedInvoiceIds])
 
-  const moveInvoiceBefore = (dragId, hoverId) => {
-    const fromId = String(dragId || '')
-    const toId = String(hoverId || '')
-    if (!fromId || !toId || fromId === toId) return
-    setPendingInvoiceOrder((prev) => {
-      const list = Array.isArray(prev) ? [...prev] : []
-      const fromIndex = list.indexOf(fromId)
-      const toIndex = list.indexOf(toId)
-      if (fromIndex === -1 || toIndex === -1) return list
-      list.splice(fromIndex, 1)
-      const nextIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
-      list.splice(nextIndex, 0, fromId)
-      return list
+  const selectedAllocations = useMemo(() => {
+    const rows = []
+    for (const inv of orderedPendingInvoices) {
+      const id = String(inv._id)
+      if (!selectedInvoiceIdSet.has(id)) continue
+      const enteredAmount = Number(invoicePaymentAmounts[id])
+      if (!(enteredAmount > 0)) continue
+      const description = String(invoiceDescriptions[id] ?? '').trim()
+      rows.push({
+        invoiceId: id,
+        amount: Math.round((enteredAmount + Number.EPSILON) * 100) / 100,
+        description
+      })
+    }
+    return rows
+  }, [orderedPendingInvoices, selectedInvoiceIdSet, invoicePaymentAmounts, invoiceDescriptions])
+
+  const selectedAllocationTotal = useMemo(() => {
+    return selectedAllocations.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  }, [selectedAllocations])
+
+  const handleInvoiceSelectionToggle = (invoiceId, checked, pendingAmount, defaultDescription = '') => {
+    const id = String(invoiceId)
+    setSelectedInvoiceIds((prev) => {
+      if (checked) {
+        if (prev.includes(id)) return prev
+        return [...prev, id]
+      }
+      return prev.filter((x) => x !== id)
     })
+
+    setInvoicePaymentAmounts((prev) => {
+      const next = { ...prev }
+      if (checked) {
+        if (!(Number(next[id]) > 0)) {
+          const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
+          next[id] = normalizedPending ? String(normalizedPending) : ''
+        }
+      } else {
+        delete next[id]
+      }
+      return next
+    })
+
+    setInvoiceDescriptions((prev) => {
+      const next = { ...prev }
+      if (checked) {
+        if (next[id] === undefined) {
+          next[id] = String(defaultDescription || '')
+        }
+      } else {
+        delete next[id]
+      }
+      return next
+    })
+
+    if (formSubmitted && (errors.allocations || errors.amount || errors.allocationDescription)) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next.allocations
+        delete next.amount
+        delete next.allocationDescription
+        return next
+      })
+    }
   }
 
-  const allocationPreview = useMemo(() => {
-    const inputAmount = Math.max(0, Number(paymentForm.amount) || 0)
-    const amount = Math.min(inputAmount, Math.max(0, Number(totalPending) || 0))
-    let remaining = amount
-    const allocationMap = new Map()
-    for (const inv of orderedPendingInvoices) {
-      if (remaining <= 0) break
-      const pending = Math.max(0, Number(inv.pendingAmount) || 0)
-      const payNow = Math.min(pending, remaining)
-      allocationMap.set(String(inv._id), payNow)
-      remaining -= payNow
+  const handleInvoicePaymentAmountChange = (invoiceId, value) => {
+    const id = String(invoiceId)
+    const sanitized = String(value || '').replace(/[^0-9.]/g, '')
+    const dotCount = (sanitized.match(/\./g) || []).length
+    const normalized = dotCount > 1
+      ? sanitized.split('.').slice(0, 2).join('.')
+      : sanitized
+    setInvoicePaymentAmounts((prev) => ({ ...prev, [id]: normalized }))
+
+    if (formSubmitted && (errors.allocations || errors.amount || errors.allocationDescription)) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next.allocations
+        delete next.amount
+        delete next.allocationDescription
+        return next
+      })
     }
-    const allocatedTotal = amount - Math.max(0, remaining)
-    return { allocationMap, allocatedTotal, remaining: 0 }
-  }, [orderedPendingInvoices, paymentForm.amount, totalPending])
+  }
+
+  const handleInvoiceDescriptionChange = (invoiceId, value) => {
+    const id = String(invoiceId)
+    const nextValue = String(value || '').slice(0, 250)
+    setInvoiceDescriptions((prev) => ({ ...prev, [id]: nextValue }))
+
+    if (formSubmitted && (errors.allocations || errors.allocationDescription)) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next.allocations
+        delete next.allocationDescription
+        return next
+      })
+    }
+  }
 
 
 
@@ -447,18 +519,75 @@ function Payment() {
     if (!paymentForm.clientId) {
       setPendingInvoices([])
       setTotalPending(0)
+      setSelectedInvoiceIds([])
+      setInvoicePaymentAmounts({})
+      setInvoiceDescriptions({})
       return
     }
     fetchPendingInvoices(paymentForm.clientId, paymentForm.clientType, editingPaymentId)
   }, [paymentForm.clientId, paymentForm.clientType, editingPaymentId])
+
+  useEffect(() => {
+    const validIds = new Set((pendingInvoices || []).map((inv) => String(inv._id)))
+    setSelectedInvoiceIds((prev) => prev.filter((id) => validIds.has(String(id))))
+    setInvoicePaymentAmounts((prev) => {
+      const next = {}
+      for (const [id, value] of Object.entries(prev || {})) {
+        if (validIds.has(String(id))) next[id] = value
+      }
+      return next
+    })
+    setInvoiceDescriptions((prev) => {
+      const next = {}
+      for (const [id, value] of Object.entries(prev || {})) {
+        if (validIds.has(String(id))) next[id] = value
+      }
+      return next
+    })
+  }, [pendingInvoices])
+
+  useEffect(() => {
+    const nextAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
+    if ((Number(paymentForm.amount) || 0) === nextAmount) return
+    setPaymentForm((prev) => ({ ...prev, amount: nextAmount }))
+  }, [selectedAllocationTotal])
 
   const validateForm = () => {
     const newErrors = {}
 
     if (!paymentForm.clientId) newErrors.clientId = 'Please select a client'
     if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
-    const amount = Number(paymentForm.amount) || 0
-    if (!(amount > 0)) newErrors.amount = 'Payment amount must be greater than 0'
+    const amount = Number(selectedAllocationTotal) || 0
+    if (!(amount > 0)) newErrors.amount = 'Select invoices and enter payment amounts greater than 0'
+
+    const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
+    const selectedIds = Array.from(selectedInvoiceIdSet)
+    if (selectedIds.length === 0) {
+      newErrors.allocations = 'Select at least one invoice'
+    } else {
+      for (const invoiceId of selectedIds) {
+        const inv = pendingById.get(String(invoiceId))
+        if (!inv) {
+          newErrors.allocations = 'One or more selected invoices are no longer available'
+          break
+        }
+        const enteredAmount = Number(invoicePaymentAmounts[String(invoiceId)])
+        const pendingAmount = Math.max(0, Number(inv.pendingAmount) || 0)
+        const rowDescription = String(invoiceDescriptions[String(invoiceId)] || '').trim()
+        if (!(enteredAmount > 0)) {
+          newErrors.allocations = `Enter payment amount for invoice ${inv.invoiceNumber}`
+          break
+        }
+        if (enteredAmount > pendingAmount) {
+          newErrors.allocations = `Payment amount cannot exceed balance for invoice ${inv.invoiceNumber}`
+          break
+        }
+        if (!rowDescription) {
+          newErrors.allocationDescription = `Enter description for invoice ${inv.invoiceNumber}`
+          break
+        }
+      }
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -477,10 +606,11 @@ function Payment() {
         clientId: paymentForm.clientId,
         clientType: paymentForm.clientType,
         paymentDate: paymentForm.paymentDate,
-        amount: Math.min(Math.max(0, Number(paymentForm.amount) || 0), Math.max(0, Number(totalPending) || 0)),
+        amount: Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100,
         description: paymentForm.description || '',
         attachments: Array.isArray(paymentForm.attachments) ? paymentForm.attachments : [],
-        invoiceOrder: orderedPendingInvoices.map((inv) => String(inv._id))
+        invoiceOrder: orderedPendingInvoices.map((inv) => String(inv._id)),
+        allocations: selectedAllocations
       }
 
       const url = editingPaymentId ? `${API_URL}/${editingPaymentId}` : API_URL
@@ -510,8 +640,12 @@ function Payment() {
         attachments: []
       })
       setPendingInvoiceOrder([])
-      setDragInvoiceId(null)
+      setSelectedInvoiceIds([])
+      setInvoicePaymentAmounts({})
+      setInvoiceDescriptions({})
       setClientSearchText('')
+      setInvoiceSearchText('')
+      setInvoiceInput('')
       setAttachmentError('')
       setErrors({})
       setFormSubmitted(false)
@@ -579,8 +713,12 @@ function Payment() {
       attachments: []
     })
     setPendingInvoiceOrder([])
-    setDragInvoiceId(null)
+    setSelectedInvoiceIds([])
+    setInvoicePaymentAmounts({})
+    setInvoiceDescriptions({})
     setClientSearchText('')
+    setInvoiceSearchText('')
+    setInvoiceInput('')
     setAttachmentError('')
     setErrors({})
     setFormSubmitted(false)
@@ -609,6 +747,21 @@ function Payment() {
         attachments: Array.isArray(data.attachments) ? data.attachments : []
       })
       setClientSearchText(clientName ? (companyName ? `${clientName} - ${companyName}` : clientName) : '')
+      const allocs = Array.isArray(data.allocations) ? data.allocations : []
+      const nextSelectedIds = []
+      const nextAmounts = {}
+      const nextDescriptions = {}
+      for (const row of allocs) {
+        const id = String(row?.invoiceId?._id || row?.invoiceId || '').trim()
+        const amount = Number(row?.amount)
+        if (!id || !(amount > 0)) continue
+        if (!nextSelectedIds.includes(id)) nextSelectedIds.push(id)
+        nextAmounts[id] = String(amount)
+        nextDescriptions[id] = String(row?.description || '')
+      }
+      setSelectedInvoiceIds(nextSelectedIds)
+      setInvoicePaymentAmounts(nextAmounts)
+      setInvoiceDescriptions(nextDescriptions)
       setEditingPaymentId(data._id)
       setErrors({})
       setFormSubmitted(false)
@@ -634,8 +787,12 @@ function Payment() {
       attachments: []
     })
     setPendingInvoiceOrder([])
-    setDragInvoiceId(null)
+    setSelectedInvoiceIds([])
+    setInvoicePaymentAmounts({})
+    setInvoiceDescriptions({})
     setClientSearchText('')
+    setInvoiceSearchText('')
+    setInvoiceInput('')
     setIsClientDropdownOpen(false)
     setAttachmentError('')
     setErrors({})
@@ -1138,12 +1295,6 @@ function Payment() {
   const formatMoney = (value) =>
     Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-  const statusStyles = (status) => {
-    if (status === 'Paid') return { background: 'rgba(34,197,94,0.12)', color: 'rgb(34,197,94)' }
-    if (status === 'Partial') return { background: 'rgba(59,130,246,0.12)', color: 'rgb(59,130,246)' }
-    return { background: 'rgba(249,115,22,0.12)', color: 'rgb(249,115,22)' }
-  }
-
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
@@ -1374,16 +1525,7 @@ function Payment() {
                     <input
                       type="number"
                       value={paymentForm.amount}
-                      onChange={(e) => {
-                        setPaymentForm(prev => ({ ...prev, amount: e.target.value }))
-                        if (formSubmitted && errors.amount) {
-                          setErrors(prev => {
-                            const ne = { ...prev }
-                            delete ne.amount
-                            return ne
-                          })
-                        }
-                      }}
+                      readOnly
                       min="0"
                       step="0.01"
                       disabled={loading}
@@ -1393,7 +1535,7 @@ function Payment() {
                         border: `1px solid ${errors.amount ? 'var(--danger)' : 'var(--border)'}`,
                         borderRadius: '6px',
                         fontSize: '0.875rem',
-                        background: 'var(--bg-card)',
+                        background: 'var(--bg-main)',
                         color: 'var(--text-header)'
                       }}
                     />
@@ -1784,112 +1926,138 @@ function Payment() {
                     )}
                   </div>
                   <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', tableLayout: 'fixed' }}>
+                      <colgroup>
+                        <col style={{ width: '5%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '40%' }} />
+                        <col style={{ width: '15%' }} />
+                      </colgroup>
                       <thead style={{ background: 'var(--bg-main)' }}>
                         <tr>
-                          <th style={{ padding: '0.5rem', textAlign: 'center', width: 70 }}>Priority</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Number</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Date</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Invoice Amount</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Paid Amount</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Pending Amount</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'right' }}>Will Pay</th>
-                          <th style={{ padding: '0.5rem', textAlign: 'center' }}>Status</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'center', width: 80 }}>Select</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice No</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Amt</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Paid</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Balance</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left' }}>Description</th>
+                          <th style={{ padding: '0.5rem', textAlign: 'left', width: 170 }}>Payment Amount</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredPendingInvoices.length === 0 ? (
                           <tr>
-                            <td colSpan={8} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                            <td colSpan={7} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                               {paymentForm.clientId ? (invoiceInput ? 'No pending invoices match this search.' : 'No pending invoices for this client.') : 'Select a client to view pending invoices.'}
                             </td>
                           </tr>
                         ) : (
-                          filteredPendingInvoices.map((inv, idx) => (
+                          filteredPendingInvoices.map((inv) => {
+                            const invoiceId = String(inv._id)
+                            const isChecked = selectedInvoiceIdSet.has(invoiceId)
+                            const enteredAmount = invoicePaymentAmounts[invoiceId] || ''
+                            const enteredDescription = invoiceDescriptions[invoiceId] ?? String(inv.description || '')
+                            return (
                             <tr
                               key={inv._id}
                               style={{
                                 borderTop: '1px solid var(--border)',
-                                background: dragInvoiceId && String(inv._id) === String(dragInvoiceId) ? 'rgba(59,130,246,0.10)' : 'transparent'
-                              }}
-                              onDragOver={(e) => {
-                                if (!dragInvoiceId) return
-                                e.preventDefault()
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault()
-                                if (!dragInvoiceId) return
-                                moveInvoiceBefore(dragInvoiceId, inv._id)
-                                setDragInvoiceId(null)
+                                background: selectedInvoiceSet.has(String(inv.invoiceNumber || '').toLowerCase()) ? 'rgba(99,102,241,0.06)' : 'transparent'
                               }}
                             >
                               <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                                <div
-                                  draggable
-                                  onDragStart={(e) => {
-                                    setDragInvoiceId(String(inv._id))
-                                    e.dataTransfer.effectAllowed = 'move'
-                                  }}
-                                  onDragEnd={() => setDragInvoiceId(null)}
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => handleInvoiceSelectionToggle(inv._id, e.target.checked, inv.pendingAmount, inv.description)}
+                                  disabled={loading}
+                                  style={{ width: 16, height: 16, cursor: loading ? 'not-allowed' : 'pointer' }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.75rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inv.invoiceNumber}>
+                                {inv.invoiceNumber}
+                              </td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>₹{formatMoney(inv.invoiceAmount)}</td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>₹{formatMoney(inv.paidAmount)}</td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: 'rgb(249, 115, 22)', fontWeight: 700 }}>
+                                ₹{formatMoney(inv.pendingAmount)}
+                              </td>
+                              <td style={{ padding: '0.5rem' }}>
+                                <input
+                                  type="text"
+                                  value={enteredDescription}
+                                  onChange={(e) => handleInvoiceDescriptionChange(inv._id, e.target.value)}
+                                  disabled={!isChecked || loading}
+                                  placeholder="Enter description"
+                                  maxLength={250}
                                   style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: 34,
-                                    height: 30,
+                                    width: '100%',
+                                    padding: '0.4rem 0.5rem',
                                     border: '1px solid var(--border)',
-                                    borderRadius: 10,
-                                    background: 'var(--bg-card)',
-                                    cursor: 'grab',
-                                    userSelect: 'none',
-                                    fontWeight: 900,
-                                    color: 'var(--text-muted)'
+                                    borderRadius: '6px',
+                                    background: !isChecked ? 'var(--bg-main)' : 'var(--bg-card)',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.85rem'
                                   }}
-                                  title="Drag to change priority"
-                                >
-                                  {idx + 1}
-                                </div>
+                                />
                               </td>
-                              <td style={{ padding: '0.75rem 0.5rem' }}>{inv.invoiceNumber}</td>
-                              <td style={{ padding: '0.75rem 0.5rem' }}>{new Date(inv.invoiceDate).toLocaleDateString()}</td>
-                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(inv.invoiceAmount)}</td>
-                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
-                                ₹{formatMoney((Number(inv.paidAmount) || 0) + (allocationPreview.allocationMap.get(String(inv._id)) || 0))}
-                              </td>
-                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'rgb(249, 115, 22)', fontWeight: 700 }}>
-                                ₹{formatMoney(Math.max(0, (Number(inv.pendingAmount) || 0) - (allocationPreview.allocationMap.get(String(inv._id)) || 0)))}
-                              </td>
-                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--text-header)' }}>
-                                ₹{formatMoney(allocationPreview.allocationMap.get(String(inv._id)) || 0)}
-                              </td>
-                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                                <span style={{
-                                  display: 'inline-block',
-                                  padding: '0.2rem 0.5rem',
-                                  borderRadius: '999px',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 700,
-                                  ...statusStyles(inv.status)
-                                }}>
-                                  {inv.status}
-                                </span>
+                              <td style={{ padding: '0.5rem', textAlign: 'left' }}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  max={Math.max(0, Number(inv.pendingAmount) || 0)}
+                                  value={enteredAmount}
+                                  onChange={(e) => handleInvoicePaymentAmountChange(inv._id, e.target.value)}
+                                  disabled={!isChecked || loading}
+                                  placeholder="0.00"
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.4rem 0.5rem',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    background: !isChecked ? 'var(--bg-main)' : 'var(--bg-card)',
+                                    color: 'var(--text-header)',
+                                    textAlign: 'right',
+                                    fontSize: '0.85rem'
+                                  }}
+                                />
                               </td>
                             </tr>
-                          ))
+                            )
+                          })
                         )}
                       </tbody>
                       <tfoot>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.08)' }}>
                           <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
-                            Total Pending:
+                            Total Balance:
                           </td>
-                          <td colSpan={3} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
+                          <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
                             ₹{formatMoney(totalPending)}
+                          </td>
+                        </tr>
+                        <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(16,185,129,0.10)' }}>
+                          <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                            Selected Payment Total:
+                          </td>
+                          <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(16,185,129)' }}>
+                            ₹{formatMoney(selectedAllocationTotal)}
                           </td>
                         </tr>
                       </tfoot>
                     </table>
                   </div>
+
+                  {formSubmitted && errors.allocations && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{errors.allocations}</p>
+                  )}
+                  {formSubmitted && errors.allocationDescription && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{errors.allocationDescription}</p>
+                  )}
 
                   <div style={{
                     marginTop: '0.75rem',
@@ -1900,7 +2068,7 @@ function Payment() {
                     fontSize: '0.875rem',
                     color: 'var(--text-header)'
                   }}>
-                    <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Payment Logic:</span> Money will deduct by priority (Priority 1 first). If payment amount is more, remaining will go to Priority 2, Priority 3, etc. Allocated now ₹{formatMoney(allocationPreview.allocatedTotal)}.
+                    <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Payment Logic:</span> Select invoice rows and enter payment amount per row. Total payment is calculated automatically from selected rows.
                   </div>
                 </div>
 
@@ -1919,8 +2087,11 @@ function Payment() {
                           attachments: []
                         })
                         setPendingInvoiceOrder([])
-                        setDragInvoiceId(null)
+                        setSelectedInvoiceIds([])
+                        setInvoicePaymentAmounts({})
                         setClientSearchText('')
+                        setInvoiceSearchText('')
+                        setInvoiceInput('')
                         setAttachmentError('')
                         setErrors({})
                         setFormSubmitted(false)

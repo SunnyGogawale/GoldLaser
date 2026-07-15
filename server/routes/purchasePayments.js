@@ -192,6 +192,7 @@ async function buildPendingInvoices(clientId, clientType, excludePaymentId) {
       invoiceAmount: inv.totalAmount || 0,
       paidAmount,
       pendingAmount,
+      description: inv.transactionDescription || '',
       status
     });
   }
@@ -237,6 +238,85 @@ async function allocatePaymentToInvoices({ clientId, clientType, amount, exclude
   return {
     allocations,
     appliedAmount,
+    totalPending
+  };
+}
+
+const normalizeRequestedAllocations = (rawAllocations) => {
+  if (!Array.isArray(rawAllocations)) return [];
+  return rawAllocations
+    .map((row) => {
+      const invoiceId = String(row?.invoiceId || '').trim();
+      const amount = Number(row?.amount);
+      const description = String(row?.description || '').trim();
+      return { invoiceId, amount, description };
+    })
+    .filter((row) => row.invoiceId);
+};
+
+async function allocatePaymentByRequestedAmounts({ clientId, clientType, requestedAllocations, excludePaymentId }) {
+  const { invoices: pendingInvoices, totalPending } = await buildPendingInvoices(clientId, clientType, excludePaymentId);
+  const pendingById = new Map(pendingInvoices.map((inv) => [String(inv._id), inv]));
+
+  const merged = new Map();
+  for (const row of requestedAllocations) {
+    const key = String(row.invoiceId || '');
+    const amount = Number(row.amount);
+    const description = String(row.description || '').trim();
+    if (!key) continue;
+    if (!(amount > 0)) {
+      throw new Error('Each selected invoice must have a payment amount greater than 0.');
+    }
+    if (!description) {
+      throw new Error('Each selected invoice must have description.');
+    }
+
+    if (!merged.has(key)) {
+      merged.set(key, { amount: 0, description });
+    }
+    const current = merged.get(key);
+    current.amount += amount;
+    if (description) current.description = description;
+    merged.set(key, current);
+  }
+
+  const allocations = [];
+  let appliedAmount = 0;
+
+  for (const [invoiceId, mergedRow] of merged.entries()) {
+    const pending = pendingById.get(invoiceId);
+    if (!pending) {
+      throw new Error(`Invoice ${invoiceId} is not pending for this client.`);
+    }
+
+    const amount = Math.round((Number(mergedRow.amount) + Number.EPSILON) * 100) / 100;
+    const description = String(mergedRow.description || '').trim();
+    const maxAllowed = Math.max(0, Number(pending.pendingAmount) || 0);
+    if (!(amount > 0)) {
+      throw new Error('Each selected invoice must have a payment amount greater than 0.');
+    }
+    if (!description) {
+      throw new Error('Each selected invoice must have description.');
+    }
+    if (description.length > 250) {
+      throw new Error('Description cannot exceed 250 characters per selected invoice.');
+    }
+    if (amount > maxAllowed) {
+      throw new Error(`Payment amount for invoice ${pending.invoiceNumber || invoiceId} cannot exceed its balance.`);
+    }
+
+    allocations.push({ invoiceId: pending._id, amount, description });
+    appliedAmount += amount;
+  }
+
+  const roundedAppliedAmount = Math.round((appliedAmount + Number.EPSILON) * 100) / 100;
+  if (!(roundedAppliedAmount > 0)) {
+    throw new Error('Select at least one invoice and enter payment amount greater than 0.');
+  }
+
+  return {
+    allocations,
+    appliedAmount: roundedAppliedAmount,
     totalPending
   };
 }
@@ -531,14 +611,24 @@ router.post('/', async (req, res) => {
     const amount = Number(req.body.amount) || 0;
     const description = req.body.description || '';
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
+    const requestedAllocations = normalizeRequestedAllocations(req.body.allocations);
     const attachments = normalizePaymentValue('attachments', req.body.attachments);
 
     if (!clientId) return res.status(400).json({ message: 'Client is required' });
     if (!isObjectId(clientId)) return res.status(400).json({ message: 'Invalid client id' });
     if (!paymentDate) return res.status(400).json({ message: 'Payment date is required' });
-    if (!(amount > 0)) return res.status(400).json({ message: 'Payment amount must be greater than 0' });
+    if (!(amount > 0) && requestedAllocations.length === 0) {
+      return res.status(400).json({ message: 'Payment amount must be greater than 0' });
+    }
 
-    const { allocations, appliedAmount } = await allocatePaymentToInvoices({ clientId, clientType, amount, invoiceOrder });
+    const allocationResult = requestedAllocations.length > 0
+      ? await allocatePaymentByRequestedAmounts({
+          clientId,
+          clientType,
+          requestedAllocations
+        })
+      : await allocatePaymentToInvoices({ clientId, clientType, amount, invoiceOrder });
+    const { allocations, appliedAmount } = allocationResult;
     if (!(appliedAmount > 0)) {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }
@@ -592,20 +682,31 @@ router.put('/:id', async (req, res) => {
     const amount = Number(req.body.amount ?? existing.amount) || 0;
     const description = req.body.description ?? existing.description;
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
+    const requestedAllocations = normalizeRequestedAllocations(req.body.allocations);
     const attachments = normalizePaymentValue('attachments', req.body.attachments ?? existing.attachments);
 
     if (!clientId) return res.status(400).json({ message: 'Client is required' });
     if (!isObjectId(clientId)) return res.status(400).json({ message: 'Invalid client id' });
     if (!paymentDate) return res.status(400).json({ message: 'Payment date is required' });
-    if (!(amount > 0)) return res.status(400).json({ message: 'Payment amount must be greater than 0' });
+    if (!(amount > 0) && requestedAllocations.length === 0) {
+      return res.status(400).json({ message: 'Payment amount must be greater than 0' });
+    }
 
-    const { allocations, appliedAmount } = await allocatePaymentToInvoices({
-      clientId,
-      clientType,
-      amount,
-      excludePaymentId: existing._id,
-      invoiceOrder
-    });
+    const allocationResult = requestedAllocations.length > 0
+      ? await allocatePaymentByRequestedAmounts({
+          clientId,
+          clientType,
+          requestedAllocations,
+          excludePaymentId: existing._id
+        })
+      : await allocatePaymentToInvoices({
+          clientId,
+          clientType,
+          amount,
+          excludePaymentId: existing._id,
+          invoiceOrder
+        });
+    const { allocations, appliedAmount } = allocationResult;
     if (!(appliedAmount > 0)) {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }

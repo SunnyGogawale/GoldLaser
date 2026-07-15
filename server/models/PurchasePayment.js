@@ -45,6 +45,10 @@ const paymentAllocationSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0
+  },
+  description: {
+    type: String,
+    default: ''
   }
 }, { _id: false });
 
