@@ -15,7 +15,9 @@ import {
   Search,
   Eye,
   Trash2,
-  X
+  X,
+  Briefcase,
+  AlertCircle
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { 
@@ -210,10 +212,21 @@ function Dashboard() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [customerOverviewLoading, setCustomerOverviewLoading] = useState(false)
+  const [vendorOverviewLoading, setVendorOverviewLoading] = useState(false)
+  const [overviewViewType, setOverviewViewType] = useState('customers') // 'customers' or 'vendors'
   const [totalCustomers, setTotalCustomers] = useState(0)
+  const [totalVendors, setTotalVendors] = useState(0)
+  const [monthlySalesInvoices, setMonthlySalesInvoices] = useState(0)
+  const [monthlySalesPayments, setMonthlySalesPayments] = useState(0)
+  const [salesOutstanding, setSalesOutstanding] = useState(0)
+  const [monthlyPurchaseInvoices, setMonthlyPurchaseInvoices] = useState(0)
+  const [monthlyPurchasePayments, setMonthlyPurchasePayments] = useState(0)
+  const [purchaseOutstanding, setPurchaseOutstanding] = useState(0)
   const [totalPendingAmount, setTotalPendingAmount] = useState(0)
   const [customerOverviewSearch, setCustomerOverviewSearch] = useState('')
+  const [vendorOverviewSearch, setVendorOverviewSearch] = useState('')
   const [customerOverview, setCustomerOverview] = useState([])
+  const [vendorOverview, setVendorOverview] = useState([])
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
   const [customerModalLoading, setCustomerModalLoading] = useState(false)
   const [customerModalSalesLoading, setCustomerModalSalesLoading] = useState(false)
@@ -235,10 +248,24 @@ function Dashboard() {
       const response = await fetch(`${API_BASE_URL}/api/dashboard/summary`)
       const data = await readJsonResponse(response, 'Error fetching dashboard summary')
       setTotalCustomers(Number(data.totalCustomers) || 0)
+      setTotalVendors(Number(data.totalVendors) || 0)
+      setMonthlySalesInvoices(Number(data.monthlySalesInvoices) || 0)
+      setMonthlySalesPayments(Number(data.monthlySalesPayments) || 0)
+      setSalesOutstanding(Number(data.salesOutstanding) || 0)
+      setMonthlyPurchaseInvoices(Number(data.monthlyPurchaseInvoices) || 0)
+      setMonthlyPurchasePayments(Number(data.monthlyPurchasePayments) || 0)
+      setPurchaseOutstanding(Number(data.purchaseOutstanding) || 0)
       setTotalPendingAmount(Number(data.totalPendingAmount) || 0)
     } catch (err) {
       console.error('Error fetching dashboard summary:', err)
       setTotalCustomers(0)
+      setTotalVendors(0)
+      setMonthlySalesInvoices(0)
+      setMonthlySalesPayments(0)
+      setSalesOutstanding(0)
+      setMonthlyPurchaseInvoices(0)
+      setMonthlyPurchasePayments(0)
+      setPurchaseOutstanding(0)
       setTotalPendingAmount(0)
     } finally {
       setSummaryLoading(false)
@@ -249,7 +276,7 @@ function Dashboard() {
     setCustomerOverviewLoading(true)
     try {
       const url = new URL(`${API_BASE_URL}/api/dashboard/customer-overview`, window.location.origin)
-      url.searchParams.set('limit', '10')
+      url.searchParams.set('limit', '100')
       if (search.trim()) url.searchParams.set('search', search.trim())
       const response = await fetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching customer overview')
@@ -262,10 +289,28 @@ function Dashboard() {
     }
   }, [])
 
+  const fetchVendorOverview = useCallback(async (search = '') => {
+    setVendorOverviewLoading(true)
+    try {
+      const url = new URL(`${API_BASE_URL}/api/dashboard/vendor-overview`, window.location.origin)
+      url.searchParams.set('limit', '100')
+      if (search.trim()) url.searchParams.set('search', search.trim())
+      const response = await fetch(url.toString())
+      const data = await readJsonResponse(response, 'Error fetching vendor overview')
+      setVendorOverview(data.vendors || [])
+    } catch (err) {
+      console.error('Error fetching vendor overview:', err)
+      setVendorOverview([])
+    } finally {
+      setVendorOverviewLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchDashboardSummary()
     fetchCustomerOverview('')
-  }, [fetchDashboardSummary, fetchCustomerOverview])
+    fetchVendorOverview('')
+  }, [fetchDashboardSummary, fetchCustomerOverview, fetchVendorOverview])
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -273,6 +318,13 @@ function Dashboard() {
     }, 300)
     return () => clearTimeout(t)
   }, [customerOverviewSearch, fetchCustomerOverview])
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetchVendorOverview(vendorOverviewSearch)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [vendorOverviewSearch, fetchVendorOverview])
 
   const formatMoney = (value, fractionDigits = 2) =>
     Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
@@ -570,85 +622,157 @@ function Dashboard() {
 
   return (
     <div className="dashboard-content">
-      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <div
-          className="card"
-          style={{ flex: '1 1 260px', textAlign: 'center', padding: '1.5rem', cursor: 'pointer' }}
-          onClick={() => navigate('/customer')}
-        >
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(59,130,246,0.12)', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Users size={26} color="rgb(59,130,246)" />
-          </div>
-          <div style={{ marginTop: '0.75rem', fontWeight: 800, color: 'var(--text-header)' }}>Customer</div>
-          <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Manage customers</div>
-          <div className="quick-access-btn">Quick Access</div>
-        </div>
-
-        <div
-          className="card"
-          style={{ flex: '1 1 260px', textAlign: 'center', padding: '1.5rem', cursor: 'pointer' }}
-          onClick={() => navigate('/invoice')}
-        >
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(34,197,94,0.12)', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FileText size={26} color="rgb(34,197,94)" />
-          </div>
-          <div style={{ marginTop: '0.75rem', fontWeight: 800, color: 'var(--text-header)' }}>Invoice</div>
-          <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Create invoices</div>
-          <div className="quick-access-btn">Quick Access</div>
-        </div>
-
-        <div
-          className="card"
-          style={{ flex: '1 1 260px', textAlign: 'center', padding: '1.5rem', cursor: 'pointer' }}
-          onClick={() => navigate('/payment')}
-        >
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(168,85,247,0.12)', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <HandCoins size={26} color="rgb(168,85,247)" />
-          </div>
-          <div style={{ marginTop: '0.75rem', fontWeight: 800, color: 'var(--text-header)' }}>Payment</div>
-          <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Record payments</div>
-          <div className="quick-access-btn">Quick Access</div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <div className="card" style={{ flex: '1 1 360px', padding: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        {/* Row 1 */}
+        <div className="card" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Total Customers</div>
               <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                {summaryLoading ? '...' : totalCustomers}
+                {summaryLoading ? '...' : totalCustomers || 0}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Active customer accounts</div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Active accounts</div>
             </div>
-            <Users size={18} color="var(--primary)" />
+            <Users size={18} color="rgb(59, 130, 246)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
 
-        <div className="card" style={{ flex: '1 1 360px', padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Total Pending Amount</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Total Vendors</div>
               <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                {summaryLoading ? '...' : `₹${formatMoney(totalPendingAmount, 2)}`}
+                {summaryLoading ? '...' : totalVendors || 0}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Outstanding receivables</div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Active vendors</div>
             </div>
-            <TrendingUp size={18} color="rgb(249, 115, 22)" />
+            <Briefcase size={18} color="rgb(34, 197, 94)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Invoices</div>
+              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+                {summaryLoading ? '...' : `₹${formatMoney(monthlySalesInvoices, 0)}`}
+              </div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total value</div>
+            </div>
+            <FileText size={18} color="rgb(34, 197, 94)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Payments</div>
+              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+                {summaryLoading ? '...' : `₹${formatMoney(monthlySalesPayments, 0)}`}
+              </div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total received</div>
+            </div>
+            <HandCoins size={18} color="rgb(168, 85, 247)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
+          </div>
+        </div>
+
+        {/* Row 2 */}
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Outstanding</div>
+              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+                {summaryLoading ? '...' : `₹${formatMoney(salesOutstanding, 0)}`}
+              </div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Pending receivables</div>
+            </div>
+            <AlertCircle size={18} color="rgb(249, 115, 22)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Invoices</div>
+              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+                {summaryLoading ? '...' : `₹${formatMoney(monthlyPurchaseInvoices, 0)}`}
+              </div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total value</div>
+            </div>
+            <FileText size={18} color="rgb(59, 130, 246)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Payments</div>
+              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+                {summaryLoading ? '...' : `₹${formatMoney(monthlyPurchasePayments, 0)}`}
+              </div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total paid</div>
+            </div>
+            <HandCoins size={18} color="rgb(239, 68, 68)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Outstanding</div>
+              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+                {summaryLoading ? '...' : `₹${formatMoney(purchaseOutstanding, 0)}`}
+              </div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Pending payables</div>
+            </div>
+            <AlertCircle size={18} color="rgb(239, 68, 68)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--text-header)' }}>Customer Overview</div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => setOverviewViewType('customers')}
+              style={{
+                fontSize: '1.1rem',
+                fontWeight: 900,
+                color: overviewViewType === 'customers' ? 'var(--text-header)' : 'var(--text-muted)',
+                background: overviewViewType === 'customers' ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+                border: overviewViewType === 'customers' ? '1px solid rgb(59, 130, 246)' : '1px solid var(--border)',
+                borderRadius: 8,
+                padding: '0.5rem 1rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Customers
+            </button>
+            <button
+              onClick={() => setOverviewViewType('vendors')}
+              style={{
+                fontSize: '1.1rem',
+                fontWeight: 900,
+                color: overviewViewType === 'vendors' ? 'var(--text-header)' : 'var(--text-muted)',
+                background: overviewViewType === 'vendors' ? 'rgba(34, 197, 94, 0.12)' : 'transparent',
+                border: overviewViewType === 'vendors' ? '1px solid rgb(34, 197, 94)' : '1px solid var(--border)',
+                borderRadius: 8,
+                padding: '0.5rem 1rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Vendors
+            </button>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.35rem 0.6rem', width: 'min(220px, 100%)', flex: '0 0 auto', marginLeft: 'auto' }}>
             <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
             <input
               type="text"
-              placeholder="Search customers..."
-              value={customerOverviewSearch}
-              onChange={(e) => setCustomerOverviewSearch(e.target.value)}
+              placeholder={overviewViewType === 'customers' ? 'Search customers...' : 'Search vendors...'}
+              value={overviewViewType === 'customers' ? customerOverviewSearch : vendorOverviewSearch}
+              onChange={(e) => overviewViewType === 'customers' ? setCustomerOverviewSearch(e.target.value) : setVendorOverviewSearch(e.target.value)}
               style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '0.8125rem', color: 'var(--text-header)' }}
             />
           </div>
@@ -658,47 +782,96 @@ function Dashboard() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Customer Name</th>
-                <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Contact</th>
-                <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Pending Amount</th>
-                <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Actions</th>
+                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Company Name</th>
+                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>{overviewViewType === 'customers' ? 'Customer Name' : 'Vendor Name'}</th>
+                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Mobile</th>
+                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Email</th>
+                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Address</th>
+                <th style={{ textAlign: 'left', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>Shipping Address</th>
+                <th style={{ textAlign: 'right', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5' }}>{overviewViewType === 'customers' ? 'Outstanding' : 'Payable'}</th>
               </tr>
             </thead>
             <tbody>
-              {customerOverviewLoading ? (
-                <tr>
-                  <td colSpan={4} style={{ padding: '1rem', color: 'var(--text-muted)' }}>Loading...</td>
-                </tr>
-              ) : customerOverview.length === 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ padding: '1rem' }}>
-                    <EmptyDataCard />
-                  </td>
-                </tr>
+              {overviewViewType === 'customers' ? (
+                <>
+                  {customerOverviewLoading ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</td>
+                    </tr>
+                  ) : customerOverview.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '1.5rem' }}>
+                        <EmptyDataCard />
+                      </td>
+                    </tr>
+                  ) : (
+                    customerOverview.map((c) => (
+                      <tr key={String(c.customerId)} style={{ borderBottom: '1px solid var(--border)', height: 'auto' }}>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5' }}>
+                          {c.companyName || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5' }}>
+                          {(c.customerName || `${c.firstName || ''} ${c.lastName || ''}`.replace(/\s+/g, ' ').trim())}{c.id ? ` (${c.id})` : ''}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                          {c.contactNumber || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                          {c.email || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                          {c.address || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                          {c.shippingAddress || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: c.pendingAmount < 0 ? 'rgb(34, 197, 94)' : c.pendingAmount > 0 ? 'rgb(249, 115, 22)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5' }}>
+                          ₹{formatMoney(c.pendingAmount, 2)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </>
               ) : (
-                customerOverview.map((c) => (
-                  <tr key={String(c.customerId)} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>
-                      {(c.customerName || `${c.firstName || ''} ${c.lastName || ''}`.replace(/\s+/g, ' ').trim())}{c.id ? ` (${c.id})` : ''}
-                    </td>
-                    <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>{c.contactNumber || '-'}</td>
-                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'rgb(249, 115, 22)', fontWeight: 900 }}>
-                      ₹{formatMoney(c.pendingAmount, 2)}
-                    </td>
-                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        <MotionButton
-                          type="button"
-                          onClick={() => openCustomerModal(c)}
-                          style={{ padding: '0.35rem', border: '1px solid var(--border)', borderRadius: 8, background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </MotionButton>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                <>
+                  {vendorOverviewLoading ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</td>
+                    </tr>
+                  ) : vendorOverview.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '1.5rem' }}>
+                        <EmptyDataCard />
+                      </td>
+                    </tr>
+                  ) : (
+                    vendorOverview.map((v) => (
+                      <tr key={String(v.vendorId)} style={{ borderBottom: '1px solid var(--border)', height: 'auto' }}>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5' }}>
+                          {v.companyName || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 700, lineHeight: '1.5' }}>
+                          {(v.vendorName || `${v.firstName || ''} ${v.lastName || ''}`.replace(/\s+/g, ' ').trim())}{v.id ? ` (${v.id})` : ''}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                          {v.contactNumber || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                          {v.email || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                          {v.address || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', color: 'var(--text-main)', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                          {v.shippingAddress || '-'}
+                        </td>
+                        <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: v.payableAmount < 0 ? 'rgb(34, 197, 94)' : v.payableAmount > 0 ? 'rgb(239, 68, 68)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5' }}>
+                          ₹{formatMoney(v.payableAmount || 0, 2)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </>
               )}
             </tbody>
           </table>
