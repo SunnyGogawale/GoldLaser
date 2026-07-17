@@ -1573,155 +1573,6 @@ function Payment() {
                   </div>
                 </div>
 
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>File Attachment</h3>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Max 5 files</div>
-                  </div>
-                  <div
-                    onDrop={handleAttachmentDrop}
-                    onDragOver={handleAttachmentDragOver}
-                    onDragLeave={handleAttachmentDragLeave}
-                    style={{
-                      border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
-                      borderRadius: '16px',
-                      padding: '2rem 1rem',
-                      background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
-                      minHeight: '220px',
-                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <input
-                      ref={attachmentInputRef}
-                      id="payment-attachment-input"
-                      type="file"
-                      accept={ATTACHMENT_ACCEPT}
-                      multiple
-                      onChange={handleAttachmentChange}
-                      disabled={loading || (Array.isArray(paymentForm.attachments) && paymentForm.attachments.length >= 5)}
-                      style={{ display: 'none' }}
-                    />
-                    {(paymentForm.attachments?.length || 0) < 5 && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.55rem',
-                          textAlign: 'center'
-                        }}
-                      >
-                        {!paymentForm.attachments?.length && (
-                          <>
-                            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-header)' }}>
-                              Upload File
-                            </div>
-                            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.45, maxWidth: '420px' }}>
-                              Drag and drop files here or click to upload
-                            </div>
-                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                              Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each
-                            </div>
-                          </>
-                        )}
-                        <MotionButton
-                          type="button"
-                          onClick={openAttachmentPicker}
-                          disabled={loading}
-                          style={{
-                            marginTop: '0.35rem',
-                            padding: '0.55rem 1.2rem',
-                            borderRadius: '10px',
-                            background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
-                            color: '#fff',
-                            fontWeight: 700,
-                            fontSize: '0.9rem',
-                            boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
-                            border: 'none',
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            opacity: loading ? 0.7 : 1
-                          }}
-                        >
-                          Browse Files
-                        </MotionButton>
-                      </div>
-                    )}
-                    <div style={{ marginTop: '0.9rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {paymentForm.attachments?.length || 0}/5 selected
-                    </div>
-                    <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {(paymentForm.attachments || []).map((attachment, index) => (
-                        <div
-                          key={`${attachment.name}-${index}`}
-                          style={{
-                            border: '1px solid var(--border)',
-                            borderRadius: '14px',
-                            background: 'var(--bg-card)',
-                            padding: '0.85rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem'
-                          }}
-                        >
-                          <div style={{
-                            width: '38px',
-                            height: '38px',
-                            borderRadius: '8px',
-                            border: '1px solid var(--border)',
-                            background: 'var(--bg-main)',
-                            display: 'grid',
-                            placeItems: 'center',
-                            color: 'var(--text-muted)',
-                            flex: '0 0 auto'
-                          }}>
-                            {String(attachment.type || '').startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
-                          </div>
-
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontSize: '1.05rem', fontWeight: 500, color: 'var(--text-header)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={attachment.name}>
-                              {attachment.name}
-                            </div>
-                            <div style={{ fontSize: '1rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                              {formatFileSize(attachment.size)}
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: '0 0 auto' }}>
-                            <button
-                              type="button"
-                              style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
-                              title="More"
-                            >
-                              <MoreHorizontal size={20} />
-                            </button>
-                            <a
-                              href={attachment.dataUrl}
-                              download={attachment.name}
-                              style={{ color: 'var(--text-muted)', display: 'grid', placeItems: 'center' }}
-                              title="Download"
-                            >
-                              <Download size={18} />
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => removeAttachment(index)}
-                              style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
-                              title="Remove file"
-                            >
-                              <X size={20} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {attachmentError && (
-                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.5rem' }}>{attachmentError}</p>
-                    )}
-                  </div>
-                </div>
-
                 <div style={{ marginTop: '0.6rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Pending Invoices</h3>
@@ -2076,6 +1927,155 @@ function Payment() {
                     color: 'var(--text-header)'
                   }}>
                     <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Payment Logic:</span> Select invoice rows and enter payment amount per row. Total payment is calculated automatically from selected rows.
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>File Attachment</h3>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Max 5 files</div>
+                  </div>
+                  <div
+                    onDrop={handleAttachmentDrop}
+                    onDragOver={handleAttachmentDragOver}
+                    onDragLeave={handleAttachmentDragLeave}
+                    style={{
+                      border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
+                      borderRadius: '16px',
+                      padding: '1rem 0.75rem',
+                      background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
+                      minHeight: '90px',
+                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <input
+                      ref={attachmentInputRef}
+                      id="payment-attachment-input"
+                      type="file"
+                      accept={ATTACHMENT_ACCEPT}
+                      multiple
+                      onChange={handleAttachmentChange}
+                      disabled={loading || (Array.isArray(paymentForm.attachments) && paymentForm.attachments.length >= 5)}
+                      style={{ display: 'none' }}
+                    />
+                    {(paymentForm.attachments?.length || 0) < 5 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.25rem',
+                          textAlign: 'center'
+                        }}
+                      >
+                        {!paymentForm.attachments?.length && (
+                          <>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
+                              Upload File
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.45, maxWidth: '420px' }}>
+                              Drag and drop files here or click to upload
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each
+                            </div>
+                          </>
+                        )}
+                        <MotionButton
+                          type="button"
+                          onClick={openAttachmentPicker}
+                          disabled={loading}
+                          style={{
+                            marginTop: '0.2rem',
+                            padding: '0.4rem 1rem',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
+                            border: 'none',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.7 : 1
+                          }}
+                        >
+                          Browse Files
+                        </MotionButton>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      {paymentForm.attachments?.length || 0}/5 selected
+                    </div>
+                    <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+                      {(paymentForm.attachments || []).map((attachment, index) => (
+                        <div
+                          key={`${attachment.name}-${index}`}
+                          style={{
+                            border: '1px solid var(--border)',
+                            borderRadius: '14px',
+                            background: 'var(--bg-card)',
+                            padding: '0.65rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                          }}
+                        >
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--bg-main)',
+                            display: 'grid',
+                            placeItems: 'center',
+                            color: 'var(--text-muted)',
+                            flex: '0 0 auto'
+                          }}>
+                            {String(attachment.type || '').startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
+                          </div>
+
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-header)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={attachment.name}>
+                              {attachment.name}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                              {formatFileSize(attachment.size)}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '0 0 auto' }}>
+                            <button
+                              type="button"
+                              style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+                              title="More"
+                            >
+                              <MoreHorizontal size={20} />
+                            </button>
+                            <a
+                              href={attachment.dataUrl}
+                              download={attachment.name}
+                              style={{ color: 'var(--text-muted)', display: 'grid', placeItems: 'center' }}
+                              title="Download"
+                            >
+                              <Download size={18} />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => removeAttachment(index)}
+                              style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+                              title="Remove file"
+                            >
+                              <X size={20} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {attachmentError && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.5rem' }}>{attachmentError}</p>
+                    )}
                   </div>
                 </div>
 
