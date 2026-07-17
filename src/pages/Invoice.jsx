@@ -1201,12 +1201,12 @@ function Invoice() {
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 280px', position: 'relative' }}>
                     <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                      Select Customer <span style={{ color: 'var(--danger)' }}>*</span>
+                      Select Company <span style={{ color: 'var(--danger)' }}>*</span>
                     </label>
                     <div style={{ position: 'relative' }}>
                       <input
                         type="text"
-                        placeholder="Search customer..."
+                        placeholder="Search Company..."
                         value={customerSearchText}
                         onChange={(e) => {
                           setCustomerSearchText(e.target.value);

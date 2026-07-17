@@ -1405,12 +1405,12 @@ function Payment() {
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 280px', position: 'relative' }}>
                     <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                      Select Customers <span style={{ color: 'var(--danger)' }}>*</span>
+                      Select Company <span style={{ color: 'var(--danger)' }}>*</span>
                     </label>
                     <div style={{ position: 'relative' }}>
                       <input
                         type="text"
-                        placeholder="Search customers..."
+                        placeholder="Search Company..."
                         value={clientSearchText}
                         onChange={(e) => {
                           setClientSearchText(e.target.value)
