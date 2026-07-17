@@ -8,6 +8,7 @@ import autoTable from 'jspdf-autotable'
 import MotionButton from '../components/MotionButton'
 import ActionMenuPortal from '../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../utils/dropdownPosition'
+import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/vendors`
@@ -245,7 +246,7 @@ function Vendor() {
       const data = await readJsonResponse(response, 'Error fetching next vendor id');
       setVendorForm(prev => ({ ...prev, id: data.nextId }));
     } catch (err) {
-      console.error('Error fetching next vendor id:', err);
+      handleApiError(err, 'Error fetching next vendor id');
     }
   }, []);
 
@@ -271,7 +272,7 @@ function Vendor() {
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
     } catch (err) {
-      console.error('Error fetching vendors:', err);
+      handleApiError(err, 'Error fetching vendors');
     } finally {
       setLoading(false);
     }
@@ -307,7 +308,7 @@ function Vendor() {
         });
       }
     } catch (err) {
-      console.error('Error fetching custom fields:', err);
+      handleApiError(err, 'Error fetching custom fields');
     } finally {
       setCustomFieldsLoading(false);
     }
@@ -400,7 +401,7 @@ function Vendor() {
     if (!newFieldName.trim()) return;
     // Avoid duplicates
     if (customFieldNames.includes(newFieldName.trim())) {
-      alert('This field name already exists!');
+      showErrorToast('This field name already exists!');
       return;
     }
 
@@ -432,8 +433,7 @@ function Vendor() {
       // Close popup
       setAddFieldPopupOpen(false);
     } catch (err) {
-      console.error('Error saving custom field:', err);
-      alert(err.message || 'Error adding custom field!');
+      handleApiError(err, 'Error adding custom field');
     }
   };
 
@@ -464,8 +464,7 @@ function Vendor() {
       // Refresh vendor list
       await fetchVendors();
     } catch (err) {
-      console.error('Error deleting custom field:', err);
-      alert(err.message || 'Error deleting custom field!');
+      handleApiError(err, 'Error deleting custom field');
     }
   };
 
@@ -478,7 +477,7 @@ function Vendor() {
 
     // Check if new name already exists
     if (customFieldNames.includes(editingFieldNewName.trim()) && editingFieldNewName.trim() !== editingFieldOldName) {
-      alert('This field name already exists!');
+      showErrorToast('This field name already exists!');
       return;
     }
 
@@ -523,8 +522,7 @@ function Vendor() {
       // Close popup
       setEditFieldPopupOpen(false);
     } catch (err) {
-      console.error('Error renaming custom field:', err);
-      alert(err.message || 'Error renaming custom field!');
+      handleApiError(err, 'Error renaming custom field');
     }
   };
 
@@ -616,7 +614,7 @@ function Vendor() {
         }
 
         setEditingVendorId(null);
-        alert('Vendor updated successfully!');
+        showSuccessToast('Vendor updated successfully!');
       } else {
         // Add new vendor to list
         const response = await fetch(API_URL, {
@@ -633,7 +631,7 @@ function Vendor() {
           throw new Error(errorData?.message || 'Error saving vendor');
         }
 
-        alert('Vendor added successfully!');
+        showSuccessToast('Vendor added successfully!');
       }
       // Refresh vendor list (go to first page after adding/updating)
       await fetchVendors(1, searchQuery, sortColumn, sortOrder);
@@ -666,8 +664,7 @@ function Vendor() {
       setFormSubmitted(false);
       setFormOpen(false)
     } catch (err) {
-      console.error('Error saving vendor:', err);
-      alert(err.message || 'Error saving vendor!');
+      handleApiError(err, 'Error saving vendor');
     } finally {
       setLoading(false);
     }
@@ -746,8 +743,7 @@ function Vendor() {
       setFormSubmitted(false)
       setFormOpen(true)
     } catch (err) {
-      console.error('Error fetching vendor for edit:', err)
-      alert('Failed to load vendor details')
+      handleApiError(err, 'Failed to load vendor details')
     }
   };
 
@@ -789,7 +785,7 @@ function Vendor() {
 
   const handleDeleteVendor = async (id) => {
     if (!isAdmin) {
-      alert('Only admin can delete.')
+      showErrorToast('Only admin can delete.')
       return
     }
     if (window.confirm('Are you sure you want to delete this vendor?')) {
@@ -804,10 +800,9 @@ function Vendor() {
           throw new Error(errorData?.message || 'Error deleting vendor');
         }
         await fetchVendors(currentPage);
-        alert('Vendor deleted successfully!');
+        showSuccessToast('Vendor deleted successfully!');
       } catch (err) {
-        console.error('Error deleting vendor:', err);
-        alert('Error deleting vendor!');
+        handleApiError(err, 'Error deleting vendor');
       }
     }
   };
@@ -827,7 +822,7 @@ function Vendor() {
       const data = await readJsonResponse(response, 'Error fetching vendor info')
       setInfoVendor(data || null)
     } catch (err) {
-      console.error('Error fetching vendor info:', err)
+      handleApiError(err, 'Error fetching vendor info')
     } finally {
       setInfoLoading(false)
     }
@@ -855,7 +850,7 @@ function Vendor() {
 
       setInfoVendor(data || null)
     } catch (err) {
-      console.error('Error refreshing vendor info:', err)
+      handleApiError(err, 'Error refreshing vendor info')
     } finally {
       setInfoLoading(false)
     }
@@ -1072,8 +1067,7 @@ function Vendor() {
       setPdfFileName(`vendor_statement_${statementVendor?.id || statementVendor?.vendorName || 'vendor'}.pdf`)
       setPdfViewerOpen(true)
     } catch (err) {
-      console.error('Error generating vendor statement PDF:', err)
-      alert(err.message || 'Failed to generate vendor statement PDF')
+      handleApiError(err, 'Failed to generate vendor statement PDF')
     }
   }
 

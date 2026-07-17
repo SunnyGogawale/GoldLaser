@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { FileText, TrendingUp } from 'lucide-react'
 import EmptyDataCard from '../components/EmptyDataCard'
 import MotionButton from '../components/MotionButton'
+import { handleApiError } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORTS_API_URL = `${API_BASE_URL}/api/reports`
@@ -56,7 +57,7 @@ function Reports() {
       const data = await response.json()
       setCustomers(data.customers || [])
     } catch (err) {
-      console.error('Error fetching customers:', err)
+      handleApiError(err, 'Error fetching customers')
     }
   }
 
@@ -86,7 +87,7 @@ function Reports() {
       setInvoicePage(data.page || 1)
       setInvoiceTotalPages(data.totalPages || 0)
     } catch (err) {
-      console.error('Error fetching invoice summary:', err)
+      handleApiError(err, 'Error fetching invoice summary')
       setInvoiceRows([])
       setInvoiceTotals({ totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 })
       setInvoicePage(1)
@@ -111,7 +112,7 @@ function Reports() {
       setSalesPage(data.page || 1)
       setSalesTotalPages(data.totalPages || 0)
     } catch (err) {
-      console.error('Error fetching sales report:', err)
+      handleApiError(err, 'Error fetching sales report')
       setSalesRows([])
       setSalesTotals({ totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 })
       setSalesPage(1)

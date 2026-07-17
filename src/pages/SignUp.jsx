@@ -13,6 +13,7 @@ import {
   Moon
 } from 'lucide-react';
 import MotionButton from '../components/MotionButton'
+import { handleApiError, showSuccessToast } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
@@ -46,11 +47,12 @@ const SignUp = ({ theme, toggleTheme }) => {
       });
       
       console.log('Signup successful:', response.data);
-      alert('Account created successfully!');
+      showSuccessToast('Account created successfully! Redirecting to login...');
       navigate('/login');
     } catch (err) {
-      console.error('Signup error:', err.response?.data || err.message);
-      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+      const errorMessage = err.response?.data?.message || 'Something went wrong. Please try again.';
+      handleApiError(err, errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

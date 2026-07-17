@@ -8,6 +8,7 @@ import autoTable from 'jspdf-autotable'
 import MotionButton from '../components/MotionButton'
 import ActionMenuPortal from '../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../utils/dropdownPosition'
+import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/customers`
@@ -145,7 +146,7 @@ function Customer() {
       const data = await readJsonResponse(response, 'Error fetching next customer id');
       setCustomerForm(prev => ({ ...prev, id: data.nextId }));
     } catch (err) {
-      console.error('Error fetching next customer id:', err);
+      handleApiError(err, 'Error fetching next customer id');
     }
   }, []);
 
@@ -171,7 +172,7 @@ function Customer() {
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
     } catch (err) {
-      console.error('Error fetching customers:', err);
+      handleApiError(err, 'Error fetching customers');
     } finally {
       setLoading(false);
     }
@@ -207,7 +208,7 @@ function Customer() {
         });
       }
     } catch (err) {
-      console.error('Error fetching custom fields:', err);
+      handleApiError(err, 'Error fetching custom fields');
     } finally {
       setCustomFieldsLoading(false);
     }
@@ -332,8 +333,7 @@ function Customer() {
       // Close popup
       setAddFieldPopupOpen(false);
     } catch (err) {
-      console.error('Error saving custom field:', err);
-      alert(err.message || 'Error adding custom field!');
+      handleApiError(err, 'Error adding custom field');
     }
   };
 
@@ -364,8 +364,7 @@ function Customer() {
       // Refresh customer list
       await fetchCustomers();
     } catch (err) {
-      console.error('Error deleting custom field:', err);
-      alert(err.message || 'Error deleting custom field!');
+      handleApiError(err, 'Error deleting custom field');
     }
   };
 
@@ -378,7 +377,7 @@ function Customer() {
 
     // Check if new name already exists
     if (customFieldNames.includes(editingFieldNewName.trim()) && editingFieldNewName.trim() !== editingFieldOldName) {
-      alert('This field name already exists!');
+      showErrorToast('This field name already exists!');
       return;
     }
 
@@ -423,8 +422,7 @@ function Customer() {
       // Close popup
       setEditFieldPopupOpen(false);
     } catch (err) {
-      console.error('Error renaming custom field:', err);
-      alert(err.message || 'Error renaming custom field!');
+      handleApiError(err, 'Error renaming custom field');
     }
   };
 
@@ -516,7 +514,7 @@ function Customer() {
         }
 
         setEditingCustomerId(null);
-        alert('Customer updated successfully!');
+        showSuccessToast('Customer updated successfully!');
       } else {
         // Add new customer to list
         const response = await fetch(API_URL, {
@@ -533,7 +531,7 @@ function Customer() {
           throw new Error(errorData?.message || 'Error saving customer');
         }
 
-        alert('Customer added successfully!');
+        showSuccessToast('Customer added successfully!');
       }
       // Refresh customer list (go to first page after adding/updating)
       await fetchCustomers(1, searchQuery, sortColumn, sortOrder);
@@ -566,8 +564,7 @@ function Customer() {
       setFormSubmitted(false);
       setFormOpen(false)
     } catch (err) {
-      console.error('Error saving customer:', err);
-      alert(err.message || 'Error saving customer!');
+      handleApiError(err, 'Error saving customer');
     } finally {
       setLoading(false);
     }
@@ -646,8 +643,7 @@ function Customer() {
       setFormSubmitted(false)
       setFormOpen(true)
     } catch (err) {
-      console.error('Error fetching customer for edit:', err)
-      alert('Failed to load customer details')
+      handleApiError(err, 'Failed to load customer details')
     }
   };
 
@@ -689,7 +685,7 @@ function Customer() {
 
   const handleDeleteCustomer = async (id) => {
     if (!isAdmin) {
-      alert('Only admin can delete.')
+      showErrorToast('Only admin can delete.')
       return
     }
     if (window.confirm('Are you sure you want to delete this customer?')) {
@@ -704,10 +700,9 @@ function Customer() {
           throw new Error(errorData?.message || 'Error deleting customer');
         }
         await fetchCustomers(currentPage);
-        alert('Customer deleted successfully!');
+        showSuccessToast('Customer deleted successfully!');
       } catch (err) {
-        console.error('Error deleting customer:', err);
-        alert('Error deleting customer!');
+        handleApiError(err, 'Error deleting customer');
       }
     }
   };
@@ -727,7 +722,7 @@ function Customer() {
       const data = await readJsonResponse(response, 'Error fetching customer info')
       setInfoCustomer(data || null)
     } catch (err) {
-      console.error('Error fetching customer info:', err)
+      handleApiError(err, 'Error fetching customer info')
     } finally {
       setInfoLoading(false)
     }
@@ -755,7 +750,7 @@ function Customer() {
       
       setInfoCustomer(data || null)
     } catch (err) {
-      console.error('Error refreshing customer info:', err)
+      handleApiError(err, 'Error refreshing customer info')
     } finally {
       setInfoLoading(false)
     }
@@ -1076,8 +1071,7 @@ function Customer() {
       setPdfFileName(`customer_statement_${statementCustomer?.id || statementCustomer?.customerName || 'customer'}.pdf`)
       setPdfViewerOpen(true)
     } catch (err) {
-      console.error('Error generating customer statement PDF:', err)
-      alert(err.message || 'Failed to generate customer statement PDF')
+      handleApiError(err, 'Failed to generate customer statement PDF')
     }
   }
 

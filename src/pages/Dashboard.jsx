@@ -33,6 +33,7 @@ import EmptyDataCard from '../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../utils/authStorage'
 import { readJsonResponse } from '../utils/api'
 import MotionButton from '../components/MotionButton'
+import { handleApiError } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -257,7 +258,7 @@ function Dashboard() {
       setPurchaseOutstanding(Number(data.purchaseOutstanding) || 0)
       setTotalPendingAmount(Number(data.totalPendingAmount) || 0)
     } catch (err) {
-      console.error('Error fetching dashboard summary:', err)
+      handleApiError(err, 'Error fetching dashboard summary')
       setTotalCustomers(0)
       setTotalVendors(0)
       setMonthlySalesInvoices(0)
@@ -282,7 +283,7 @@ function Dashboard() {
       const data = await readJsonResponse(response, 'Error fetching customer overview')
       setCustomerOverview(data.customers || [])
     } catch (err) {
-      console.error('Error fetching customer overview:', err)
+      handleApiError(err, 'Error fetching customer overview')
       setCustomerOverview([])
     } finally {
       setCustomerOverviewLoading(false)
@@ -299,7 +300,7 @@ function Dashboard() {
       const data = await readJsonResponse(response, 'Error fetching vendor overview')
       setVendorOverview(data.vendors || [])
     } catch (err) {
-      console.error('Error fetching vendor overview:', err)
+      handleApiError(err, 'Error fetching vendor overview')
       setVendorOverview([])
     } finally {
       setVendorOverviewLoading(false)

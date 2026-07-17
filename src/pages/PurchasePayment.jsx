@@ -7,6 +7,7 @@ import autoTable from 'jspdf-autotable'
 import MotionButton from '../components/MotionButton'
 import ActionMenuPortal from '../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../utils/dropdownPosition'
+import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/purchase-payments`
@@ -438,7 +439,7 @@ function PurchasePayment() {
       const data = await readJsonResponse(response, 'Error fetching next payment number')
       setPaymentForm(prev => ({ ...prev, paymentNumber: data.nextNumber }))
     } catch (err) {
-      console.error('Error fetching next payment number:', err)
+      handleApiError(err, 'Error fetching next payment number')
     }
   }
 
@@ -448,7 +449,7 @@ function PurchasePayment() {
       const data = await readJsonResponse(response, 'Error fetching customers')
       setCustomers(data.customers || [])
     } catch (err) {
-      console.error('Error fetching customers:', err)
+      handleApiError(err, 'Error fetching customers')
     }
   }
 
@@ -458,7 +459,7 @@ function PurchasePayment() {
       const data = await readJsonResponse(response, 'Error fetching vendors')
       setVendors(data.vendors || [])
     } catch (err) {
-      console.error('Error fetching vendors:', err)
+      handleApiError(err, 'Error fetching vendors')
     }
   }
 
@@ -475,7 +476,7 @@ function PurchasePayment() {
       setTotalPages(data.totalPages || 0)
       setCurrentPage(page)
     } catch (err) {
-      console.error('Error fetching payments:', err)
+      handleApiError(err, 'Error fetching payments')
     } finally {
       setListLoading(false)
     }
@@ -498,7 +499,7 @@ function PurchasePayment() {
       setPendingInvoices(data.invoices || [])
       setTotalPending(Number(data.totalPending) || 0)
     } catch (err) {
-      console.error('Error fetching pending invoices:', err)
+      handleApiError(err, 'Error fetching pending invoices')
       setPendingInvoices([])
       setTotalPending(0)
     }
@@ -626,7 +627,7 @@ function PurchasePayment() {
         throw new Error(errorData?.message || 'Error saving payment')
       }
 
-      alert(editingPaymentId ? 'Payment updated successfully!' : 'Payment created successfully!')
+      showSuccessToast(editingPaymentId ? 'Payment updated successfully!' : 'Payment created successfully!');
 
       setEditingPaymentId(null)
       setPaymentForm({
@@ -649,11 +650,17 @@ function PurchasePayment() {
       setErrors({})
       setFormSubmitted(false)
       setFormOpen(false)
-      await fetchNextPaymentNumber()
-      await fetchPayments(1, searchQuery)
+
+      // Fetch latest data in background, don't fail if this errors
+      try {
+        await fetchNextPaymentNumber()
+        await fetchPayments(1, searchQuery)
+      } catch (fetchErr) {
+        // Silent fail for background refresh - user has already seen success message
+        console.error('Error refreshing payment list:', fetchErr)
+      }
     } catch (err) {
-      console.error('Error saving payment:', err)
-      alert(err.message || 'Error saving payment!')
+      handleApiError(err, 'Error saving payment')
     } finally {
       setLoading(false)
     }
@@ -672,7 +679,7 @@ function PurchasePayment() {
       const data = await readJsonResponse(response, 'Error fetching payment info')
       setInfoPayment(data || null)
     } catch (err) {
-      console.error('Error fetching payment info:', err)
+      handleApiError(err, 'Error fetching payment info')
     } finally {
       setInfoLoading(false)
     }
@@ -689,7 +696,7 @@ function PurchasePayment() {
       const data = await readJsonResponse(response, 'Error refreshing payment info')
       setInfoPayment(data || null)
     } catch (err) {
-      console.error('Error refreshing payment info:', err)
+      handleApiError(err, 'Error refreshing payment info')
     } finally {
       setInfoLoading(false)
     }
@@ -767,8 +774,8 @@ function PurchasePayment() {
       setFormSubmitted(false)
       setFormOpen(true)
     } catch (err) {
-      console.error('Error loading payment:', err)
-      alert('Error loading payment!')
+      handleApiError(err, 'Error loading payment')
+      // alert removed - using toast instead
     } finally {
       setLoading(false)
     }
@@ -808,21 +815,21 @@ function PurchasePayment() {
 
   const handleDeletePayment = async (id) => {
     if (!isAdmin) {
-      alert('Only admin can delete.')
+      showErrorToast('Only admin can delete.')
       return
     }
     if (!window.confirm('Are you sure you want to delete this payment?')) return
     try {
       const token = getAuthToken()
       if (!token) {
-        alert('Please login again.')
+        showErrorToast('Please login again.')
         return
       }
       const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       if (!response.ok) {
         if (response.status === 401) {
           clearAuthSession()
-          alert('Session expired. Please login again.')
+          showErrorToast('Session expired. Please login again.')
           window.location.href = '/login'
           return
         }
@@ -847,7 +854,7 @@ function PurchasePayment() {
       if (paymentForm.clientId) {
         await fetchPendingInvoices(paymentForm.clientId, paymentForm.clientType, editingPaymentId)
       }
-      alert('Payment deleted successfully!')
+      showSuccessToast('Payment deleted successfully!')
     } catch (err) {
       console.error('Error deleting payment:', err)
       alert(err.message || 'Error deleting payment!')

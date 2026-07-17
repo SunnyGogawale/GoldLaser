@@ -8,6 +8,7 @@ import autoTable from 'jspdf-autotable';
 import MotionButton from '../components/MotionButton'
 import ActionMenuPortal from '../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../utils/dropdownPosition'
+import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/invoices`;
@@ -273,7 +274,7 @@ function Invoice() {
       const data = await readJsonResponse(response, 'Error fetching vendors');
       setVendors(data.vendors || []);
     } catch (err) {
-      console.error('Error fetching vendors:', err);
+      handleApiError(err, 'Error fetching vendors');
     }
   };
 
@@ -284,7 +285,7 @@ function Invoice() {
       const data = await readJsonResponse(response, 'Error fetching next invoice number');
       setInvoiceForm(prev => ({ ...prev, invoiceNumber: data.nextNumber }));
     } catch (err) {
-      console.error('Error fetching next invoice number:', err);
+      handleApiError(err, 'Error fetching next invoice number');
     }
   };
 
@@ -295,7 +296,7 @@ function Invoice() {
       const data = await readJsonResponse(response, 'Error fetching customers');
       setCustomers(data.customers || []);
     } catch (err) {
-      console.error('Error fetching customers:', err);
+      handleApiError(err, 'Error fetching customers');
     }
   };
 
@@ -313,7 +314,7 @@ function Invoice() {
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
     } catch (err) {
-      console.error('Error fetching invoices:', err);
+      handleApiError(err, 'Error fetching invoices');
     } finally {
       setLoading(false);
     }
@@ -482,7 +483,7 @@ function Invoice() {
         attachments: [...(Array.isArray(prev.attachments) ? prev.attachments : []), ...attachments]
       }));
     } catch (err) {
-      console.error('Error reading attachment files:', err);
+      handleApiError(err, 'Error reading attachment files');
       setAttachmentError('Could not read one or more photos.');
     } finally {
       event.target.value = '';
@@ -547,7 +548,7 @@ function Invoice() {
         attachments: [...(Array.isArray(prev.attachments) ? prev.attachments : []), ...attachments]
       }));
     } catch (err) {
-      console.error('Error reading attachment files:', err);
+      handleApiError(err, 'Error reading attachment files');
       setAttachmentError('Could not read one or more photos.');
     }
   };
@@ -598,7 +599,7 @@ function Invoice() {
         }
 
         setEditingInvoiceId(null);
-        alert('Invoice updated successfully!');
+        showSuccessToast('Invoice updated successfully!');
       } else {
         // Add new invoice
         const response = await fetch(API_URL, {
@@ -615,10 +616,10 @@ function Invoice() {
           throw new Error(errorData?.message || 'Error saving invoice');
         }
 
-        alert('Invoice created successfully!');
+        showSuccessToast('Invoice created successfully!');
       }
 
-      await fetchInvoices(1);
+      // Reset form immediately after success
       setInvoiceForm({
         invoiceNumber: '',
         clientId: '',
@@ -629,15 +630,22 @@ function Invoice() {
         attachments: [],
         totalAmount: 0
       });
-      setClientSearchText('');
+      setCustomerSearchText('');
       setAttachmentError('');
-      await fetchNextInvoiceNumber();
       setErrors({});
       setFormSubmitted(false);
       setFormOpen(false);
+
+      // Fetch latest data in background, don't fail if this errors
+      try {
+        await fetchInvoices(1);
+        await fetchNextInvoiceNumber();
+      } catch (fetchErr) {
+        // Silent fail for background refresh - user has already seen success message
+        console.error('Error refreshing invoice list:', fetchErr);
+      }
     } catch (err) {
-      console.error('Error saving invoice:', err);
-      alert(err.message || 'Error saving invoice!');
+      handleApiError(err, 'Error saving invoice');
     } finally {
       setLoading(false);
     }
@@ -658,7 +666,7 @@ function Invoice() {
       const data = await readJsonResponse(response, 'Error fetching invoice info');
       setInfoInvoice(data || null);
     } catch (err) {
-      console.error('Error fetching invoice info:', err);
+      handleApiError(err, 'Error fetching invoice info');
     } finally {
       setInfoLoading(false);
     }
@@ -677,7 +685,7 @@ function Invoice() {
       const data = await readJsonResponse(response, 'Error refreshing invoice info');
       setInfoInvoice(data || null);
     } catch (err) {
-      console.error('Error refreshing invoice info:', err);
+      handleApiError(err, 'Error refreshing invoice info');
     } finally {
       setInfoLoading(false);
     }
@@ -1082,11 +1090,10 @@ function Invoice() {
           throw new Error(errorData?.message || 'Error deleting invoice');
         }
         await fetchInvoices(currentPage);
-        alert('Invoice deleted successfully!');
+        showSuccessToast('Invoice deleted successfully!');
         return true;
       } catch (err) {
-        console.error('Error deleting invoice:', err);
-        alert('Error deleting invoice!');
+        handleApiError(err, 'Error deleting invoice');
         return false;
       }
     }

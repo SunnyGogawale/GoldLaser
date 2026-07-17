@@ -16,6 +16,7 @@ import PurchaseInvoice from './pages/PurchaseInvoice'
 import PurchasePayment from './pages/PurchasePayment'
 import { clearAuthSession, getAuthToken, getLastActivityAt, markSessionActivity } from './utils/authStorage'
 import PageTransition from './components/PageTransition'
+import ToastProvider from './components/ToastProvider'
 import './App.css'
 
 function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
@@ -101,9 +102,10 @@ function App() {
   const withPageTransition = (element) => <PageTransition>{element}</PageTransition>
 
   return (
-    <BrowserRouter>
-      <IdleSessionManager isLoggedIn={isLoggedIn} onLogout={logout} timeoutMs={120000} />
-      <Routes>
+    <ToastProvider>
+      <BrowserRouter>
+        <IdleSessionManager isLoggedIn={isLoggedIn} onLogout={logout} timeoutMs={120000} />
+        <Routes>
         {/* Auth Routes */}
         <Route
           path="/login"
@@ -140,6 +142,7 @@ function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   )
 }
 

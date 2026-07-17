@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue } from '../utils/authStorage'
 import { modalMotionProps, overlayMotionProps } from './PageTransition'
+import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 import MotionButton from './MotionButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -210,7 +211,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         })
       }
     } catch (err) {
-      console.error('Error fetching settings:', err)
+      handleApiError(err, 'Error fetching settings')
       setSettingsUser(null)
     } finally {
       setSettingsLoading(false)
@@ -222,7 +223,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
 
     const token = getAuthToken()
     if (!token) {
-      alert('Please login again.')
+      showErrorToast('Please login again.')
       clearAuthSession()
       setIsLoggedIn(false)
       navigate('/login', { replace: true })
@@ -261,9 +262,9 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         }
       })
       
-      alert('Company settings updated successfully!')
+      showSuccessToast('Company settings updated successfully!')
     } catch (err) {
-      alert(err?.message || 'Failed to update company settings')
+      showErrorToast(err?.message || 'Failed to update company settings')
     } finally {
       setCompanySaving(false)
     }
@@ -285,8 +286,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     const fullName = String(profileForm.fullName || '').trim()
     const email = String(profileForm.email || '').trim()
 
-    if (!fullName) return alert('Full name is required')
-    if (!email || !email.includes('@')) return alert('Valid email is required')
+    if (!fullName) return showErrorToast('Full name is required')
+    if (!email || !email.includes('@')) return showErrorToast('Valid email is required')
 
     const token = getAuthToken()
     if (!token) {
@@ -343,9 +344,9 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         fullName: String(u?.fullName || fullName).trim(),
         email: String(u?.email || email).trim()
       })
-      alert('Profile updated')
+      showSuccessToast('Profile updated')
     } catch (err) {
-      alert(err?.message || 'Failed to update profile')
+      showErrorToast(err?.message || 'Failed to update profile')
     } finally {
       setProfileSaving(false)
     }
@@ -358,9 +359,9 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     const newPassword = passwordForm.newPassword || ''
     const confirmPassword = passwordForm.confirmPassword || ''
 
-    if (!currentPassword) return alert('Current password is required')
-    if (!newPassword || newPassword.length < 6) return alert('New password must be at least 6 characters')
-    if (newPassword !== confirmPassword) return alert('New password and confirm password must match')
+    if (!currentPassword) return showErrorToast('Current password is required')
+    if (!newPassword || newPassword.length < 6) return showErrorToast('New password must be at least 6 characters')
+    if (newPassword !== confirmPassword) return showErrorToast('New password and confirm password must match')
 
     const token = getAuthToken()
     if (!token) {
@@ -409,10 +410,10 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         const message = data?.message || raw || 'Failed to update password'
         throw new Error(message)
       }
-      alert(data?.message || 'Password updated')
+      showSuccessToast(data?.message || 'Password updated')
       closeSettings()
     } catch (err) {
-      alert(err?.message || 'Failed to update password')
+      showErrorToast(err?.message || 'Failed to update password')
     } finally {
       setPasswordSaving(false)
     }

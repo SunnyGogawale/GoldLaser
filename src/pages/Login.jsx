@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { setAuthSession } from '../utils/authStorage';
 import MotionButton from '../components/MotionButton'
+import { handleApiError, showSuccessToast } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
@@ -38,6 +39,7 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
       });
 
       console.log('Login successful:', response.data);
+      showSuccessToast('Login successful! Redirecting to dashboard...');
       
       setAuthSession({
         token: response.data.token,
@@ -48,8 +50,9 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
       setIsLoggedIn(true);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      console.error('Login error:', err.response?.data || err.message);
-      setError(err.response?.data?.message || 'Invalid email or password');
+      const errorMessage = err.response?.data?.message || 'Invalid email or password';
+      handleApiError(err, errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { setAuthSession } from '../utils/authStorage';
 import MotionButton from '../components/MotionButton'
+import { handleApiError, showSuccessToast } from '../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
@@ -37,6 +38,7 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
       });
 
       console.log('Admin login successful:', response.data);
+      showSuccessToast('Admin login successful! Redirecting to dashboard...');
       
       setAuthSession({
         token: response.data.token,
@@ -47,8 +49,9 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
       setIsLoggedIn(true);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      console.error('Admin login error:', err.response?.data || err.message);
-      setError(err.response?.data?.message || 'Invalid admin credentials');
+      const errorMessage = err.response?.data?.message || 'Invalid admin credentials';
+      handleApiError(err, errorMessage);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
