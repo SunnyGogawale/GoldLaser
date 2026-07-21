@@ -819,7 +819,7 @@ function Dashboard() {
                           {c.email || '-'}
                         </td>
                         <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: c.pendingAmount < 0 ? 'rgb(34, 197, 94)' : c.pendingAmount > 0 ? 'rgb(249, 115, 22)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          ₹{formatMoney(c.pendingAmount, 2)}
+                          ₹{formatMoney(Math.abs(Number(c.pendingAmount) || 0), 2)}
                         </td>
                       </tr>
                     ))
@@ -853,7 +853,7 @@ function Dashboard() {
                           {v.email || '-'}
                         </td>
                         <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: v.payableAmount < 0 ? 'rgb(34, 197, 94)' : v.payableAmount > 0 ? 'rgb(239, 68, 68)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          ₹{formatMoney(v.payableAmount || 0, 2)}
+                          ₹{formatMoney(Math.abs(Number(v.payableAmount) || 0), 2)}
                         </td>
                       </tr>
                     ))

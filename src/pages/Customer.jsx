@@ -2039,7 +2039,7 @@ function Customer() {
                     const mobile = customer.contactNumber || ''
                     const email = customer.email || ''
                     const outstandingAmount = customer.outstanding?.outstanding || 0
-                    const outstanding = formatMoney(outstandingAmount)
+                    const outstanding = formatMoney(Math.abs(Number(outstandingAmount) || 0))
                     
                     return (
                       <div 
@@ -2201,7 +2201,7 @@ function Customer() {
                         const mobile = customer.contactNumber || ''
                         const email = customer.email || ''
                         const outstandingAmount = customer.outstanding?.outstanding || 0
-                    const outstanding = formatMoney(outstandingAmount)
+                      const outstanding = formatMoney(Math.abs(Number(outstandingAmount) || 0))
                         return (
                           <tr key={customer._id} style={{ borderBottom: '1px solid var(--border)' }}>
                             <td style={{ width: '18%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }} title={String(companyName)}>

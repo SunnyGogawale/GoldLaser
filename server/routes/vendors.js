@@ -9,117 +9,87 @@ const SaleInvoice = require('../models/SaleInvoice');
 const SalePayment = require('../models/SalePayment');
 const User = require('../models/User');
 
-function purchaseInvoicePaidLookupStage() {
-  return {
-    $lookup: {
-      from: 'purchasepayments',
-      let: { invoiceId: '$_id' },
-      pipeline: [
-        { $unwind: '$allocations' },
-        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
-        { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
-      ],
-      as: 'paidAgg'
-    }
-  };
-}
-
-function saleInvoicePaidLookupStage() {
-  return {
-    $lookup: {
-      from: 'salepayments',
-      let: { invoiceId: '$_id' },
-      pipeline: [
-        { $unwind: '$allocations' },
-        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
-        { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
-      ],
-      as: 'paidAgg'
-    }
-  };
-}
-
-function invoiceComputedFieldsStage() {
-  return {
-    $addFields: {
-      paidAmount: { $ifNull: [{ $arrayElemAt: ['$paidAgg.paidAmount', 0] }, 0] },
-      pendingAmount: {
-        $max: [
-          0,
-          {
-            $subtract: [
-              { $ifNull: ['$totalAmount', 0] },
-              { $ifNull: [{ $arrayElemAt: ['$paidAgg.paidAmount', 0] }, 0] }
-            ]
-          }
-        ]
-      }
-    }
-  };
-}
-
 async function getVendorOutstanding(vendorId) {
   try {
-    // Get purchase invoices data
-    const purchaseDataAgg = await PurchaseInvoice.aggregate([
-      { 
-        $match: { 
-          $or: [
-            { clientId: vendorId, clientType: 'Vendor' },
-            { vendorId }
-          ] 
-        } 
-      },
-      purchaseInvoicePaidLookupStage(),
-      invoiceComputedFieldsStage(),
-      { 
-        $group: { 
-          _id: null, 
-          totalInvoiceAmount: { $sum: '$totalAmount' },
-          totalPaidAmount: { $sum: '$paidAmount' },
-          totalPendingAmount: { $sum: '$pendingAmount' }
-        } 
-      }
-    ]);
-    const purchaseData = purchaseDataAgg.length > 0 ? purchaseDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 };
-    
-    // Get sale invoices data
-    const saleDataAgg = await SaleInvoice.aggregate([
-      { 
-        $match: { 
-          clientId: vendorId, 
-          clientType: 'Vendor'
-        } 
-      },
-      saleInvoicePaidLookupStage(),
-      invoiceComputedFieldsStage(),
-      { 
-        $group: { 
-          _id: null, 
-          totalInvoiceAmount: { $sum: '$totalAmount' },
-          totalPaidAmount: { $sum: '$paidAmount' },
-          totalPendingAmount: { $sum: '$pendingAmount' }
-        } 
-      }
-    ]);
-    const saleData = saleDataAgg.length > 0 ? saleDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 };
-    
-    // Calculate totals
-    const totalInvoices = purchaseData.totalInvoiceAmount + saleData.totalInvoiceAmount;
-    const totalPayments = purchaseData.totalPaidAmount + saleData.totalPaidAmount;
-    const outstanding = totalInvoices - totalPayments;
-    
+    const purchaseInvoiceMatch = {
+      $or: [
+        { clientId: vendorId, clientType: 'Vendor' },
+        { vendorId }
+      ]
+    }
+    const saleInvoiceMatch = {
+      clientId: vendorId,
+      clientType: 'Vendor'
+    }
+    const purchasePaymentMatch = {
+      $or: [
+        { clientId: vendorId, clientType: 'Vendor' },
+        { vendorId }
+      ]
+    }
+    const salePaymentMatch = {
+      clientId: vendorId,
+      clientType: 'Vendor'
+    }
+
+    const [purchaseInvoiceAgg, saleInvoiceAgg, purchasePaymentAgg, salePaymentAgg] = await Promise.all([
+      PurchaseInvoice.aggregate([
+        { $match: purchaseInvoiceMatch },
+        { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
+      ]),
+      SaleInvoice.aggregate([
+        { $match: saleInvoiceMatch },
+        { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
+      ]),
+      PurchasePayment.aggregate([
+        { $match: purchasePaymentMatch },
+        { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
+      ]),
+      SalePayment.aggregate([
+        { $match: salePaymentMatch },
+        { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
+      ])
+    ])
+
+    const totalPurchaseInvoiceAmount = Number(purchaseInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
+    const totalSaleInvoiceAmount = Number(saleInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
+    const totalPaidAmount = Number(purchasePaymentAgg?.[0]?.totalPaymentAmount || 0)
+    const totalReceivedAmount = Number(salePaymentAgg?.[0]?.totalPaymentAmount || 0)
+
+    // Vendor ledger perspective:
+    // payableAmount: what we owe the vendor (purchase side).
+    // receivableAmount: what vendor owes us (sale side).
+    // outstanding/netOutstanding: payable minus receivable.
+    const payableAmount = totalPurchaseInvoiceAmount - totalPaidAmount
+    const receivableAmount = totalSaleInvoiceAmount - totalReceivedAmount
+    const outstanding = payableAmount - receivableAmount
+
+    const totalInvoices = totalPurchaseInvoiceAmount + totalSaleInvoiceAmount
+    const totalPayments = totalPaidAmount + totalReceivedAmount
+
     return {
+      totalPurchaseInvoiceAmount,
+      totalSaleInvoiceAmount,
+      totalPaidAmount,
+      totalReceivedAmount,
+      payableAmount,
+      receivableAmount,
       totalInvoices,
       totalPayments,
       outstanding
-    };
+    }
   } catch {
     return {
+      totalPurchaseInvoiceAmount: 0,
+      totalSaleInvoiceAmount: 0,
+      totalPaidAmount: 0,
+      totalReceivedAmount: 0,
+      payableAmount: 0,
+      receivableAmount: 0,
       totalInvoices: 0,
       totalPayments: 0,
       outstanding: 0
-    };
+    }
   }
 }
 

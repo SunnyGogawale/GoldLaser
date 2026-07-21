@@ -2013,7 +2013,7 @@ function Vendor() {
                     const mobile = vendor.contactNumber || ''
                     const email = vendor.email || ''
                     const outstandingAmount = vendor.outstanding?.outstanding || 0
-                    const outstanding = formatMoney(outstandingAmount)
+                    const outstanding = formatMoney(Math.abs(Number(outstandingAmount) || 0))
 
                     return (
                       <div
@@ -2165,7 +2165,7 @@ function Vendor() {
                         const mobile = vendor.contactNumber || ''
                         const email = vendor.email || ''
                         const outstandingAmount = vendor.outstanding?.outstanding || 0
-                        const outstanding = formatMoney(outstandingAmount)
+                        const outstanding = formatMoney(Math.abs(Number(outstandingAmount) || 0))
                         return (
                           <tr key={vendor._id} style={{ borderBottom: '1px solid var(--border)' }}>
                             <td style={{ width: '18%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }} title={String(companyName)}>

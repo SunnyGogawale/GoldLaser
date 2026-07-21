@@ -151,57 +151,64 @@ router.get('/customer-overview', async (req, res) => {
     // Calculate outstanding for each customer
     const rows = []
     for (const customer of customers) {
-      // Get sale invoices data
-      const saleDataAgg = await SaleInvoice.aggregate([
-        { 
-          $match: { 
-            $or: [
-              { clientId: customer._id, clientType: 'Customer' },
-              { customerId: customer._id }
-            ] 
-          } 
-        },
-        saleInvoicePaidLookupStage(),
-        invoiceComputedFieldsStage(),
-        { 
-          $group: { 
-            _id: null, 
-            totalInvoiceAmount: { $sum: '$totalAmount' },
-            totalPaidAmount: { $sum: '$paidAmount' },
-            totalPendingAmount: { $sum: '$pendingAmount' }
-          } 
-        }
-      ])
-      const saleData = saleDataAgg.length > 0 ? saleDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 }
-      
-      // Get purchase invoices data
-      const purchaseDataAgg = await PurchaseInvoice.aggregate([
-        { 
-          $match: { 
-            clientId: customer._id, 
-            clientType: 'Customer'
-          } 
-        },
-        purchaseInvoicePaidLookupStage(),
-        invoiceComputedFieldsStage(),
-        { 
-          $group: { 
-            _id: null, 
-            totalInvoiceAmount: { $sum: '$totalAmount' },
-            totalPaidAmount: { $sum: '$paidAmount' },
-            totalPendingAmount: { $sum: '$pendingAmount' }
-          } 
-        }
-      ])
-      const purchaseData = purchaseDataAgg.length > 0 ? purchaseDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 }
+      const saleInvoiceMatch = {
+        $or: [
+          { clientId: customer._id, clientType: 'Customer' },
+          { customerId: customer._id }
+        ]
+      }
+      const purchaseInvoiceMatch = {
+        clientId: customer._id,
+        clientType: 'Customer'
+      }
+      const salePaymentMatch = {
+        $or: [
+          { clientId: customer._id, clientType: 'Customer' },
+          { customerId: customer._id }
+        ]
+      }
+      const purchasePaymentMatch = {
+        clientId: customer._id,
+        clientType: 'Customer'
+      }
 
-      const totalInvoices = saleData.totalInvoiceAmount + purchaseData.totalInvoiceAmount
-      const totalPayments = saleData.totalPaidAmount + purchaseData.totalPaidAmount
-      const pendingAmount = totalInvoices - totalPayments
+      const [saleInvoiceAgg, purchaseInvoiceAgg, salePaymentAgg, purchasePaymentAgg] = await Promise.all([
+        SaleInvoice.aggregate([
+          { $match: saleInvoiceMatch },
+          { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
+        ]),
+        PurchaseInvoice.aggregate([
+          { $match: purchaseInvoiceMatch },
+          { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
+        ]),
+        SalePayment.aggregate([
+          { $match: salePaymentMatch },
+          { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
+        ]),
+        PurchasePayment.aggregate([
+          { $match: purchasePaymentMatch },
+          { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
+        ])
+      ])
+
+      const totalSaleInvoiceAmount = Number(saleInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
+      const totalPurchaseInvoiceAmount = Number(purchaseInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
+      const totalReceivedAmount = Number(salePaymentAgg?.[0]?.totalPaymentAmount || 0)
+      const totalPaidAmount = Number(purchasePaymentAgg?.[0]?.totalPaymentAmount || 0)
+
+      const receivableAmount = totalSaleInvoiceAmount - totalReceivedAmount
+      const payableAmount = totalPurchaseInvoiceAmount - totalPaidAmount
+      const pendingAmount = receivableAmount - payableAmount
 
       rows.push({
         customerId: customer._id,
         pendingAmount,
+        totalSaleInvoiceAmount,
+        totalPurchaseInvoiceAmount,
+        totalReceivedAmount,
+        totalPaidAmount,
+        receivableAmount,
+        payableAmount,
         id: customer.id,
         firstName: customer.firstName,
         lastName: customer.lastName,
@@ -247,57 +254,64 @@ router.get('/vendor-overview', async (req, res) => {
     // Calculate payable for each vendor
     const rows = []
     for (const vendor of vendors) {
-      // Get purchase invoices data
-      const purchaseDataAgg = await PurchaseInvoice.aggregate([
-        { 
-          $match: { 
-            $or: [
-              { clientId: vendor._id, clientType: 'Vendor' },
-              { vendorId: vendor._id }
-            ] 
-          } 
-        },
-        purchaseInvoicePaidLookupStage(),
-        invoiceComputedFieldsStage(),
-        { 
-          $group: { 
-            _id: null, 
-            totalInvoiceAmount: { $sum: '$totalAmount' },
-            totalPaidAmount: { $sum: '$paidAmount' },
-            totalPendingAmount: { $sum: '$pendingAmount' }
-          } 
-        }
-      ])
-      const purchaseData = purchaseDataAgg.length > 0 ? purchaseDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 }
-      
-      // Get sale invoices data
-      const saleDataAgg = await SaleInvoice.aggregate([
-        { 
-          $match: { 
-            clientId: vendor._id, 
-            clientType: 'Vendor'
-          } 
-        },
-        saleInvoicePaidLookupStage(),
-        invoiceComputedFieldsStage(),
-        { 
-          $group: { 
-            _id: null, 
-            totalInvoiceAmount: { $sum: '$totalAmount' },
-            totalPaidAmount: { $sum: '$paidAmount' },
-            totalPendingAmount: { $sum: '$pendingAmount' }
-          } 
-        }
-      ])
-      const saleData = saleDataAgg.length > 0 ? saleDataAgg[0] : { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 }
+      const purchaseInvoiceMatch = {
+        $or: [
+          { clientId: vendor._id, clientType: 'Vendor' },
+          { vendorId: vendor._id }
+        ]
+      }
+      const saleInvoiceMatch = {
+        clientId: vendor._id,
+        clientType: 'Vendor'
+      }
+      const purchasePaymentMatch = {
+        $or: [
+          { clientId: vendor._id, clientType: 'Vendor' },
+          { vendorId: vendor._id }
+        ]
+      }
+      const salePaymentMatch = {
+        clientId: vendor._id,
+        clientType: 'Vendor'
+      }
 
-      const totalInvoices = purchaseData.totalInvoiceAmount + saleData.totalInvoiceAmount
-      const totalPayments = purchaseData.totalPaidAmount + saleData.totalPaidAmount
-      const payableAmount = totalInvoices - totalPayments
+      const [purchaseInvoiceAgg, saleInvoiceAgg, purchasePaymentAgg, salePaymentAgg] = await Promise.all([
+        PurchaseInvoice.aggregate([
+          { $match: purchaseInvoiceMatch },
+          { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
+        ]),
+        SaleInvoice.aggregate([
+          { $match: saleInvoiceMatch },
+          { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
+        ]),
+        PurchasePayment.aggregate([
+          { $match: purchasePaymentMatch },
+          { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
+        ]),
+        SalePayment.aggregate([
+          { $match: salePaymentMatch },
+          { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
+        ])
+      ])
+
+      const totalPurchaseInvoiceAmount = Number(purchaseInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
+      const totalSaleInvoiceAmount = Number(saleInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
+      const totalPaidAmount = Number(purchasePaymentAgg?.[0]?.totalPaymentAmount || 0)
+      const totalReceivedAmount = Number(salePaymentAgg?.[0]?.totalPaymentAmount || 0)
+
+      const purchasePayableAmount = totalPurchaseInvoiceAmount - totalPaidAmount
+      const saleReceivableAmount = totalSaleInvoiceAmount - totalReceivedAmount
+      const payableAmount = purchasePayableAmount - saleReceivableAmount
 
       rows.push({
         vendorId: vendor._id,
         payableAmount,
+        totalPurchaseInvoiceAmount,
+        totalSaleInvoiceAmount,
+        totalPaidAmount,
+        totalReceivedAmount,
+        purchasePayableAmount,
+        saleReceivableAmount,
         id: vendor.id,
         firstName: vendor.firstName,
         lastName: vendor.lastName,

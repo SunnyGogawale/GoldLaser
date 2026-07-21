@@ -92,6 +92,7 @@ function Payment() {
     description: '',
     attachments: []
   })
+  const [isPaymentAmountManuallyEdited, setIsPaymentAmountManuallyEdited] = useState(false)
 
   const [errors, setErrors] = useState({})
   const [formSubmitted, setFormSubmitted] = useState(false)
@@ -107,6 +108,7 @@ function Payment() {
 
   const [pendingInvoices, setPendingInvoices] = useState([])
   const [totalPending, setTotalPending] = useState(0)
+  const [availableCredit, setAvailableCredit] = useState(0)
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
   const [invoiceSearchText, setInvoiceSearchText] = useState('')
   const [invoiceInput, setInvoiceInput] = useState('')
@@ -336,6 +338,12 @@ function Payment() {
     return selectedAllocations.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   }, [selectedAllocations])
 
+  const billPaymentAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
+  const netAmountToPay = Math.max(0, Math.round((billPaymentAmount - (Number(availableCredit) || 0) + Number.EPSILON) * 100) / 100)
+  const adjustedBillPaymentAmount = netAmountToPay
+  const enteredPaymentAmount = Math.max(0, Number(paymentForm.amount) || 0)
+  const outstandingAmount = Math.round((enteredPaymentAmount - adjustedBillPaymentAmount + Number.EPSILON) * 100) / 100
+
   const handleInvoiceSelectionToggle = (invoiceId, checked, pendingAmount, defaultDescription = '') => {
     const id = String(invoiceId)
     setSelectedInvoiceIds((prev) => {
@@ -484,10 +492,12 @@ function Payment() {
       const data = await readJsonResponse(response, 'Error fetching pending invoices')
       setPendingInvoices(data.invoices || [])
       setTotalPending(Number(data.totalPending) || 0)
+      setAvailableCredit(Math.max(0, Number(data.availableCredit) || 0))
     } catch (err) {
       console.error('Error fetching pending invoices:', err)
       setPendingInvoices([])
       setTotalPending(0)
+      setAvailableCredit(0)
     }
   }
 
@@ -520,6 +530,7 @@ function Payment() {
     if (!paymentForm.clientId) {
       setPendingInvoices([])
       setTotalPending(0)
+      setAvailableCredit(0)
       setSelectedInvoiceIds([])
       setInvoicePaymentAmounts({})
       setInvoiceDescriptions({})
@@ -548,18 +559,27 @@ function Payment() {
   }, [pendingInvoices])
 
   useEffect(() => {
-    const nextAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
+    if (isPaymentAmountManuallyEdited) return
+    const nextAmount = netAmountToPay
     if ((Number(paymentForm.amount) || 0) === nextAmount) return
     setPaymentForm((prev) => ({ ...prev, amount: nextAmount }))
-  }, [selectedAllocationTotal])
+  }, [netAmountToPay, isPaymentAmountManuallyEdited, paymentForm.amount])
 
   const validateForm = () => {
     const newErrors = {}
 
     if (!paymentForm.clientId) newErrors.clientId = 'Please select a client'
     if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
-    const amount = Number(selectedAllocationTotal) || 0
-    if (!(amount > 0)) newErrors.amount = 'Select invoices and enter payment amounts greater than 0'
+    const amount = Number(paymentForm.amount) || 0
+    if (!(amount > 0)) {
+      newErrors.amount = 'Payment amount must be greater than 0'
+    } else {
+      const roundedAmount = Math.round((amount + Number.EPSILON) * 100) / 100
+      const minimumRequiredAmount = netAmountToPay
+      if (roundedAmount < minimumRequiredAmount) {
+        newErrors.amount = 'Payment amount cannot be less than adjusted bill amount after available credit'
+      }
+    }
 
     const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
     const selectedIds = Array.from(selectedInvoiceIdSet)
@@ -607,7 +627,7 @@ function Payment() {
         clientId: paymentForm.clientId,
         clientType: paymentForm.clientType,
         paymentDate: paymentForm.paymentDate,
-        amount: Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100,
+        amount: Math.round(((Number(paymentForm.amount) || 0) + Number.EPSILON) * 100) / 100,
         description: paymentForm.description || '',
         attachments: Array.isArray(paymentForm.attachments) ? paymentForm.attachments : [],
         invoiceOrder: orderedPendingInvoices.map((inv) => String(inv._id)),
@@ -640,6 +660,7 @@ function Payment() {
         description: '',
         attachments: []
       })
+      setIsPaymentAmountManuallyEdited(false)
       setPendingInvoiceOrder([])
       setSelectedInvoiceIds([])
       setInvoicePaymentAmounts({})
@@ -719,6 +740,7 @@ function Payment() {
       description: '',
       attachments: []
     })
+    setIsPaymentAmountManuallyEdited(false)
     setPendingInvoiceOrder([])
     setSelectedInvoiceIds([])
     setInvoicePaymentAmounts({})
@@ -753,6 +775,7 @@ function Payment() {
         description: data.description || '',
         attachments: Array.isArray(data.attachments) ? data.attachments : []
       })
+      setIsPaymentAmountManuallyEdited(true)
       setClientSearchText(clientName ? (companyName ? `${clientName} - ${companyName}` : clientName) : '')
       const allocs = Array.isArray(data.allocations) ? data.allocations : []
       const nextSelectedIds = []
@@ -793,6 +816,7 @@ function Payment() {
       description: '',
       attachments: []
     })
+    setIsPaymentAmountManuallyEdited(false)
     setPendingInvoiceOrder([])
     setSelectedInvoiceIds([])
     setInvoicePaymentAmounts({})
@@ -1417,6 +1441,7 @@ function Payment() {
                           setIsClientDropdownOpen(e.target.value.length > 0)
                           if (paymentForm.clientId) {
                             setPaymentForm(prev => ({ ...prev, clientId: '', clientType: 'Customer' }))
+                            setIsPaymentAmountManuallyEdited(false)
                           }
                           if (formSubmitted && errors.clientId) {
                             setErrors(prev => {
@@ -1464,6 +1489,7 @@ function Payment() {
                               key={client._id + client.type}
                               onClick={() => {
                                 setPaymentForm(prev => ({ ...prev, clientId: client._id, clientType: 'Customer' }))
+                                setIsPaymentAmountManuallyEdited(false)
                                 setClientSearchText(client.displayName || client.name || '')
                                 setIsClientDropdownOpen(false)
                               }}
@@ -1532,9 +1558,22 @@ function Payment() {
                     <input
                       type="number"
                       value={paymentForm.amount}
-                      readOnly
                       min="0"
                       step="0.01"
+                      onChange={(e) => {
+                        const sanitized = String(e.target.value || '').replace(/[^0-9.]/g, '')
+                        const parts = sanitized.split('.')
+                        const normalized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : sanitized
+                        setIsPaymentAmountManuallyEdited(true)
+                        setPaymentForm(prev => ({ ...prev, amount: normalized }))
+                        if (formSubmitted && errors.amount) {
+                          setErrors(prev => {
+                            const ne = { ...prev }
+                            delete ne.amount
+                            return ne
+                          })
+                        }
+                      }}
                       disabled={loading}
                       style={{
                         width: '100%',
@@ -1549,6 +1588,19 @@ function Payment() {
                     {formSubmitted && errors.amount && (
                       <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.amount}</p>
                     )}
+                    <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                      {Number(availableCredit) > 0 && (
+                        <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
+                          Available Credit: ₹{formatMoney(availableCredit)}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                        Bill Payment Amount: ₹{formatMoney(billPaymentAmount)}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                        Adjusted Bill Amount: ₹{formatMoney(adjustedBillPaymentAmount)}
+                      </div>
+                    </div>
                   </div>
                   <div style={{ flex: '1 1 280px' }}>
                     <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
@@ -1906,6 +1958,22 @@ function Payment() {
                             ₹{formatMoney(selectedAllocationTotal)}
                           </td>
                         </tr>
+                        <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(22,163,74,0.08)' }}>
+                          <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                            Adjusted Bill Amount:
+                          </td>
+                          <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
+                            ₹{formatMoney(availableCredit)}
+                          </td>
+                        </tr>
+                        <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.06)' }}>
+                          <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                            Net Amount to Pay:
+                          </td>
+                          <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
+                            ₹{formatMoney(adjustedBillPaymentAmount)}
+                          </td>
+                        </tr>
                       </tfoot>
                     </table>
                   </div>
@@ -1926,7 +1994,7 @@ function Payment() {
                     fontSize: '0.875rem',
                     color: 'var(--text-header)'
                   }}>
-                    <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Payment Logic:</span> Select invoice rows and enter payment amount per row. Total payment is calculated automatically from selected rows.
+                    <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Payment Logic:</span> Select invoice rows and enter payment amount per row. Payment Amount auto-fills from selected rows and can be edited manually.
                   </div>
                 </div>
 
@@ -2093,6 +2161,7 @@ function Payment() {
                           description: '',
                           attachments: []
                         })
+                        setIsPaymentAmountManuallyEdited(false)
                         setPendingInvoiceOrder([])
                         setSelectedInvoiceIds([])
                         setInvoicePaymentAmounts({})

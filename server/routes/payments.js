@@ -160,10 +160,32 @@ async function getPaidAmountMapByInvoiceIds(invoiceIds, excludePaymentId) {
   return map;
 }
 
+async function getClientCreditBalance(clientId, clientType, excludePaymentId) {
+  const query = { clientId, clientType };
+  if (excludePaymentId) {
+    query._id = { $ne: excludePaymentId };
+  }
+
+  const rows = await Payment.find(query).select('amount allocations');
+  let balance = 0;
+
+  for (const row of rows) {
+    const paymentAmount = Number(row?.amount) || 0;
+    const allocationTotal = Array.isArray(row?.allocations)
+      ? row.allocations.reduce((sum, allocation) => sum + (Number(allocation?.amount) || 0), 0)
+      : 0;
+    balance += paymentAmount - allocationTotal;
+  }
+
+  return Math.round((balance + Number.EPSILON) * 100) / 100;
+}
+
 async function buildPendingInvoices(clientId, clientType, excludePaymentId) {
   const invoices = await Invoice.find({ clientId, clientType }).sort({ invoiceDate: 1, createdAt: 1 });
+  const creditBalance = await getClientCreditBalance(clientId, clientType, excludePaymentId);
+  const availableCredit = Math.max(0, creditBalance);
   if (invoices.length === 0) {
-    return { invoices: [], totalPending: 0 };
+    return { invoices: [], totalPending: 0, availableCredit };
   }
 
   const invoiceIds = invoices.map(i => i._id);
@@ -194,7 +216,7 @@ async function buildPendingInvoices(clientId, clientType, excludePaymentId) {
     });
   }
 
-  return { invoices: result, totalPending };
+  return { invoices: result, totalPending, availableCredit };
 }
 
 async function allocatePaymentToInvoices({ clientId, clientType, amount, excludePaymentId, invoiceOrder }) {
@@ -621,6 +643,20 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }
 
+    const creditBalance = await getClientCreditBalance(clientId, clientType);
+    const availableCredit = Math.max(0, creditBalance);
+    const roundedEnteredAmount = Math.round((amount + Number.EPSILON) * 100) / 100;
+    const finalAmount = requestedAllocations.length > 0 ? roundedEnteredAmount : appliedAmount;
+    if (!(finalAmount > 0)) {
+      return res.status(400).json({ message: 'Payment amount must be greater than 0' });
+    }
+    if (requestedAllocations.length > 0) {
+      const minRequiredAmount = Math.max(0, Math.round((appliedAmount - availableCredit + Number.EPSILON) * 100) / 100);
+      if (finalAmount < minRequiredAmount) {
+        return res.status(400).json({ message: 'Payment amount cannot be less than adjusted bill amount after available credit' });
+      }
+    }
+
     const authUser = await getAuthUserInfo(req);
 
     const payment = new Payment({
@@ -628,7 +664,7 @@ router.post('/', async (req, res) => {
       clientId,
       clientType,
       paymentDate,
-      amount: appliedAmount,
+      amount: finalAmount,
       description,
       allocations,
       attachments,
@@ -697,6 +733,20 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }
 
+    const creditBalance = await getClientCreditBalance(clientId, clientType, existing._id);
+    const availableCredit = Math.max(0, creditBalance);
+    const roundedEnteredAmount = Math.round((amount + Number.EPSILON) * 100) / 100;
+    const finalAmount = requestedAllocations.length > 0 ? roundedEnteredAmount : appliedAmount;
+    if (!(finalAmount > 0)) {
+      return res.status(400).json({ message: 'Payment amount must be greater than 0' });
+    }
+    if (requestedAllocations.length > 0) {
+      const minRequiredAmount = Math.max(0, Math.round((appliedAmount - availableCredit + Number.EPSILON) * 100) / 100);
+      if (finalAmount < minRequiredAmount) {
+        return res.status(400).json({ message: 'Payment amount cannot be less than adjusted bill amount after available credit' });
+      }
+    }
+
     const changes = [];
     const recordChange = (field, fromVal, toVal) => {
       const fromS = truncate(toShortString(normalizePaymentValue(field, fromVal)));
@@ -707,14 +757,14 @@ router.put('/:id', async (req, res) => {
     recordChange('clientId', existing.clientId, clientId);
     recordChange('clientType', existing.clientType, clientType);
     recordChange('paymentDate', existing.paymentDate, paymentDate);
-    recordChange('amount', existing.amount, appliedAmount);
+    recordChange('amount', existing.amount, finalAmount);
     recordChange('description', existing.description, description);
     recordChange('attachments', existing.attachments, attachments);
 
     existing.clientId = clientId;
     existing.clientType = clientType;
     existing.paymentDate = paymentDate;
-    existing.amount = appliedAmount;
+    existing.amount = finalAmount;
     existing.description = description;
     existing.allocations = allocations;
     existing.attachments = attachments;
