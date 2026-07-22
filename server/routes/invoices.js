@@ -5,6 +5,7 @@ const Invoice = require('../models/SaleInvoice');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
+const { sendErrorResponse } = require('../utils/errorHandler');
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -151,7 +152,7 @@ router.get('/next-number', async (req, res) => {
     const generatedId = await getNextInvoiceNumber();
     res.json({ nextNumber: generatedId });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'invoices.nextNumber');
   }
 });
 
@@ -165,7 +166,7 @@ router.post('/bulk-delete', async (req, res) => {
     const deleted = await Invoice.deleteMany({ _id: { $in: ids } });
     res.json({ deletedCount: deleted.deletedCount || 0 });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'invoices.bulkDelete');
   }
 });
 
@@ -295,8 +296,7 @@ router.get('/', async (req, res) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'invoices.list');
   }
 });
 
@@ -325,7 +325,7 @@ router.get('/detail/:id', async (req, res) => {
     // We'll skip the activity/save part for brevity, assuming it's handled elsewhere
     res.json(invoice);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'invoices.detail');
   }
 });
 
@@ -335,7 +335,7 @@ router.get('/:id', async (req, res) => {
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
     res.json(invoice);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'invoices.get');
   }
 });
 
@@ -424,7 +424,7 @@ router.post('/', async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ message: 'Invoice number must be unique. An invoice with this number already exists.' });
     }
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'invoices.create');
   }
 });
 
@@ -493,7 +493,7 @@ router.put('/:id', async (req, res) => {
     const invoice = await Invoice.findByIdAndUpdate(req.params.id, updateOp, { new: true });
     res.json(invoice);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'invoices.update');
   }
 });
 
@@ -503,7 +503,7 @@ router.delete('/:id', async (req, res) => {
     await Invoice.findByIdAndDelete(req.params.id);
     res.json({ message: 'Invoice deleted' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'invoices.delete');
   }
 });
 

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const router = express.Router()
 const User = require('../models/User')
+const { sendErrorResponse } = require('../utils/errorHandler')
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || ''
@@ -54,7 +55,7 @@ router.get('/me', requireAuth, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' })
     return res.json({ user })
   } catch (err) {
-    return res.status(500).json({ message: err.message })
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.me')
   }
 })
 
@@ -80,7 +81,7 @@ router.put('/me', requireAuth, async (req, res) => {
     if (err?.code === 11000) {
       return res.status(400).json({ message: 'Email must be unique' })
     }
-    return res.status(500).json({ message: err.message })
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.me.update')
   }
 })
 
@@ -105,7 +106,7 @@ router.put('/me/password', requireAuth, async (req, res) => {
 
     return res.json({ message: 'Password updated' })
   } catch (err) {
-    return res.status(500).json({ message: err.message })
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.me.password')
   }
 })
 
@@ -114,7 +115,7 @@ router.get('/', requireAdmin, async (req, res) => {
     const users = await User.find({}, { password: 0 }).sort({ createdAt: -1 })
     res.json({ users })
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.list')
   }
 })
 
@@ -151,7 +152,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (err?.code === 11000) {
       return res.status(400).json({ message: 'Email must be unique' })
     }
-    return res.status(500).json({ message: err.message })
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.update')
   }
 })
 
@@ -178,7 +179,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     await User.findByIdAndDelete(targetId)
     return res.json({ message: 'User deleted' })
   } catch (err) {
-    return res.status(500).json({ message: err.message })
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.delete')
   }
 })
 
@@ -203,7 +204,7 @@ router.put('/:id/password', requireAdmin, async (req, res) => {
 
     return res.json({ message: 'Password updated' })
   } catch (err) {
-    return res.status(500).json({ message: err.message })
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.password')
   }
 })
 

@@ -7,6 +7,7 @@ const Invoice = require('../models/PurchaseInvoice');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
+const { sendErrorResponse } = require('../utils/errorHandler');
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 
@@ -349,7 +350,7 @@ router.get('/next-number', async (req, res) => {
     const nextNumber = await getNextPaymentNumber();
     res.json({ nextNumber });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'purchasePayments.nextNumber');
   }
 });
 
@@ -371,7 +372,7 @@ router.get('/pending', async (req, res) => {
     const data = await buildPendingInvoices(clientId, clientType, excludePaymentId);
     res.json(data);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'purchasePayments.pending');
   }
 });
 
@@ -500,7 +501,7 @@ router.get('/', async (req, res) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'purchasePayments.list');
   }
 });
 
@@ -568,7 +569,7 @@ router.get('/detail/:id', async (req, res) => {
     }
     res.json(payment);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'purchasePayments.detail');
   }
 });
 
@@ -617,7 +618,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json(payment);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'purchasePayments.get');
   }
 });
 
@@ -701,7 +702,7 @@ router.post('/', async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ message: 'Payment number must be unique. A payment with this number already exists.' });
     }
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'purchasePayments.create');
   }
 });
 
@@ -803,7 +804,7 @@ router.put('/:id', async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ message: 'Payment number must be unique. A payment with this number already exists.' });
     }
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'purchasePayments.update');
   }
 });
 
@@ -818,7 +819,7 @@ router.post('/bulk-delete', requireAdmin, async (req, res) => {
     await Payment.deleteMany({ _id: { $in: validIds } });
     res.json({ message: 'Payments deleted', deletedCount: validIds.length });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'purchasePayments.bulkDelete');
   }
 });
 
@@ -828,7 +829,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     await Payment.findByIdAndDelete(req.params.id);
     res.json({ message: 'Payment deleted' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'purchasePayments.delete');
   }
 });
 

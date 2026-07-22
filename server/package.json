@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node index.js",
+    "seed:customers": "node scripts/add_dummy_customers.js",
+    "seed:admin": "node scripts/create_admin_v2.js",
+    "cleanup:customers": "node scripts/delete_all_customers.js",
+    "test:agg": "node scripts/test_agg.js"
   },
   "keywords": [],
   "author": "",

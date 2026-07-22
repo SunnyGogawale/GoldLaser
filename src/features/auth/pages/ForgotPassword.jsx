@@ -8,8 +8,8 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
-import MotionButton from '../components/MotionButton'
-import { showSuccessToast } from '../utils/toast'
+import MotionButton from '../../../components/MotionButton'
+import { handleApiError,showSuccessToast } from '../../../utils/toast'
 
 const ForgotPassword = ({ theme, toggleTheme }) => {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ const ForgotPassword = ({ theme, toggleTheme }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     // Handle password reset logic here
-    showSuccessToast('Password reset link sent to your email!');
+    handleApiError('Kindly check with your admin for password reset.');
     navigate('/login');
   };
 

@@ -7,6 +7,7 @@ const SaleInvoice = require('../models/SaleInvoice');
 const SalePayment = require('../models/SalePayment');
 const PurchaseInvoice = require('../models/PurchaseInvoice');
 const PurchasePayment = require('../models/PurchasePayment');
+const { sendErrorResponse } = require('../utils/errorHandler');
 
 function saleInvoicePaidLookupStage() {
   return {
@@ -125,8 +126,7 @@ router.get('/summary', async (req, res) => {
       totalPendingAmount
     });
   } catch (err) {
-    console.error('Error fetching dashboard summary:', err);
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'dashboard.summary');
   }
 });
 
@@ -228,8 +228,7 @@ router.get('/customer-overview', async (req, res) => {
 
     res.json({ customers: rows })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'dashboard.customerOverview');
   }
 })
 
@@ -331,8 +330,7 @@ router.get('/vendor-overview', async (req, res) => {
 
     res.json({ vendors: rows })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'dashboard.vendorOverview');
   }
 });
 

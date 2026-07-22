@@ -8,6 +8,7 @@ const SalePayment = require('../models/SalePayment');
 const PurchaseInvoice = require('../models/PurchaseInvoice');
 const PurchasePayment = require('../models/PurchasePayment');
 const User = require('../models/User');
+const { sendErrorResponse } = require('../utils/errorHandler');
 
 async function getCustomerOutstanding(customerId) {
   try {
@@ -194,7 +195,7 @@ router.get('/next-id', async (req, res) => {
     const generatedId = await getNextCustomerId();
     res.json({ nextId: generatedId });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customers.nextId');
   }
 });
 
@@ -258,7 +259,7 @@ router.get('/', async (req, res) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customers.list');
   }
 });
 
@@ -353,7 +354,7 @@ router.get('/:id/statement', async (req, res) => {
       transactions
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customers.statement');
   }
 });
 
@@ -399,7 +400,7 @@ router.get('/:id', async (req, res) => {
     customerObj.outstanding = await getCustomerOutstanding(customer._id);
     res.json(customerObj);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customers.get');
   }
 });
 
@@ -446,7 +447,7 @@ router.post('/', async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ message: 'Customer ID must be unique. A customer with this ID already exists.' });
     }
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'customers.create');
   }
 });
 
@@ -511,7 +512,7 @@ router.put('/:id', async (req, res) => {
     const customer = await Customer.findByIdAndUpdate(req.params.id, updateOp, { new: true });
     res.json(customer);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'customers.update');
   }
 });
 
@@ -603,7 +604,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customers.delete');
   }
 });
 

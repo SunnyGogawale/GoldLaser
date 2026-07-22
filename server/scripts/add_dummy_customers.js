@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Customer = require('./models/Customer');
+const Customer = require('../models/Customer');
 require('dotenv').config();
 
 const dummyCustomers = [];
@@ -10,7 +10,7 @@ const cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Phi
 async function getNextCustomerId() {
   const customers = await Customer.find({}, 'id');
   let maxId = 0;
-  
+
   for (const customer of customers) {
     if (customer.id && customer.id.startsWith('CUST')) {
       const idNumber = parseInt(customer.id.replace('CUST', ''), 10);
@@ -19,7 +19,7 @@ async function getNextCustomerId() {
       }
     }
   }
-  
+
   return `CUST${maxId + 1}`;
 }
 
@@ -33,7 +33,7 @@ async function addDummyCustomers() {
       const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
       const city = cities[Math.floor(Math.random() * cities.length)];
       const id = await getNextCustomerId();
-      
+
       dummyCustomers.push({
         id,
         customerName: `${firstName} ${lastName}`,

@@ -8,6 +8,7 @@ const PurchasePayment = require('../models/PurchasePayment');
 const SaleInvoice = require('../models/SaleInvoice');
 const SalePayment = require('../models/SalePayment');
 const User = require('../models/User');
+const { sendErrorResponse } = require('../utils/errorHandler');
 
 async function getVendorOutstanding(vendorId) {
   try {
@@ -194,7 +195,7 @@ router.get('/next-id', async (req, res) => {
     const generatedId = await getNextVendorId();
     res.json({ nextId: generatedId });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendors.nextId');
   }
 });
 
@@ -258,7 +259,7 @@ router.get('/', async (req, res) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendors.list');
   }
 });
 
@@ -349,7 +350,7 @@ router.get('/:id/statement', async (req, res) => {
       transactions
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendors.statement');
   }
 });
 
@@ -395,7 +396,7 @@ router.get('/:id', async (req, res) => {
     vendorObj.outstanding = await getVendorOutstanding(vendor._id);
     res.json(vendorObj);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendors.get');
   }
 });
 
@@ -442,7 +443,7 @@ router.post('/', async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ message: 'Vendor ID must be unique. A vendor with this ID already exists.' });
     }
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'vendors.create');
   }
 });
 
@@ -507,7 +508,7 @@ router.put('/:id', async (req, res) => {
     const vendor = await Vendor.findByIdAndUpdate(req.params.id, updateOp, { new: true });
     res.json(vendor);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'vendors.update');
   }
 });
 
@@ -599,7 +600,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendors.delete');
   }
 });
 

@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const { sanitizeErrorMessage, sendErrorResponse } = require('./utils/errorHandler');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
@@ -11,6 +12,25 @@ const REQUEST_BODY_LIMIT = '200mb';
 app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: REQUEST_BODY_LIMIT }));
 app.use(cors());
+
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    if (body && typeof body === 'object' && typeof body.message === 'string') {
+      const statusCode = typeof res.statusCode === 'number' ? res.statusCode : 500;
+      const shouldSanitize = statusCode >= 500 || /at\s+|\/Users\//.test(body.message) || /\/Applications\//.test(body.message) || /mongodb|mongoose|mongo|e11000|duplicate key|collection/i.test(body.message);
+      const safeMessage = sanitizeErrorMessage(body.message, 'Something went wrong. Please try again later.');
+
+      if (shouldSanitize && body.message !== safeMessage) {
+        console.error(`[${req.method} ${req.originalUrl}]`, body.message);
+      }
+
+      return originalJson({ ...body, message: shouldSanitize ? safeMessage : body.message });
+    }
+    return originalJson(body);
+  };
+  next();
+});
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -32,12 +52,12 @@ app.use('/api', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('Unhandled server error', err);
   if (res.headersSent) return next(err);
   const status = err.status || err.statusCode || 500;
-  res.status(status).json({
-    message: status >= 500 ? 'Internal server error' : err.message || 'Request failed'
-  });
+  if (status >= 500) {
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', status, 'unhandled');
+  }
+  return res.status(status).json({ message: sanitizeErrorMessage(err.message || 'Request failed', 'Request failed') });
 });
 
 // MongoDB Connection

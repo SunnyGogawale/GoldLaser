@@ -3,6 +3,7 @@ const router = express.Router()
 const CustomerCustomField = require('../models/CustomerCustomField')
 const Customer = require('../models/Customer')
 const CustomerFormSettings = require('../models/CustomerFormSettings')
+const { sendErrorResponse } = require('../utils/errorHandler')
 
 // Get all custom fields
 router.get('/', async (req, res) => {
@@ -10,7 +11,7 @@ router.get('/', async (req, res) => {
     const fields = await CustomerCustomField.find().sort({ createdAt: 1 })
     res.json(fields)
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customerCustomFields.list')
   }
 })
 
@@ -32,7 +33,7 @@ router.post('/', async (req, res) => {
     await customField.save()
     res.status(201).json(customField)
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customerCustomFields.create')
   }
 })
 
@@ -72,7 +73,7 @@ router.put('/:fieldName', async (req, res) => {
 
     res.json(updatedField)
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customerCustomFields.rename')
   }
 })
 
@@ -95,7 +96,7 @@ router.delete('/:fieldName', async (req, res) => {
     
     res.json({ message: 'Custom field deleted successfully' })
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customerCustomFields.delete')
   }
 })
 
@@ -105,7 +106,7 @@ router.get('/field-order', async (req, res) => {
     const settings = await CustomerFormSettings.getSettings()
     res.json({ fieldOrder: settings.fieldOrder })
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customerCustomFields.fieldOrder.get')
   }
 })
 
@@ -121,7 +122,7 @@ router.put('/field-order', async (req, res) => {
     await settings.save()
     res.json({ fieldOrder: settings.fieldOrder })
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customerCustomFields.fieldOrder.update')
   }
 })
 

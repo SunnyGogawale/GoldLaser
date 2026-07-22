@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const Invoice = require('../models/SaleInvoice');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
+const { sendErrorResponse } = require('../utils/errorHandler');
 
 function parseDateStart(value) {
   if (!value) return null;
@@ -218,7 +219,7 @@ router.get('/invoice-summary', async (req, res) => {
       totalPages: Math.ceil(totals.total / limit)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'reports.invoiceSummary');
   }
 });
 
@@ -296,7 +297,7 @@ router.get('/sales', async (req, res) => {
       totalPages: Math.ceil(totals.total / limit)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'reports.sales');
   }
 });
 

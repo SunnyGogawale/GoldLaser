@@ -1,5 +1,15 @@
 import { showErrorToast } from './toast'
 
+export const sanitizeClientErrorMessage = (message, fallbackMessage = 'An error occurred') => {
+  if (typeof message !== 'string') return fallbackMessage
+  const cleaned = message.trim()
+  if (!cleaned) return fallbackMessage
+  if (/stack trace|traceback|at\s+/.test(cleaned) || /\/Users\//.test(cleaned) || /\/Applications\//.test(cleaned) || /mongodb|mongoose|mongo|e11000|duplicate key|collection/i.test(cleaned)) {
+    return fallbackMessage
+  }
+  return cleaned
+}
+
 export const readJsonResponse = async (response, fallbackMessage) => {
   const raw = await response.text()
   let data = null
@@ -11,7 +21,8 @@ export const readJsonResponse = async (response, fallbackMessage) => {
   }
 
   if (!response.ok) {
-    throw new Error(data?.message || raw || fallbackMessage || `Request failed (${response.status})`)
+    const safeMessage = sanitizeClientErrorMessage(data?.message || raw || fallbackMessage || `Request failed (${response.status})`, fallbackMessage)
+    throw new Error(safeMessage)
   }
 
   return data || {}
@@ -21,9 +32,9 @@ export const readErrorMessage = async (response, fallbackMessage) => {
   const raw = await response.text().catch(() => '')
   try {
     const data = raw ? JSON.parse(raw) : null
-    return data?.message || raw || fallbackMessage
+    return sanitizeClientErrorMessage(data?.message || raw || fallbackMessage, fallbackMessage)
   } catch {
-    return raw || fallbackMessage
+    return sanitizeClientErrorMessage(raw || fallbackMessage, fallbackMessage)
   }
 }
 

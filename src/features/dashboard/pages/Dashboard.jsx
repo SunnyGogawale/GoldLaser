@@ -29,11 +29,11 @@ import {
   AreaChart,
   Area
 } from 'recharts'
-import EmptyDataCard from '../components/EmptyDataCard'
-import { getAuthToken, getAuthValue } from '../utils/authStorage'
-import { readJsonResponse } from '../utils/api'
-import MotionButton from '../components/MotionButton'
-import { handleApiError } from '../utils/toast'
+import EmptyDataCard from '../../../components/EmptyDataCard'
+import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
+import { readJsonResponse } from '../../../utils/api'
+import MotionButton from '../../../components/MotionButton'
+import { handleApiError } from '../../../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 

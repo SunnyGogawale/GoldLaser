@@ -17,13 +17,24 @@ export const showSuccessToast = (message, options = {}) => {
   })
 }
 
+const sanitizeToastMessage = (message, fallbackMessage = 'An error occurred. Please try again.') => {
+  if (typeof message !== 'string') return fallbackMessage
+  const cleaned = message.trim()
+  if (!cleaned) return fallbackMessage
+  if (/stack trace|traceback|at\s+/.test(cleaned) || /\/Users\//.test(cleaned) || /\/Applications\//.test(cleaned) || /mongodb|mongoose|mongo|e11000|duplicate key|collection/i.test(cleaned)) {
+    return fallbackMessage
+  }
+  return cleaned
+}
+
 /**
  * Show an error toast notification
  * @param {string} message - The message to display
  * @param {object} options - Additional toast options
  */
 export const showErrorToast = (message, options = {}) => {
-  toast.error(message, {
+  const safeMessage = sanitizeToastMessage(message, 'An error occurred. Please try again.')
+  toast.error(safeMessage, {
     position: 'top-right',
     autoClose: 4000,
     hideProgressBar: false,
@@ -86,6 +97,7 @@ export const handleApiError = (error, fallbackMessage = 'An error occurred. Plea
     message = error
   }
 
-  showErrorToast(message)
-  return message
+  const safeMessage = sanitizeToastMessage(message, fallbackMessage)
+  showErrorToast(safeMessage)
+  return safeMessage
 }

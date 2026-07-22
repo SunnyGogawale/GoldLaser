@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, FileText, Image as ImageIcon, MoreHorizontal, Download } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import EmptyDataCard from '../components/EmptyDataCard';
-import { getAuthToken, getAuthValue } from '../utils/authStorage';
+import EmptyDataCard from '../../../components/EmptyDataCard';
+import { getAuthToken, getAuthValue } from '../../../utils/authStorage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import MotionButton from '../components/MotionButton'
-import ActionMenuPortal from '../components/ActionMenuPortal'
-import { getActionDropdownPosition } from '../utils/dropdownPosition'
-import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
+import MotionButton from '../../../components/MotionButton'
+import ActionMenuPortal from '../../../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
+import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/purchase-invoices`;

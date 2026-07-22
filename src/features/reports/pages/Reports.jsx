@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { FileText, TrendingUp } from 'lucide-react'
-import EmptyDataCard from '../components/EmptyDataCard'
-import MotionButton from '../components/MotionButton'
-import { handleApiError } from '../utils/toast'
+import EmptyDataCard from '../../../components/EmptyDataCard'
+import MotionButton from '../../../components/MotionButton'
+import { handleApiError } from '../../../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORTS_API_URL = `${API_BASE_URL}/api/reports`

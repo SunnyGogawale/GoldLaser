@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
-const Invoice = require('./models/Invoice');
+const Invoice = require('../models/Invoice');
 
 async function test() {
   await mongoose.connect('mongodb://localhost:27017/goldflow');

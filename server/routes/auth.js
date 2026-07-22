@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { sendErrorResponse } = require('../utils/errorHandler');
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -65,8 +66,10 @@ router.post('/signup', async (req, res) => {
       payload,
       process.env.JWT_SECRET,
       { expiresIn: '1h' },
-      (err, token) => {
-        if (err) throw err;
+      (tokenErr, token) => {
+        if (tokenErr) {
+          return sendErrorResponse(res, tokenErr, 'Something went wrong. Please try again later.', 500, 'auth.signup');
+        }
         const userObj = user.toObject();
         const responseData = { 
           token, 
@@ -78,12 +81,11 @@ router.post('/signup', async (req, res) => {
           } 
         };
         console.log('DEBUG: Final responseData.user:', responseData.user);
-        res.json(responseData);
+        return res.json(responseData);
       }
     );
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.signup');
   }
 });
 
@@ -125,8 +127,10 @@ router.post('/signin', async (req, res) => {
       payload,
       process.env.JWT_SECRET,
       { expiresIn: '1h' },
-      (err, token) => {
-        if (err) throw err;
+      (tokenErr, token) => {
+        if (tokenErr) {
+          return sendErrorResponse(res, tokenErr, 'Something went wrong. Please try again later.', 500, 'auth.signin');
+        }
         const userObj = user.toObject();
         const responseData = { 
           token, 
@@ -138,12 +142,11 @@ router.post('/signin', async (req, res) => {
           } 
         };
         console.log('DEBUG: Final responseData.user:', responseData.user);
-        res.json(responseData);
+        return res.json(responseData);
       }
     );
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.signin');
   }
 });
 
@@ -154,7 +157,7 @@ router.get('/me', requireAuth, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     return res.json({ user });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.me');
   }
 });
 
@@ -180,7 +183,7 @@ router.put('/me', requireAuth, async (req, res) => {
     if (err?.code === 11000) {
       return res.status(400).json({ message: 'Email must be unique' });
     }
-    return res.status(500).json({ message: err.message });
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.me.update');
   }
 });
 
@@ -205,7 +208,7 @@ router.put('/me/password', requireAuth, async (req, res) => {
 
     return res.json({ message: 'Password updated' });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.me.password');
   }
 });
 

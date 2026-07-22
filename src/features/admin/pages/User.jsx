@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Edit2, Trash2, X, MoreVertical } from 'lucide-react'
-import EmptyDataCard from '../components/EmptyDataCard'
-import { getAuthToken, getAuthValue } from '../utils/authStorage'
-import MotionButton from '../components/MotionButton'
-import ActionMenuPortal from '../components/ActionMenuPortal'
-import { getActionDropdownPosition } from '../utils/dropdownPosition'
-import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
+import EmptyDataCard from '../../../components/EmptyDataCard'
+import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
+import MotionButton from '../../../components/MotionButton'
+import ActionMenuPortal from '../../../components/ActionMenuPortal'
+import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
+import { sanitizeClientErrorMessage } from '../../../utils/api'
+import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -49,7 +50,7 @@ function User() {
       })
       if (!response.ok) {
         const text = await response.text()
-        throw new Error(text || `Request failed (${response.status})`)
+        throw new Error(sanitizeClientErrorMessage(text || `Request failed (${response.status})`, 'Failed to load users'))
       }
       const data = await response.json()
       setUsers(Array.isArray(data.users) ? data.users : [])
@@ -119,7 +120,7 @@ function User() {
         })
         if (!passRes.ok) {
           const text = await passRes.text()
-          throw new Error(text || `Request failed (${passRes.status})`)
+          throw new Error(sanitizeClientErrorMessage(text || `Request failed (${passRes.status})`, 'Failed to update user'))
         }
       }
 
@@ -137,7 +138,7 @@ function User() {
       })
       if (!response.ok) {
         const text = await response.text()
-        throw new Error(text || `Request failed (${response.status})`)
+        throw new Error(sanitizeClientErrorMessage(text || `Request failed (${response.status})`, 'Failed to update user'))
       }
       closeEdit()
       await fetchUsers()
@@ -161,7 +162,7 @@ function User() {
       })
       if (!response.ok) {
         const text = await response.text()
-        throw new Error(text || `Request failed (${response.status})`)
+        throw new Error(sanitizeClientErrorMessage(text || `Request failed (${response.status})`, 'Failed to delete user'))
       }
       await fetchUsers()
     } catch (err) {

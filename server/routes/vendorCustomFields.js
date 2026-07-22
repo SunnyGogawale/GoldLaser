@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const VendorCustomField = require('../models/VendorCustomField')
 const Vendor = require('../models/Vendor')
+const { sendErrorResponse } = require('../utils/errorHandler')
 
 // Get all custom fields
 router.get('/', async (req, res) => {
@@ -9,7 +10,7 @@ router.get('/', async (req, res) => {
     const fields = await VendorCustomField.find().sort({ createdAt: 1 })
     res.json(fields)
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendorCustomFields.list')
   }
 })
 
@@ -31,7 +32,7 @@ router.post('/', async (req, res) => {
     await customField.save()
     res.status(201).json(customField)
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendorCustomFields.create')
   }
 })
 
@@ -71,7 +72,7 @@ router.put('/:fieldName', async (req, res) => {
 
     res.json(updatedField)
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendorCustomFields.rename')
   }
 })
 
@@ -94,7 +95,7 @@ router.delete('/:fieldName', async (req, res) => {
     
     res.json({ message: 'Custom field deleted successfully' })
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'vendorCustomFields.delete')
   }
 })
 

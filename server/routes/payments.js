@@ -345,7 +345,7 @@ router.get('/next-number', async (req, res) => {
     const nextNumber = await getNextPaymentNumber();
     res.json({ nextNumber });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'payments.nextNumber');
   }
 });
 
@@ -361,7 +361,7 @@ router.get('/pending', async (req, res) => {
     const data = await buildPendingInvoices(clientId, clientType, excludePaymentId);
     res.json(data);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'payments.pending');
   }
 });
 
@@ -490,7 +490,7 @@ router.get('/', async (req, res) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'payments.list');
   }
 });
 
@@ -557,7 +557,7 @@ router.get('/detail/:id', async (req, res) => {
     }
     res.json(payment);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'payments.detail');
   }
 });
 
@@ -605,7 +605,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json(payment);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'payments.get');
   }
 });
 
@@ -688,7 +688,7 @@ router.post('/', async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ message: 'Payment number must be unique. A payment with this number already exists.' });
     }
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'payments.create');
   }
 });
 
@@ -788,7 +788,7 @@ router.put('/:id', async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ message: 'Payment number must be unique. A payment with this number already exists.' });
     }
-    res.status(400).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'payments.update');
   }
 });
 
@@ -802,7 +802,7 @@ router.post('/bulk-delete', requireAdmin, async (req, res) => {
     await Payment.deleteMany({ _id: { $in: ids } });
     res.json({ message: 'Payments deleted', deletedCount: ids.length });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'payments.bulkDelete');
   }
 });
 
@@ -811,7 +811,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     await Payment.findByIdAndDelete(req.params.id);
     res.json({ message: 'Payment deleted' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'payments.delete');
   }
 });
 
