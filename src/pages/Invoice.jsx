@@ -251,6 +251,7 @@ function Invoice() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortColumn, setSortColumn] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin';
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoInvoice, setInfoInvoice] = useState(null);
@@ -1382,6 +1383,7 @@ function Invoice() {
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.message || 'Error deleting invoice');
         }
+        setSelectedInvoiceIds(prev => prev.filter((selectedId) => selectedId !== id));
         await fetchInvoices(currentPage);
         showSuccessToast('Invoice deleted successfully!');
         return true;
@@ -1392,6 +1394,56 @@ function Invoice() {
     }
 
     return false;
+  };
+
+  const toggleInvoiceSelection = (id) => {
+    setSelectedInvoiceIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter((selectedId) => selectedId !== id);
+      }
+      return [...prev, id];
+    });
+  };
+
+  const toggleSelectAllVisibleInvoices = () => {
+    const visibleIds = invoices.map((invoice) => invoice._id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedInvoiceIds.includes(id));
+    if (allVisibleSelected) {
+      setSelectedInvoiceIds(prev => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedInvoiceIds(prev => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleBulkDeleteInvoices = async () => {
+    if (selectedInvoiceIds.length === 0) return;
+
+    if (!window.confirm(`Delete ${selectedInvoiceIds.length} selected invoice(s)?`)) {
+      return;
+    }
+
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/bulk-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ ids: selectedInvoiceIds })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || 'Error deleting selected invoices');
+      }
+
+      setSelectedInvoiceIds([]);
+      await fetchInvoices(1, searchQuery, sortColumn, sortOrder);
+      showSuccessToast(`Deleted ${selectedInvoiceIds.length} invoice(s) successfully.`);
+    } catch (err) {
+      handleApiError(err, 'Error deleting selected invoices');
+    }
   };
 
   return (
@@ -2100,18 +2152,18 @@ function Invoice() {
                           onClick={openAttachmentPicker}
                           disabled={loading}
                           style={{
-                          marginTop: '0.2rem',
-                          padding: '0.4rem 1rem',
-                          borderRadius: '10px',
-                          background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '0.8rem',
-                          boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
-                          border: 'none',
-                          cursor: loading ? 'not-allowed' : 'pointer',
-                          opacity: loading ? 0.7 : 1
-                        }}
+                            marginTop: '0.2rem',
+                            padding: '0.4rem 1rem',
+                            borderRadius: '10px',
+                            background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
+                            border: 'none',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.7 : 1
+                          }}
                         >
                           Browse Files
                         </MotionButton>
@@ -2300,6 +2352,46 @@ function Invoice() {
             <EmptyDataCard />
           ) : (
             <div>
+              {selectedInvoiceIds.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
+                    {selectedInvoiceIds.length} selected
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <MotionButton
+                      onClick={handleBulkDeleteInvoices}
+                      style={{
+                        padding: '0.45rem 0.8rem',
+                        background: 'var(--danger)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontSize: '0.82rem'
+                      }}
+                    >
+                      <Trash2 size={14} style={{ marginRight: '0.3rem' }} />
+                      Delete Selected
+                    </MotionButton>
+                    <MotionButton
+                      onClick={() => setSelectedInvoiceIds([])}
+                      style={{
+                        padding: '0.45rem 0.8rem',
+                        background: 'var(--bg-main)',
+                        color: 'var(--text-header)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontSize: '0.82rem'
+                      }}
+                    >
+                      Clear
+                    </MotionButton>
+                  </div>
+                </div>
+              )}
               {/* Mobile/Tablet Card View */}
               {isMobile ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -2318,24 +2410,32 @@ function Invoice() {
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontSize: '1rem',
-                              fontWeight: 800,
-                              color: 'var(--text-header)',
-                              marginBottom: '0.25rem'
-                            }}>
-                              {invoice.invoiceNumber || '-'}
-                            </div>
-                            <div style={{
-                              fontSize: '0.875rem',
-                              color: 'var(--text-muted)',
-                              fontWeight: 600,
-                              whiteSpace: 'normal',
-                              overflowWrap: 'anywhere',
-                              wordBreak: 'break-word'
-                            }}>
-                              {label}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedInvoiceIds.includes(invoice._id)}
+                              onChange={() => toggleInvoiceSelection(invoice._id)}
+                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontSize: '1rem',
+                                fontWeight: 800,
+                                color: 'var(--text-header)',
+                                marginBottom: '0.25rem'
+                              }}>
+                                {invoice.invoiceNumber || '-'}
+                              </div>
+                              <div style={{
+                                fontSize: '0.875rem',
+                                color: 'var(--text-muted)',
+                                fontWeight: 600,
+                                whiteSpace: 'normal',
+                                overflowWrap: 'anywhere',
+                                wordBreak: 'break-word'
+                              }}>
+                                {label}
+                              </div>
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', position: 'relative' }}>
@@ -2422,6 +2522,14 @@ function Invoice() {
                   <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        <th style={{ width: '4%', textAlign: 'center', padding: '0.35rem 0.25rem', color: 'var(--text-header)', fontWeight: 700 }}>
+                          <input
+                            type="checkbox"
+                            checked={invoices.length > 0 && invoices.every((invoice) => selectedInvoiceIds.includes(invoice._id))}
+                            onChange={toggleSelectAllVisibleInvoices}
+                            style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                          />
+                        </th>
                         <th
                           onClick={() => handleSort('invoiceNumber')}
                           style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
@@ -2461,6 +2569,14 @@ function Invoice() {
 
                         return (
                           <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ width: '4%', textAlign: 'center', padding: '0.35rem 0.25rem', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedInvoiceIds.includes(invoice._id)}
+                                onChange={() => toggleInvoiceSelection(invoice._id)}
+                                style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                              />
+                            </td>
                             <td style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
                               {truncateText(invoice.invoiceNumber || '')}
                             </td>
@@ -2808,193 +2924,193 @@ function Invoice() {
             const attachmentMenuItems = getAttachmentMenuItems(dropdownInvoice.attachments || []);
 
             return (
-          <div
-            ref={dropdownRef}
-            style={{
-              position: 'fixed',
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: 99999,
-              minWidth: '220px',
-              maxWidth: '260px',
-              maxHeight: 'min(320px, 70vh)',
-              overflowY: 'auto'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MotionButton
-              onClick={(e) => {
-                e.stopPropagation();
-                setInfoInvoice(dropdownInvoice);
-                setInfoOpen(true);
-                closeActionDropdown();
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '0.375rem 0.75rem',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-header)',
-                fontSize: '0.875rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <Eye size={14} />
-              View
-            </MotionButton>
-            <MotionButton
-              onClick={(e) => {
-                e.stopPropagation();
-                if (attachmentMenuItems.length > 0) {
-                  setAttachmentsMenuOpen(prev => !prev);
-                }
-              }}
-              disabled={attachmentMenuItems.length === 0}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '0.375rem 0.75rem',
-                background: attachmentsMenuOpen ? 'var(--bg-main)' : 'transparent',
-                border: 'none',
-                cursor: attachmentMenuItems.length === 0 ? 'not-allowed' : 'pointer',
-                color: attachmentMenuItems.length === 0 ? 'var(--text-muted)' : 'var(--text-header)',
-                fontSize: '0.875rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '0.5rem',
-                transition: 'all 0.2s',
-                opacity: attachmentMenuItems.length === 0 ? 0.7 : 1
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <ImageIcon size={14} />
-                View Attachments
-              </span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-                {attachmentMenuItems.length}
-              </span>
-            </MotionButton>
-            {attachmentsMenuOpen && attachmentMenuItems.length > 0 && (
-              <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '0.35rem 0' }}>
-                {attachmentMenuItems.map(({ attachment, label }, index) => (
-                  <MotionButton
-                    key={`${attachment.name || 'attachment'}-${index}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openAttachmentPreview(attachment);
-                    }}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '0.45rem 0.75rem',
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--text-header)',
-                      fontSize: '0.84rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      transition: 'all 0.2s'
-                    }}
-                    title={attachment.name || label}
-                  >
-                    {isImageAttachment(attachment) ? <ImageIcon size={13} /> : <FileText size={13} />}
-                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
-                      <span>{label}</span>
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
-                        {attachment.name || 'Unnamed file'}
-                      </span>
-                    </span>
-                  </MotionButton>
-                ))}
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: 'fixed',
+                  top: dropdownPosition.top,
+                  left: dropdownPosition.left,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  zIndex: 99999,
+                  minWidth: '220px',
+                  maxWidth: '260px',
+                  maxHeight: 'min(320px, 70vh)',
+                  overflowY: 'auto'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInfoInvoice(dropdownInvoice);
+                    setInfoOpen(true);
+                    closeActionDropdown();
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-header)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Eye size={14} />
+                  View
+                </MotionButton>
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (attachmentMenuItems.length > 0) {
+                      setAttachmentsMenuOpen(prev => !prev);
+                    }
+                  }}
+                  disabled={attachmentMenuItems.length === 0}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: attachmentsMenuOpen ? 'var(--bg-main)' : 'transparent',
+                    border: 'none',
+                    cursor: attachmentMenuItems.length === 0 ? 'not-allowed' : 'pointer',
+                    color: attachmentMenuItems.length === 0 ? 'var(--text-muted)' : 'var(--text-header)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s',
+                    opacity: attachmentMenuItems.length === 0 ? 0.7 : 1
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ImageIcon size={14} />
+                    View Attachments
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                    {attachmentMenuItems.length}
+                  </span>
+                </MotionButton>
+                {attachmentsMenuOpen && attachmentMenuItems.length > 0 && (
+                  <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '0.35rem 0' }}>
+                    {attachmentMenuItems.map(({ attachment, label }, index) => (
+                      <MotionButton
+                        key={`${attachment.name || 'attachment'}-${index}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openAttachmentPreview(attachment);
+                        }}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '0.45rem 0.75rem',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--text-header)',
+                          fontSize: '0.84rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          transition: 'all 0.2s'
+                        }}
+                        title={attachment.name || label}
+                      >
+                        {isImageAttachment(attachment) ? <ImageIcon size={13} /> : <FileText size={13} />}
+                        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                          <span>{label}</span>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
+                            {attachment.name || 'Unnamed file'}
+                          </span>
+                        </span>
+                      </MotionButton>
+                    ))}
+                  </div>
+                )}
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditInvoice(dropdownInvoice);
+                    closeActionDropdown();
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-header)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Edit2 size={14} />
+                  Edit
+                </MotionButton>
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    generateInvoicePDF(dropdownInvoice);
+                    closeActionDropdown();
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-header)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Eye size={14} />
+                  View PDF
+                </MotionButton>
+                <MotionButton
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const deleted = await handleDeleteInvoice(dropdownInvoice._id);
+                    if (deleted) {
+                      closeActionDropdown();
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--danger)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </MotionButton>
               </div>
-            )}
-            <MotionButton
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEditInvoice(dropdownInvoice);
-                closeActionDropdown();
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '0.375rem 0.75rem',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-header)',
-                fontSize: '0.875rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <Edit2 size={14} />
-              Edit
-            </MotionButton>
-            <MotionButton
-              onClick={(e) => {
-                e.stopPropagation();
-                generateInvoicePDF(dropdownInvoice);
-                closeActionDropdown();
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '0.375rem 0.75rem',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-header)',
-                fontSize: '0.875rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <Eye size={14} />
-              View PDF
-            </MotionButton>
-            <MotionButton
-              onClick={async (e) => {
-                e.stopPropagation();
-                const deleted = await handleDeleteInvoice(dropdownInvoice._id);
-                if (deleted) {
-                  closeActionDropdown();
-                }
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '0.375rem 0.75rem',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--danger)',
-                fontSize: '0.875rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <Trash2 size={14} />
-              Delete
-            </MotionButton>
-          </div>
             )
           })()}
         </ActionMenuPortal>

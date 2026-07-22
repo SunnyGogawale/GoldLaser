@@ -120,6 +120,7 @@ function Payment() {
   const [invoiceDescriptions, setInvoiceDescriptions] = useState({})
 
   const [payments, setPayments] = useState([])
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState([])
   const [loading, setLoading] = useState(false)
   const [listLoading, setListLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -983,6 +984,72 @@ function Payment() {
     setFormOpen(false)
   }
 
+  const togglePaymentSelection = (id) => {
+    setSelectedPaymentIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter((selectedId) => selectedId !== id)
+      }
+      return [...prev, id]
+    })
+  }
+
+  const toggleSelectAllVisiblePayments = () => {
+    const visibleIds = payments.map((payment) => payment._id)
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedPaymentIds.includes(id))
+    if (allVisibleSelected) {
+      setSelectedPaymentIds(prev => prev.filter((id) => !visibleIds.includes(id)))
+    } else {
+      setSelectedPaymentIds(prev => Array.from(new Set([...prev, ...visibleIds])))
+    }
+  }
+
+  const handleBulkDeletePayments = async () => {
+    if (!isAdmin) {
+      showErrorToast('Only admin can delete.')
+      return
+    }
+    if (selectedPaymentIds.length === 0) return
+    if (!window.confirm(`Delete ${selectedPaymentIds.length} selected payment(s)?`)) return
+
+    try {
+      const token = getAuthToken()
+      if (!token) {
+        showErrorToast('Please login again.')
+        return
+      }
+
+      const response = await fetch(`${API_URL}/bulk-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ ids: selectedPaymentIds })
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearAuthSession()
+          showErrorToast('Session expired. Please login again.')
+          window.location.href = '/login'
+          return
+        }
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.message || 'Error deleting selected payments')
+      }
+
+      setSelectedPaymentIds([])
+      await fetchPayments(Math.max(1, currentPage), searchQuery, sortColumn, sortOrder)
+      if (paymentForm.clientId) {
+        await fetchPendingInvoices(paymentForm.clientId, paymentForm.clientType, editingPaymentId)
+      }
+      showSuccessToast(`Deleted ${selectedPaymentIds.length} payment(s) successfully.`)
+    } catch (err) {
+      console.error('Error deleting selected payments:', err)
+      alert(err.message || 'Error deleting selected payments!')
+    }
+  }
+
   const handleDeletePayment = async (id) => {
     if (!isAdmin) {
       showErrorToast('Only admin can delete.')
@@ -1018,6 +1085,7 @@ function Payment() {
       if (infoPayment?._id === id) {
         closeInfo()
       }
+      setSelectedPaymentIds(prev => prev.filter((selectedId) => selectedId !== id))
 
       const nextPage = payments.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage
       await fetchPayments(nextPage, searchQuery)
@@ -2256,6 +2324,41 @@ function Payment() {
           <EmptyDataCard />
         ) : (
           <div>
+            {isAdmin && selectedPaymentIds.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <MotionButton
+                  onClick={handleBulkDeletePayments}
+                  style={{
+                    padding: '0.45rem 0.8rem',
+                    background: 'var(--danger)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.82rem'
+                  }}
+                >
+                  <Trash2 size={14} style={{ marginRight: '0.3rem' }} />
+                  Delete Selected
+                </MotionButton>
+                <MotionButton
+                  onClick={() => setSelectedPaymentIds([])}
+                  style={{
+                    padding: '0.45rem 0.8rem',
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-header)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.82rem'
+                  }}
+                >
+                  Clear
+                </MotionButton>
+              </div>
+            )}
             {/* Mobile/Tablet Card View */}
             {isMobile ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -2282,21 +2385,29 @@ function Payment() {
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '1rem',
-                            fontWeight: 800,
-                            color: 'var(--text-header)',
-                            marginBottom: '0.25rem'
-                          }}>
-                            {payment.paymentNumber || '-'}
-                          </div>
-                          <div style={{
-                            fontSize: '0.875rem',
-                            color: 'var(--text-muted)',
-                            fontWeight: 600
-                          }}>
-                            {customerLabel}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedPaymentIds.includes(payment._id)}
+                            onChange={() => togglePaymentSelection(payment._id)}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: '1rem',
+                              fontWeight: 800,
+                              color: 'var(--text-header)',
+                              marginBottom: '0.25rem'
+                            }}>
+                              {payment.paymentNumber || '-'}
+                            </div>
+                            <div style={{
+                              fontSize: '0.875rem',
+                              color: 'var(--text-muted)',
+                              fontWeight: 600
+                            }}>
+                              {customerLabel}
+                            </div>
                           </div>
                         </div>
                         <div style={{ position: 'relative' }}>
@@ -2331,7 +2442,6 @@ function Payment() {
                           >
                             <MoreVertical size={16} />
                           </MotionButton>
-
                         </div>
                       </div>
 
@@ -2361,6 +2471,14 @@ function Payment() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem', tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                      <th style={{ width: '4%', textAlign: 'center', padding: '0.5rem 0.25rem', color: 'var(--text-header)', fontWeight: 700 }}>
+                        <input
+                          type="checkbox"
+                          checked={payments.length > 0 && payments.every((payment) => selectedPaymentIds.includes(payment._id))}
+                          onChange={toggleSelectAllVisiblePayments}
+                          style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                        />
+                      </th>
                       <th
                         onClick={() => handleSort('paymentNumber')}
                         style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
@@ -2409,6 +2527,14 @@ function Payment() {
 
                       return (
                         <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ width: '4%', textAlign: 'center', padding: '0.5rem 0.25rem' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedPaymentIds.includes(payment._id)}
+                              onChange={() => togglePaymentSelection(payment._id)}
+                              style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                            />
+                          </td>
                           <td style={{ width: '10%', padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
                             {truncateText(payment.paymentNumber || '')}
                           </td>

@@ -497,6 +497,21 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Bulk delete invoices
+router.post('/bulk-delete', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean) : [];
+    if (ids.length === 0) {
+      return res.status(400).json({ message: 'Select at least one invoice to delete.' });
+    }
+
+    await Invoice.deleteMany({ _id: { $in: ids } });
+    res.json({ message: 'Invoices deleted', deletedCount: ids.length });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Delete an invoice
 router.delete('/:id', async (req, res) => {
   try {

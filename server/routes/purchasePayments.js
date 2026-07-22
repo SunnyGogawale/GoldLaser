@@ -807,6 +807,21 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.post('/bulk-delete', requireAdmin, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean) : [];
+    const validIds = ids.filter((id) => isObjectId(id));
+    if (validIds.length === 0) {
+      return res.status(400).json({ message: 'Select at least one payment to delete.' });
+    }
+
+    await Payment.deleteMany({ _id: { $in: validIds } });
+    res.json({ message: 'Payments deleted', deletedCount: validIds.length });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid payment id' });

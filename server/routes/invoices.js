@@ -155,6 +155,20 @@ router.get('/next-number', async (req, res) => {
   }
 });
 
+router.post('/bulk-delete', async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (!ids.length) {
+      return res.status(400).json({ message: 'No invoice ids were provided.' });
+    }
+
+    const deleted = await Invoice.deleteMany({ _id: { $in: ids } });
+    res.json({ deletedCount: deleted.deletedCount || 0 });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // Get invoices with pagination
 router.get('/', async (req, res) => {
   try {

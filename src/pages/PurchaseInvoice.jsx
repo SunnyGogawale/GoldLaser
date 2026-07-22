@@ -123,6 +123,7 @@ function PurchaseInvoice() {
 
   // Invoices list state
   const [invoices, setInvoices] = useState([]);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1082,15 +1083,67 @@ function PurchaseInvoice() {
     attachmentInputRef.current?.click();
   };
 
+  const toggleInvoiceSelection = (id) => {
+    setSelectedInvoiceIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter((selectedId) => selectedId !== id);
+      }
+      return [...prev, id];
+    });
+  };
+
+  const toggleSelectAllVisibleInvoices = () => {
+    const visibleIds = invoices.map((invoice) => invoice._id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedInvoiceIds.includes(id));
+    if (allVisibleSelected) {
+      setSelectedInvoiceIds(prev => prev.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedInvoiceIds(prev => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleBulkDeleteInvoices = async () => {
+    if (selectedInvoiceIds.length === 0) return;
+    if (!window.confirm(`Delete ${selectedInvoiceIds.length} selected invoice(s)?`)) return;
+
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/bulk-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ ids: selectedInvoiceIds })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || 'Error deleting selected invoices');
+      }
+
+      setSelectedInvoiceIds([]);
+      await fetchInvoices(1, searchQuery, sortColumn, sortOrder);
+      showSuccessToast(`Deleted ${selectedInvoiceIds.length} invoice(s) successfully.`);
+    } catch (err) {
+      handleApiError(err, 'Error deleting selected invoices');
+    }
+  };
+
   const handleDeleteInvoice = async (id) => {
     if (window.confirm('Are you sure you want to delete this invoice?')) {
       try {
         const token = getAuthToken();
-        await fetch(`${API_URL}/${id}`, {
+        const response = await fetch(`${API_URL}/${id}`, {
           method: 'DELETE',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
-        await fetchInvoices(currentPage);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.message || 'Error deleting invoice');
+        }
+        setSelectedInvoiceIds(prev => prev.filter((selectedId) => selectedId !== id));
+        await fetchInvoices(currentPage, searchQuery, sortColumn, sortOrder);
         showSuccessToast('Invoice deleted successfully!');
       } catch (err) {
         handleApiError(err, 'Error deleting invoice');
@@ -1721,6 +1774,41 @@ function PurchaseInvoice() {
             <EmptyDataCard />
           ) : (
             <div>
+              {isAdmin && selectedInvoiceIds.length > 0 && (
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                  <MotionButton
+                    onClick={handleBulkDeleteInvoices}
+                    style={{
+                      padding: '0.45rem 0.8rem',
+                      background: 'var(--danger)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    <Trash2 size={14} style={{ marginRight: '0.3rem' }} />
+                    Delete Selected
+                  </MotionButton>
+                  <MotionButton
+                    onClick={() => setSelectedInvoiceIds([])}
+                    style={{
+                      padding: '0.45rem 0.8rem',
+                      background: 'var(--bg-main)',
+                      color: 'var(--text-header)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    Clear
+                  </MotionButton>
+                </div>
+              )}
               {/* Mobile/Tablet Card View */}
               {isMobile ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1746,21 +1834,29 @@ function PurchaseInvoice() {
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontSize: '1rem',
-                              fontWeight: 800,
-                              color: 'var(--text-header)',
-                              marginBottom: '0.25rem'
-                            }}>
-                              {invoice.invoiceNumber || '-'}
-                            </div>
-                            <div style={{
-                              fontSize: '0.875rem',
-                              color: 'var(--text-muted)',
-                              fontWeight: 600
-                            }}>
-                              {label}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedInvoiceIds.includes(invoice._id)}
+                              onChange={() => toggleInvoiceSelection(invoice._id)}
+                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontSize: '1rem',
+                                fontWeight: 800,
+                                color: 'var(--text-header)',
+                                marginBottom: '0.25rem'
+                              }}>
+                                {invoice.invoiceNumber || '-'}
+                              </div>
+                              <div style={{
+                                fontSize: '0.875rem',
+                                color: 'var(--text-muted)',
+                                fontWeight: 600
+                              }}>
+                                {label}
+                              </div>
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', position: 'relative' }}>
@@ -1842,6 +1938,14 @@ function PurchaseInvoice() {
                   <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        <th style={{ width: '4%', textAlign: 'center', padding: '0.35rem 0.25rem', color: 'var(--text-header)', fontWeight: 700 }}>
+                          <input
+                            type="checkbox"
+                            checked={invoices.length > 0 && invoices.every((invoice) => selectedInvoiceIds.includes(invoice._id))}
+                            onChange={toggleSelectAllVisibleInvoices}
+                            style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                          />
+                        </th>
                         <th
                           onClick={() => handleSort('invoiceNumber')}
                           style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
@@ -1884,6 +1988,14 @@ function PurchaseInvoice() {
 
                         return (
                           <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ width: '4%', textAlign: 'center', padding: '0.35rem 0.25rem' }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedInvoiceIds.includes(invoice._id)}
+                                onChange={() => toggleInvoiceSelection(invoice._id)}
+                                style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                              />
+                            </td>
                             <td style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
                               {truncateText(invoice.invoiceNumber || '')}
                             </td>
