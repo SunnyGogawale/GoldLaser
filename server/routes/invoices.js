@@ -335,6 +335,51 @@ router.post('/', async (req, res) => {
     }
 
     const authUser = await getAuthUserInfo(req);
+    const normalizedItems = normalizeInvoiceValue('items', req.body.items || []);
+    const normalizedAttachments = normalizeInvoiceValue('attachments', req.body.attachments);
+    const requestedTotal = Number(req.body.totalAmount || 0);
+
+    const existingInvoice = generatedId
+      ? await Invoice.findOne({ invoiceNumber: generatedId, clientId: req.body.clientId, clientType: req.body.clientType })
+      : null;
+
+    if (existingInvoice) {
+      const newItem = normalizedItems[0];
+      const updatedTotal = Number(existingInvoice.totalAmount || 0) + (Number(newItem?.amount) || 0);
+      const updateOps = {
+        $set: {
+          transactionDescription: String(req.body.transactionDescription || existingInvoice.transactionDescription || '').trim(),
+          invoiceDate: req.body.invoiceDate || existingInvoice.invoiceDate,
+          totalAmount: updatedTotal,
+          updatedBy: authUser?.id || existingInvoice.updatedBy || null,
+          updatedByName: authUser?.fullName || existingInvoice.updatedByName || '',
+          updatedByEmail: authUser?.email || existingInvoice.updatedByEmail || ''
+        },
+        $push: {
+          activity: {
+            action: 'update',
+            at: new Date(),
+            userId: authUser?.id || null,
+            userName: authUser?.fullName || '',
+            userEmail: authUser?.email || '',
+            changes: [
+              {
+                field: 'items',
+                from: '',
+                to: newItem ? JSON.stringify(newItem) : ''
+              }
+            ]
+          }
+        }
+      };
+
+      if (newItem) {
+        updateOps.$push.items = { $each: [newItem] };
+      }
+
+      const updatedInvoice = await Invoice.findByIdAndUpdate(existingInvoice._id, updateOps, { new: true });
+      return res.status(200).json(updatedInvoice);
+    }
 
     const invoice = new Invoice({
       invoiceNumber: generatedId,
@@ -342,9 +387,9 @@ router.post('/', async (req, res) => {
       clientId: req.body.clientId,
       clientType: req.body.clientType,
       invoiceDate: req.body.invoiceDate,
-      items: req.body.items,
-      attachments: normalizeInvoiceValue('attachments', req.body.attachments),
-      totalAmount: req.body.totalAmount,
+      items: normalizedItems,
+      attachments: normalizedAttachments,
+      totalAmount: requestedTotal || normalizedItems.reduce((sum, item) => sum + Number(item?.amount || 0), 0),
       createdBy: authUser?.id || null,
       createdByName: authUser?.fullName || '',
       createdByEmail: authUser?.email || '',
