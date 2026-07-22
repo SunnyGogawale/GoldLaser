@@ -39,7 +39,7 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
       });
 
       console.log('Admin login successful:', response.data);
-      showSuccessToast('Admin login successful! Redirecting to dashboard...');
+      showSuccessToast('Admin login successful');
       
       setAuthSession({
         token: response.data.token,

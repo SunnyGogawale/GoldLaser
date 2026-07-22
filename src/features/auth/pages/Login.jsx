@@ -40,7 +40,7 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
       });
 
       console.log('Login successful:', response.data);
-      showSuccessToast('Login successful! Redirecting to dashboard...');
+      showSuccessToast('Login successful');
       
       setAuthSession({
         token: response.data.token,

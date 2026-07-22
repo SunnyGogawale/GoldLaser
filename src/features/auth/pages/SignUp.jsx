@@ -48,7 +48,7 @@ const SignUp = ({ theme, toggleTheme }) => {
       });
       
       console.log('Signup successful:', response.data);
-      showSuccessToast('Account created successfully! Redirecting to login...');
+      showSuccessToast('Account created successfully');
       navigate('/login');
     } catch (err) {
       const errorMessage = sanitizeClientErrorMessage(err.response?.data?.message || 'Something went wrong. Please try again.', 'Something went wrong. Please try again.');
