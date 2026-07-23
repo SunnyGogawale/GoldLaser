@@ -1027,10 +1027,6 @@ function Payment() {
   }
 
   const handleBulkDeletePayments = async () => {
-    if (!isAdmin) {
-      showErrorToast('Only admin can delete.')
-      return
-    }
     if (selectedPaymentIds.length === 0) return
     if (!window.confirm(`Delete ${selectedPaymentIds.length} selected payment(s)?`)) return
 
@@ -1074,10 +1070,6 @@ function Payment() {
   }
 
   const handleDeletePayment = async (id) => {
-    if (!isAdmin) {
-      showErrorToast('Only admin can delete.')
-      return
-    }
     if (!window.confirm('Are you sure you want to delete this payment?')) return
     try {
       const token = getAuthToken()
@@ -2797,7 +2789,7 @@ function Payment() {
           <EmptyDataCard />
         ) : (
           <div>
-            {isAdmin && selectedPaymentIds.length > 0 && (
+            {selectedPaymentIds.length > 0 && (
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <MotionButton
                   onClick={handleBulkDeletePayments}
@@ -3477,8 +3469,7 @@ function Payment() {
               <Edit2 size={14} />
               Edit
             </MotionButton>
-            {isAdmin && (
-              <MotionButton
+            <MotionButton
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDeletePayment(dropdownPayment._id);
@@ -3502,7 +3493,6 @@ function Payment() {
                 <Trash2 size={14} />
                 Delete
               </MotionButton>
-            )}
           </div>
             )
           })()}

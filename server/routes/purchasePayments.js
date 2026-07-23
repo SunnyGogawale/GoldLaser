@@ -18,18 +18,17 @@ const getBearerToken = (req) => {
   return token;
 };
 
-const requireAdmin = async (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   try {
     const token = getBearerToken(req);
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded?.user?.id;
+    const userId = decoded?.user?.id || decoded?.id || decoded?.userId || decoded?._id;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const user = await User.findById(userId);
-    const roll = String(user?.roll || user?.role || 'user').toLowerCase();
-    if (roll !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+    if (!user) return res.status(401).json({ message: 'Unauthorized' });
 
     return next();
   } catch (err) {
@@ -808,7 +807,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.post('/bulk-delete', requireAdmin, async (req, res) => {
+router.post('/bulk-delete', requireAuth, async (req, res) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean) : [];
     const validIds = ids.filter((id) => isObjectId(id));
@@ -823,7 +822,7 @@ router.post('/bulk-delete', requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     if (!isObjectId(req.params.id)) return res.status(400).json({ message: 'Invalid payment id' });
     await Payment.findByIdAndDelete(req.params.id);

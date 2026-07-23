@@ -2026,24 +2026,6 @@ function PurchaseInvoice() {
                             <td style={{ textAlign: 'left', padding: '0.35rem 0.35rem' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', position: 'relative' }}>
                                 <MotionButton
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    await handleDeleteInvoice(invoice._id);
-                                  }}
-                                  style={{
-                                    padding: '0.25rem',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    color: 'var(--danger)',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  title="Delete"
-                                >
-                                  <Trash2 size={16} />
-                                </MotionButton>
-                                <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (openDropdownId === invoice._id) {

@@ -812,7 +812,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.post('/bulk-delete', requireAdmin, async (req, res) => {
+router.post('/bulk-delete', async (req, res) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(Boolean) : [];
     if (ids.length === 0) {
@@ -826,7 +826,7 @@ router.post('/bulk-delete', requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     await Payment.findByIdAndDelete(req.params.id);
     res.json({ message: 'Payment deleted' });

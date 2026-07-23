@@ -861,10 +861,6 @@ function PurchasePayment() {
   }
 
   const handleBulkDeletePayments = async () => {
-    if (!isAdmin) {
-      showErrorToast('Only admin can delete.')
-      return
-    }
     if (selectedPaymentIds.length === 0) return
     if (!window.confirm(`Delete ${selectedPaymentIds.length} selected payment(s)?`)) return
 
@@ -908,10 +904,6 @@ function PurchasePayment() {
   }
 
   const handleDeletePayment = async (id) => {
-    if (!isAdmin) {
-      showErrorToast('Only admin can delete.')
-      return
-    }
     if (!window.confirm('Are you sure you want to delete this payment?')) return
     try {
       const token = getAuthToken()
@@ -2341,7 +2333,7 @@ function PurchasePayment() {
           </div>
         </div>
 
-        {isAdmin && selectedPaymentIds.length > 0 && (
+        {selectedPaymentIds.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', padding: '0.75rem 1rem', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.08)' }}>
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
               {selectedPaymentIds.length} selected
@@ -2496,7 +2488,7 @@ function PurchasePayment() {
                 <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      {isAdmin && (
+                      {(
                         <th style={{ width: '4%', textAlign: 'center', padding: '0.25rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                           <input
                             type="checkbox"
@@ -2550,7 +2542,7 @@ function PurchasePayment() {
 
                       return (
                         <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          {isAdmin && (
+                          {(
                             <td style={{ width: '4%', textAlign: 'center', padding: '0.25rem', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                               <input
                                 type="checkbox"
@@ -3050,32 +3042,30 @@ function PurchasePayment() {
                   <Eye size={14} />
                   View PDF
                 </MotionButton>
-                {isAdmin && (
-                  <MotionButton
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeletePayment(dropdownPurchasePayment._id);
-                      closeActionDropdown();
-                    }}
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '0.375rem 0.75rem',
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--danger)',
-                      fontSize: '0.875rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <Trash2 size={14} />
-                    Delete
-                  </MotionButton>
-                )}
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeletePayment(dropdownPurchasePayment._id);
+                    closeActionDropdown();
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--danger)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </MotionButton>
               </div>
             )
           })()}
