@@ -861,10 +861,10 @@ function Payment() {
     if (files.length === 0) return
 
     const currentAttachments = Array.isArray(paymentForm.attachments) ? paymentForm.attachments : []
-    const remainingSlots = Math.max(0, 5 - currentAttachments.length)
+    const remainingSlots = Math.max(0, 2 - currentAttachments.length)
 
     if (remainingSlots === 0) {
-      setAttachmentError('You can upload up to 5 files only.')
+      setAttachmentError('You can upload up to 2 files only.')
       event.target.value = ''
       return
     }
@@ -896,7 +896,7 @@ function Payment() {
       errorMessages.push('Each uploaded file must be 25 MB or smaller.')
     }
     if (sizeAllowedFiles.length > remainingSlots) {
-      errorMessages.push('Only 5 files are allowed. Extra files were ignored.')
+      errorMessages.push('Only 2 files are allowed. Extra files were ignored.')
     }
     setAttachmentError(errorMessages.join(' '))
 
@@ -928,10 +928,10 @@ function Payment() {
     if (files.length === 0) return
 
     const currentAttachments = Array.isArray(paymentForm.attachments) ? paymentForm.attachments : []
-    const remainingSlots = Math.max(0, 5 - currentAttachments.length)
+    const remainingSlots = Math.max(0, 2 - currentAttachments.length)
 
     if (remainingSlots === 0) {
-      setAttachmentError('You can upload up to 5 files only.')
+      setAttachmentError('You can upload up to 2 files only.')
       return
     }
 
@@ -961,7 +961,7 @@ function Payment() {
       errorMessages.push('Each uploaded file must be 25 MB or smaller.')
     }
     if (sizeAllowedFiles.length > remainingSlots) {
-      errorMessages.push('Only 5 files are allowed. Extra files were ignored.')
+      errorMessages.push('Only 2 files are allowed. Extra files were ignored.')
     }
     setAttachmentError(errorMessages.join(' '))
 
@@ -2534,7 +2534,7 @@ function Payment() {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>File Attachment</h3>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Max 5 files</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Max 2 files</div>
                   </div>
                   <div
                     onDrop={handleAttachmentDrop}
@@ -2607,7 +2607,7 @@ function Payment() {
                       </div>
                     )}
                     <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      {paymentForm.attachments?.length || 0}/5 selected
+                      {paymentForm.attachments?.length || 0}/2 selected
                     </div>
                     <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
                       {(paymentForm.attachments || []).map((attachment, index) => (
