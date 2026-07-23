@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { Edit2, Trash2, X, MoreVertical } from 'lucide-react'
+import { Edit2, Trash2, X, MoreVertical, Search } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { sanitizeClientErrorMessage } from '../../../utils/api'
-import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
+import { handleApiError, showSuccessToast } from '../../../utils/toast'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -25,6 +25,7 @@ function User() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [users, setUsers] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [saving, setSaving] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState({ id: '', fullName: '', email: '', roll: 'user' })
@@ -34,6 +35,16 @@ function User() {
 
   const token = useMemo(() => getAuthToken(), [])
   const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    if (!query) return users
+
+    return users.filter((user) => {
+      const fullName = String(user?.fullName || '').toLowerCase()
+      const email = String(user?.email || '').toLowerCase()
+      return fullName.includes(query) || email.includes(query)
+    })
+  }, [users, searchQuery])
   const [openDropdownId, setOpenDropdownId] = useState(null)
   const [dropdownUser, setDropdownUser] = useState(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
@@ -56,7 +67,7 @@ function User() {
       setUsers(Array.isArray(data.users) ? data.users : [])
     } catch (err) {
       setUsers([])
-      setError(err?.message || 'Failed to load users')
+      setError(handleApiError(err, 'Failed to load users'))
     } finally {
       setLoading(false)
     }
@@ -142,8 +153,9 @@ function User() {
       }
       closeEdit()
       await fetchUsers()
+      showSuccessToast('User updated successfully!')
     } catch (err) {
-      setError(err?.message || 'Failed to update user')
+      setError(handleApiError(err, 'Failed to update user'))
     } finally {
       setSaving(false)
     }
@@ -165,8 +177,9 @@ function User() {
         throw new Error(sanitizeClientErrorMessage(text || `Request failed (${response.status})`, 'Failed to delete user'))
       }
       await fetchUsers()
+      showSuccessToast('User deleted successfully!')
     } catch (err) {
-      setError(err?.message || 'Failed to delete user')
+      setError(handleApiError(err, 'Failed to delete user'))
     } finally {
       setSaving(false)
     }
@@ -189,8 +202,26 @@ function User() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-header)' }}>USER</div>
           <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            {saving ? 'Updating...' : `${users.length} total`}
+            {saving ? 'Updating...' : `${filteredUsers.length} of ${users.length} shown`}
           </div>
+        </div>
+
+        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 0.75rem', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg-main)' }}>
+          <Search size={16} color="var(--text-muted)" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name or email"
+            style={{
+              width: '100%',
+              border: 'none',
+              background: 'transparent',
+              outline: 'none',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem'
+            }}
+          />
         </div>
 
         {error && (
@@ -202,14 +233,16 @@ function User() {
         <div style={{ marginTop: '1rem' }}>
           {loading ? (
             <div style={{ padding: '1rem', color: 'var(--text-muted)' }}>Loading...</div>
-          ) : users.length === 0 ? (
-            <EmptyDataCard />
+          ) : filteredUsers.length === 0 ? (
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              {searchQuery ? `No users found for "${searchQuery}".` : 'No users found.'}
+            </div>
           ) : (
             <div>
               {/* Mobile/Tablet Card View */}
               {isMobile ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {users.map((u) => (
+                  {filteredUsers.map((u) => (
                     <div
                       key={String(u._id)}
                       style={{
@@ -300,7 +333,7 @@ function User() {
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map((u) => (
+                      {filteredUsers.map((u) => (
                         <tr key={String(u._id)} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.fullName || '-'}</td>
                           <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '220px' }}>{u.email || '-'}</td>

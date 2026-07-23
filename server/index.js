@@ -46,7 +46,7 @@ app.use('/api/purchase-payments', require('./routes/purchasePayments'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
-
+app.use('/api/backups', require('./routes/backups'));
 app.use('/api', (req, res) => {
   res.status(404).json({ message: `API route not found: ${req.method} ${req.originalUrl}` });
 });

@@ -14,7 +14,8 @@ import {
   Settings,
   Truck,
   CreditCard,
-  ClipboardCheck
+  ClipboardCheck,
+  Archive
 } from 'lucide-react'
 import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue } from '../utils/authStorage'
 import { modalMotionProps, overlayMotionProps } from './PageTransition'
@@ -113,7 +114,10 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     ...(isAdmin
       ? [{
           label: 'Admin',
-          items: [{ id: '/user', icon: <User size={20} />, label: 'User' }]
+          items: [
+            { id: '/user', icon: <User size={20} />, label: 'User' },
+            { id: '/backup', icon: <Archive size={20} />, label: 'Backup' }
+          ]
         }]
       : [])
   ]
