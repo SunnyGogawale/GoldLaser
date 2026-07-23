@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
+import { parseCsvText, parseCsvData, getSuggestedCsvHeader, toIsoDateString } from '../../../utils/csvParser'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
@@ -25,6 +26,7 @@ const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
   'application/pdf'
 ])
 const ALLOWED_ATTACHMENT_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf'])
+const CSV_IMPORT_MAX_SIZE_BYTES = 5 * 1024 * 1024
 
 const isAllowedAttachmentFile = (file) => {
   const fileType = String(file?.type || '').toLowerCase()
@@ -100,6 +102,18 @@ function Payment() {
   const [isAttachmentDragging, setIsAttachmentDragging] = useState(false)
   const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
+  const [csvImportOpen, setCsvImportOpen] = useState(false)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvImportError, setCsvImportError] = useState('')
+  const [csvImportFileName, setCsvImportFileName] = useState('')
+  const [csvHeaders, setCsvHeaders] = useState([])
+  const [csvDataRows, setCsvDataRows] = useState([])
+  const [csvPreviewRows, setCsvPreviewRows] = useState([])
+  const [csvFieldMapping, setCsvFieldMapping] = useState({ paymentNumber: '', paymentDate: '', amount: '', description: '' })
+  const [csvClientSearchText, setCsvClientSearchText] = useState('')
+  const [csvSelectedClientId, setCsvSelectedClientId] = useState('')
+  const [csvSelectedClientName, setCsvSelectedClientName] = useState('')
+  const [isCsvClientDropdownOpen, setIsCsvClientDropdownOpen] = useState(false)
 
   const [customers, setCustomers] = useState([])
   const [vendors, setVendors] = useState([])
@@ -149,6 +163,7 @@ function Payment() {
   const [attachmentsMenuOpen, setAttachmentsMenuOpen] = useState(false)
   const dropdownRef = useRef(null)
   const attachmentInputRef = useRef(null)
+  const csvImportInputRef = useRef(null)
   const [companySettings, setCompanySettings] = useState({
     companyName: '',
     companyAddress: '',
@@ -238,6 +253,14 @@ function Payment() {
       (c.displayName || '').toLowerCase().includes(q) || String(c.id || '').toLowerCase().includes(q)
     )
   }, [allClients, clientSearchText])
+
+  const filteredCsvClients = useMemo(() => {
+    const q = csvClientSearchText.trim().toLowerCase()
+    if (!q) return allClients.slice(0, 20)
+    return allClients.filter(c =>
+      (c.displayName || '').toLowerCase().includes(q) || String(c.id || '').toLowerCase().includes(q)
+    )
+  }, [allClients, csvClientSearchText])
 
   useEffect(() => {
     if (!paymentForm.clientId) {
@@ -1391,12 +1414,195 @@ function Payment() {
     attachmentInputRef.current?.click()
   }
 
+  const openCsvImportModal = () => {
+    setCsvImportOpen(true)
+    setCsvImportError('')
+    setCsvImportFileName('')
+    setCsvHeaders([])
+    setCsvDataRows([])
+    setCsvPreviewRows([])
+    setCsvFieldMapping({ paymentNumber: '', paymentDate: '', amount: '', description: '' })
+    setCsvClientSearchText('')
+    setCsvSelectedClientId('')
+    setCsvSelectedClientName('')
+    setIsCsvClientDropdownOpen(false)
+  }
+
+  const closeCsvImportModal = () => {
+    setCsvImportOpen(false)
+    setCsvImportError('')
+    setCsvImportFileName('')
+    setCsvHeaders([])
+    setCsvDataRows([])
+    setCsvPreviewRows([])
+    setCsvFieldMapping({ paymentNumber: '', paymentDate: '', amount: '', description: '' })
+    setCsvImporting(false)
+    setCsvClientSearchText('')
+    setCsvSelectedClientId('')
+    setCsvSelectedClientName('')
+    setIsCsvClientDropdownOpen(false)
+    if (csvImportInputRef.current) {
+      csvImportInputRef.current.value = ''
+    }
+  }
+
+  const handleCsvFileSelection = async (event) => {
+    const selectedFile = event.target.files?.[0]
+    if (!selectedFile) return
+
+    if (!csvSelectedClientId) {
+      setCsvImportError('Please select a client before uploading a CSV file.')
+      setCsvImportFileName('')
+      setCsvPreviewRows([])
+      event.target.value = ''
+      return
+    }
+
+    if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
+      setCsvImportError('Only .csv files are allowed.')
+      setCsvImportFileName('')
+      setCsvPreviewRows([])
+      event.target.value = ''
+      return
+    }
+
+    if (selectedFile.size > CSV_IMPORT_MAX_SIZE_BYTES) {
+      setCsvImportError('CSV file must be 5 MB or smaller.')
+      setCsvImportFileName('')
+      setCsvPreviewRows([])
+      event.target.value = ''
+      return
+    }
+
+    try {
+      setCsvImporting(true)
+      setCsvImportError('')
+      const text = await selectedFile.text()
+      const parsedRows = parseCsvText(text).filter((row) => row.some((value) => String(value).trim() !== ''))
+
+      if (parsedRows.length === 0) {
+        throw new Error('The selected file does not contain any usable rows.')
+      }
+
+      const parsedData = parseCsvData(text)
+      const suggestedMapping = {
+        paymentNumber: getSuggestedCsvHeader(parsedData.headers, ['payment number', 'payment no', 'payment']) || '',
+        paymentDate: getSuggestedCsvHeader(parsedData.headers, ['payment date', 'date']) || '',
+        amount: getSuggestedCsvHeader(parsedData.headers, ['amount', 'amount due', 'total']) || '',
+        description: getSuggestedCsvHeader(parsedData.headers, ['description', 'narration', 'remarks', 'note']) || ''
+      }
+
+      setCsvImportFileName(selectedFile.name)
+      setCsvHeaders(parsedData.headers)
+      setCsvDataRows(parsedData.dataRows)
+      setCsvPreviewRows(parsedData.dataRows.slice(0, 5))
+      setCsvFieldMapping(suggestedMapping)
+      showSuccessToast(`Loaded ${parsedData.dataRows.length} row(s) from ${selectedFile.name}`)
+    } catch (err) {
+      setCsvImportError(err.message || 'Unable to read the selected CSV file.')
+      setCsvImportFileName('')
+      setCsvPreviewRows([])
+    } finally {
+      setCsvImporting(false)
+    }
+  }
+
+  const handleCsvImportSubmit = async () => {
+    if (!csvSelectedClientId) {
+      setCsvImportError('Please select a client before importing the CSV file.')
+      return
+    }
+
+    if (!csvImportFileName) {
+      setCsvImportError('Please choose a CSV file first.')
+      return
+    }
+
+    try {
+      setCsvImporting(true)
+      setCsvImportError('')
+
+      const token = getAuthToken()
+      const headers = csvHeaders
+      const createdPayments = []
+
+      for (let index = 0; index < csvDataRows.length; index += 1) {
+        const row = csvDataRows[index]
+        const paymentNumberIndex = headers.indexOf(csvFieldMapping.paymentNumber)
+        const paymentDateIndex = headers.indexOf(csvFieldMapping.paymentDate)
+        const amountIndex = headers.indexOf(csvFieldMapping.amount)
+        const descriptionIndex = headers.indexOf(csvFieldMapping.description)
+
+        const paymentNumber = String(row[paymentNumberIndex] ?? '').trim()
+        const paymentDateValue = String(row[paymentDateIndex] ?? '').trim()
+        const amountValue = String(row[amountIndex] ?? '').trim()
+        const descriptionValue = String(row[descriptionIndex] ?? '').trim()
+        const parsedAmount = Number.parseFloat(String(amountValue).replace(/[^0-9.-]/g, ''))
+
+        const payload = {
+          paymentNumber: paymentNumber || undefined,
+          clientId: csvSelectedClientId,
+          clientType: 'Customer',
+          paymentDate: paymentDateValue ? toIsoDateString(paymentDateValue).split('T')[0] : new Date().toISOString().split('T')[0],
+          amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
+          description: descriptionValue || 'Imported from CSV',
+          allocations: [],
+          attachments: []
+        }
+
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(payload)
+        })
+        await readJsonResponse(response, 'Error importing CSV payment')
+        createdPayments.push(payload)
+      }
+
+      showSuccessToast(`Imported ${createdPayments.length} payment(s) from CSV.`)
+      closeCsvImportModal()
+      await fetchPayments(1, searchQuery, sortColumn, sortOrder)
+    } catch (err) {
+      setCsvImportError(err.message || 'Unable to import the CSV file.')
+    } finally {
+      setCsvImporting(false)
+    }
+  }
+
   const formatMoney = (value) =>
     Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0, gap: '0.75rem', flexWrap: 'wrap' }}>
+        {isAdmin && (
+          <MotionButton
+            type="button"
+            onClick={openCsvImportModal}
+            disabled={loading}
+            style={{
+              padding: '0.5rem 1rem',
+              background: 'var(--bg-main)',
+              color: 'var(--text-header)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              fontSize: '0.9375rem',
+              fontWeight: 700,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              opacity: loading ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem'
+            }}
+          >
+            <UploadCloud size={16} />
+            Upload CSV
+          </MotionButton>
+        )}
         <MotionButton
           type="button"
           onClick={openCreatePayment}
@@ -1417,6 +1623,273 @@ function Payment() {
           Add Payment
         </MotionButton>
       </div>
+
+      {csvImportOpen && (
+        <ActionMenuPortal>
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeCsvImportModal()
+            }}
+          >
+            <div className="card" style={{ width: 'min(720px, 96vw)', maxHeight: '88vh', overflow: 'auto', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem' }}>
+                <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.2rem' }}>Upload CSV</h2>
+                <MotionButton
+                  type="button"
+                  onClick={closeCsvImportModal}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-header)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <X size={16} />
+                </MotionButton>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '1rem', background: 'var(--bg-main)' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)', marginBottom: '0.45rem' }}>
+                    Select client first
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                    Choose the client before uploading a CSV file. Each imported row will be linked to that client.
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="Search client..."
+                      value={csvClientSearchText}
+                      onChange={(e) => {
+                        setCsvClientSearchText(e.target.value)
+                        if (csvSelectedClientId && e.target.value !== csvSelectedClientName) {
+                          setCsvSelectedClientId('')
+                          setCsvSelectedClientName('')
+                        }
+                        setIsCsvClientDropdownOpen(true)
+                      }}
+                      onFocus={() => setIsCsvClientDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIsCsvClientDropdownOpen(false), 160)}
+                      style={{
+                        width: '100%',
+                        padding: '0.65rem 0.75rem',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)'
+                      }}
+                    />
+                    {isCsvClientDropdownOpen && filteredCsvClients.length > 0 && (
+                      <ul style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        maxHeight: '220px',
+                        overflowY: 'auto',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        marginTop: '4px',
+                        padding: 0,
+                        listStyle: 'none',
+                        zIndex: 20,
+                        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.08)'
+                      }}>
+                        {filteredCsvClients.map((client) => (
+                          <li
+                            key={String(client._id || client.id || client.customerName)}
+                            onClick={() => {
+                              const clientName = client.displayName || client.customerName || 'Selected client'
+                              setCsvSelectedClientId(String(client._id || client.id || ''))
+                              setCsvSelectedClientName(clientName)
+                              setCsvClientSearchText(clientName)
+                              setIsCsvClientDropdownOpen(false)
+                              setCsvImportError('')
+                            }}
+                            style={{ padding: '0.6rem 0.75rem', cursor: 'pointer', color: 'var(--text-header)', borderBottom: '1px solid var(--border)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-main)' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                          >
+                            {client.displayName || client.customerName || client.companyName || 'Client'}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  {csvSelectedClientName && (
+                    <div style={{ marginTop: '0.65rem', fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700 }}>
+                      Selected client: {csvSelectedClientName}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '1rem', background: 'var(--bg-main)' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)', marginBottom: '0.4rem' }}>
+                    Map CSV headers to payment fields
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                    Match each uploaded CSV column to the payment field it should populate.
+                  </div>
+                  <div style={{ display: 'grid', gap: '0.7rem' }}>
+                    {[
+                      { key: 'paymentNumber', label: 'Payment Number' },
+                      { key: 'paymentDate', label: 'Payment Date' },
+                      { key: 'amount', label: 'Amount' },
+                      { key: 'description', label: 'Description' }
+                    ].map((field) => (
+                      <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-header)' }}>{field.label}</label>
+                        <select
+                          value={csvFieldMapping[field.key]}
+                          onChange={(e) => setCsvFieldMapping((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          disabled={csvHeaders.length === 0}
+                          style={{
+                            width: '100%',
+                            padding: '0.6rem 0.7rem',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem',
+                            background: 'var(--bg-card)',
+                            color: 'var(--text-header)'
+                          }}
+                        >
+                          <option value="">Select CSV column</option>
+                          {csvHeaders.map((header) => (
+                            <option key={header} value={header}>{header}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ border: '1px dashed var(--border)', borderRadius: '12px', padding: '1rem', background: 'var(--bg-main)' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)', marginBottom: '0.4rem' }}>
+                    Select a CSV file only
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                    Files with .csv extension are accepted. XLS/XLSX or other formats will be rejected.
+                  </div>
+                  <input
+                    ref={csvImportInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={handleCsvFileSelection}
+                    style={{ display: 'none' }}
+                  />
+                  <MotionButton
+                    type="button"
+                    onClick={() => csvImportInputRef.current?.click()}
+                    disabled={csvImporting || !csvSelectedClientId}
+                    style={{
+                      padding: '0.6rem 1rem',
+                      background: 'var(--primary)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      cursor: csvImporting || !csvSelectedClientId ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      opacity: csvImporting || !csvSelectedClientId ? 0.7 : 1
+                    }}
+                  >
+                    <UploadCloud size={16} />
+                    Choose CSV File
+                  </MotionButton>
+                  {!csvSelectedClientId && (
+                    <div style={{ marginTop: '0.6rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Select a client to enable CSV upload.
+                    </div>
+                  )}
+                  <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {csvImportFileName ? `Selected file: ${csvImportFileName}` : 'No file selected yet.'}
+                  </div>
+                  {csvImportError && (
+                    <div style={{ marginTop: '0.5rem', color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600 }}>
+                      {csvImportError}
+                    </div>
+                  )}
+                </div>
+
+                {csvPreviewRows.length > 0 && (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                    <div style={{ padding: '0.75rem 0.9rem', background: 'var(--bg-main)', fontWeight: 700, color: 'var(--text-header)' }}>
+                      CSV Preview
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                        <tbody>
+                          {csvPreviewRows.map((row, rowIndex) => (
+                            <tr key={`csv-row-${rowIndex}`} style={{ borderTop: rowIndex === 0 ? 'none' : '1px solid var(--border)' }}>
+                              {row.map((cell, cellIndex) => (
+                                <td key={`csv-cell-${rowIndex}-${cellIndex}`} style={{ padding: '0.45rem 0.6rem', borderRight: cellIndex === row.length - 1 ? 'none' : '1px solid var(--border)', whiteSpace: 'nowrap' }}>
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+                <MotionButton
+                  type="button"
+                  onClick={closeCsvImportModal}
+                  style={{
+                    padding: '0.55rem 1rem',
+                    background: 'var(--bg-main)',
+                    color: 'var(--text-header)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </MotionButton>
+                <MotionButton
+                  type="button"
+                  onClick={handleCsvImportSubmit}
+                  disabled={csvImporting || !csvImportFileName}
+                  style={{
+                    padding: '0.55rem 1rem',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    cursor: csvImporting || !csvImportFileName ? 'not-allowed' : 'pointer',
+                    opacity: csvImporting || !csvImportFileName ? 0.7 : 1
+                  }}
+                >
+                  {csvImporting ? 'Processing...' : 'Import CSV'}
+                </MotionButton>
+              </div>
+            </div>
+          </div>
+        </ActionMenuPortal>
+      )}
 
       {formOpen && (
         <ActionMenuPortal>

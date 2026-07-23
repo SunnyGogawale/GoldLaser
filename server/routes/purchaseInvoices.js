@@ -7,6 +7,7 @@ const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const { sendErrorResponse } = require('../utils/errorHandler');
+const { buildInvoiceMergeUpdateOps } = require('../utils/invoiceDuplicateHandling');
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 
@@ -393,6 +394,23 @@ router.post('/', async (req, res) => {
     }
     if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
       return res.status(400).json({ message: 'At least one item is required' });
+    }
+
+    const existingInvoice = generatedId
+      ? await Invoice.findOne({ invoiceNumber: generatedId })
+      : null;
+
+    if (existingInvoice) {
+      const { updateOps } = buildInvoiceMergeUpdateOps({
+        existingInvoice,
+        incomingItems: req.body.items,
+        transactionDescription: req.body.transactionDescription,
+        invoiceDate: req.body.invoiceDate,
+        authUser
+      });
+
+      const updatedInvoice = await Invoice.findByIdAndUpdate(existingInvoice._id, updateOps, { new: true });
+      return res.status(200).json(updatedInvoice);
     }
 
     const invoice = new Invoice({

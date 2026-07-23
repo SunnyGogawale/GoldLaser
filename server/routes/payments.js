@@ -7,6 +7,7 @@ const Invoice = require('../models/SaleInvoice');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
+const { buildPaymentMergeUpdateOps } = require('../utils/paymentDuplicateHandling');
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -658,6 +659,25 @@ router.post('/', async (req, res) => {
     }
 
     const authUser = await getAuthUserInfo(req);
+
+    const existingPayment = paymentNumber
+      ? await Payment.findOne({ paymentNumber })
+      : null;
+
+    if (existingPayment) {
+      const { updateOps } = buildPaymentMergeUpdateOps({
+        existingPayment,
+        allocations,
+        description,
+        authUser,
+        amount: finalAmount,
+        paymentDate,
+        attachments
+      });
+
+      const updatedPayment = await Payment.findByIdAndUpdate(existingPayment._id, updateOps, { new: true });
+      return res.status(200).json(updatedPayment);
+    }
 
     const payment = new Payment({
       paymentNumber,
