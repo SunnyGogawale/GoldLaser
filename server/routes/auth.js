@@ -116,7 +116,10 @@ router.post('/signin', async (req, res) => {
       return res.status(403).json({ message: errorMessage });
     }
 
-    // Create JWT
+    user.loginHistory = Array.isArray(user.loginHistory) ? user.loginHistory : [];
+    user.loginHistory.push(new Date());
+    await user.save();
+
     const payload = {
       user: {
         id: user.id

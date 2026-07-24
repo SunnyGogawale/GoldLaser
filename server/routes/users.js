@@ -119,6 +119,24 @@ router.get('/', requireAdmin, async (req, res) => {
   }
 })
 
+router.get('/:id/login-history', requireAdmin, async (req, res) => {
+  try {
+    const targetId = String(req.params.id || '')
+    if (!targetId) return res.status(400).json({ message: 'Invalid user id' })
+
+    const target = await User.findById(targetId, { password: 0 })
+    if (!target) return res.status(404).json({ message: 'User not found' })
+
+    const loginHistory = Array.isArray(target.loginHistory)
+      ? [...target.loginHistory].sort((a, b) => new Date(b) - new Date(a))
+      : []
+
+    return res.json({ loginHistory })
+  } catch (err) {
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.login-history')
+  }
+})
+
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const targetId = String(req.params.id || '')

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Archive, DatabaseBackup, RotateCcw, Upload, CircleDot, Circle } from 'lucide-react'
+import { Archive, DatabaseBackup, RotateCcw, Upload } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
@@ -687,33 +687,29 @@ function Backup() {
             </button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
-            <div style={{ color: 'var(--text-header)', fontSize: '0.84rem', fontWeight: 700 }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
               {backupScheduleHours > 0 || backupScheduleMinutes > 0
                 ? `Automatic backups every ${backupScheduleHours > 0 ? `${backupScheduleHours} hour${backupScheduleHours === 1 ? '' : 's'}` : ''}${backupScheduleHours > 0 && backupScheduleMinutes > 0 ? ' ' : ''}${backupScheduleMinutes > 0 ? `${backupScheduleMinutes} minute${backupScheduleMinutes === 1 ? '' : 's'}` : ''}.`
                 : 'Automatic backup scheduling is disabled.'}
             </div>
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
                 borderRadius: '999px',
-                padding: '0.35rem 0.75rem',
-                fontSize: '0.77rem',
-                fontWeight: 900,
-                border: `1px solid ${backupScheduleHours > 0 || backupScheduleMinutes > 0 ? 'rgba(16,185,129,0.5)' : 'var(--border)'}`,
-                background: backupScheduleHours > 0 || backupScheduleMinutes > 0 ? 'rgba(16,185,129,0.18)' : 'rgba(148,163,184,0.14)',
-                color: backupScheduleHours > 0 || backupScheduleMinutes > 0 ? '#0f9f6e' : 'var(--text-muted)'
+                padding: '0.3rem 0.65rem',
+                fontSize: '0.76rem',
+                fontWeight: 800,
+                border: `1px solid ${backupScheduleHours > 0 || backupScheduleMinutes > 0 ? 'rgba(16,185,129,0.35)' : 'var(--border)'}`,
+                background: backupScheduleHours > 0 || backupScheduleMinutes > 0 ? 'rgba(16,185,129,0.12)' : 'var(--bg-main)',
+                color: backupScheduleHours > 0 || backupScheduleMinutes > 0 ? '#10b981' : 'var(--text-muted)'
               }}
             >
-              {backupScheduleHours > 0 || backupScheduleMinutes > 0 ? <CircleDot size={12} /> : <Circle size={12} />}
               {backupScheduleHours > 0 || backupScheduleMinutes > 0 ? 'Active' : 'Inactive'}
             </div>
           </div>
-          <div style={{ marginTop: '0.8rem', color: 'var(--text-header)', fontSize: '0.82rem', fontWeight: 700 }}>
+          <div style={{ marginTop: '0.8rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
             Use hours and minutes together to define the automatic backup frequency.
           </div>
-          <div style={{ marginTop: '0.45rem', color: 'var(--text-header)', fontSize: '0.82rem', fontWeight: 700 }}>
+          <div style={{ marginTop: '0.45rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
             Last scheduled backup: {lastBackup?.createdAt || 'No backup created yet.'}
           </div>
         </div>
@@ -780,7 +776,7 @@ function Backup() {
             </button>
           </div>
           <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 0.8fr 0.8fr 1.2fr', padding: '0.8rem 1rem', background: 'var(--bg-main)', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr 1fr 1fr 3fr', padding: '0.8rem 1rem', background: 'var(--bg-main)', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
               <div>Name</div>
               <div>Created</div>
               <div>Size</div>
@@ -793,7 +789,7 @@ function Backup() {
               <div style={{ padding: '1rem', color: 'var(--text-muted)' }}>No backups found yet.</div>
             ) : (
               backupItems.map((item) => (
-                <div key={item.name} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 0.8fr 0.8fr 1.2fr', padding: '0.85rem 1rem', borderTop: '1px solid var(--border)', alignItems: 'center', fontSize: '0.9rem' }}>
+                <div key={item.name} style={{ display: 'grid', gridTemplateColumns: '3fr 2fr 1fr 1fr 3fr', padding: '0.85rem 1rem', borderTop: '1px solid var(--border)', alignItems: 'center', fontSize: '0.85rem' }}>
                   <div style={{ color: 'var(--text-header)', fontWeight: 600 }}>{item.name}</div>
                   <div style={{ color: 'var(--text-main)' }}>{item.createdAt}</div>
                   <div style={{ color: 'var(--text-main)' }}>{item.size}</div>

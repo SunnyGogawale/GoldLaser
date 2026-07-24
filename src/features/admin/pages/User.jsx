@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { Edit2, Trash2, X, MoreVertical, Search } from 'lucide-react'
+import { Edit2, Trash2, X, MoreVertical, Search, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import MotionButton from '../../../components/MotionButton'
@@ -49,6 +49,9 @@ function User() {
   const [dropdownUser, setDropdownUser] = useState(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [dropdownUp, setDropdownUp] = useState(false)
+  const [loginHistoryOpen, setLoginHistoryOpen] = useState(false)
+  const [loginHistory, setLoginHistory] = useState([])
+  const [loginHistoryLoading, setLoginHistoryLoading] = useState(false)
   const dropdownRef = useRef(null)
 
   const fetchUsers = async () => {
@@ -70,6 +73,30 @@ function User() {
       setError(handleApiError(err, 'Failed to load users'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  const openLoginHistory = async (u) => {
+    if (!u?._id) return
+    setLoginHistoryLoading(true)
+    setLoginHistory([])
+    setLoginHistoryOpen(true)
+    setError('')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${u._id}/login-history`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to load login history')
+      }
+      setLoginHistory(Array.isArray(data.loginHistory) ? data.loginHistory : [])
+    } catch (err) {
+      setLoginHistory([])
+      setError(handleApiError(err, 'Failed to load login history'))
+    } finally {
+      setLoginHistoryLoading(false)
     }
   }
 
@@ -322,26 +349,26 @@ function User() {
               ) : (
                 /* Desktop Table View */
                 <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', tableLayout: 'fixed' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Name</th>
-                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Email</th>
-                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Role</th>
-                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Created</th>
-                        <th style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
+                        <th style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Name</th>
+                        <th style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Email</th>
+                        <th style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Role</th>
+                        <th style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Created</th>
+                        <th style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredUsers.map((u) => (
                         <tr key={String(u._id)} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.fullName || '-'}</td>
-                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '220px' }}>{u.email || '-'}</td>
-                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.roll || u.role || 'user'}</td>
-                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
+                          <td style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.fullName || '-'}</td>
+                          <td style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{u.email || '-'}</td>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.roll || u.role || 'user'}</td>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                             {u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}
                           </td>
-                          <td style={{ textAlign: 'center', padding: '0.35rem 0.35rem' }}>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem' }}>
                             <div style={{ position: 'relative' }}>
                               <MotionButton
                                 onClick={(e) => {
@@ -601,6 +628,62 @@ function User() {
         </div>
       )}
 
+      {loginHistoryOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '1rem' }} onClick={() => setLoginHistoryOpen(false)}>
+          <div style={{ width: 'min(700px, 96vw)', maxHeight: '80vh', overflow: 'auto', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)', boxShadow: '0 12px 30px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1rem 0.75rem' }}>
+              <div>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-header)' }}>Last Login History</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{dropdownUser?.fullName || dropdownUser?.email || 'User'}</div>
+              </div>
+              <MotionButton
+                type="button"
+                onClick={() => {
+                  setLoginHistoryOpen(false)
+                  setLoginHistory([])
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '0.25rem'
+                }}
+              >
+                <X size={18} />
+              </MotionButton>
+            </div>
+
+            <div style={{ padding: '0 1rem 1rem' }}>
+              {loginHistoryLoading ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem 0' }}>Loading login history...</div>
+              ) : loginHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem 0' }}>No login history available.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                        <th style={{ textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-header)', fontWeight: 700 }}>#</th>
+                        <th style={{ textAlign: 'right', padding: '0.5rem 0.35rem', color: 'var(--text-header)', fontWeight: 700 }}>Login Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loginHistory.map((entry, index) => (
+                        <tr key={`${entry}-${index}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-main)' }}>{index + 1}</td>
+                          <td style={{ textAlign: 'right', padding: '0.5rem 0.35rem', color: 'var(--text-main)' }}>{new Date(entry).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Dropdown Menu */}
       {openDropdownId && dropdownUser && (
         <ActionMenuPortal>
@@ -645,6 +728,33 @@ function User() {
           >
             <Edit2 size={14} />
             Edit
+          </MotionButton>
+          <MotionButton
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openLoginHistory(dropdownUser);
+              setOpenDropdownId(null);
+              setDropdownUser(null);
+            }}
+            disabled={saving || loginHistoryLoading}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: saving || loginHistoryLoading ? 'not-allowed' : 'pointer',
+              color: 'var(--text-header)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Clock3 size={14} />
+            Last Login
           </MotionButton>
           <MotionButton
             type="button"
