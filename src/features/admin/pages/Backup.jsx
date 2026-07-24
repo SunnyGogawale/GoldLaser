@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Archive, DatabaseBackup, RotateCcw } from 'lucide-react'
+import { Archive, DatabaseBackup, RotateCcw, Upload, CircleDot, Circle } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
@@ -39,9 +39,16 @@ function Backup() {
   const [retentionDays, setRetentionDays] = useState(8)
   const [keepLatestBackups, setKeepLatestBackups] = useState(10)
   const [backupCountInput, setBackupCountInput] = useState(10)
+  const [backupScheduleHours, setBackupScheduleHours] = useState(0)
+  const [backupScheduleMinutes, setBackupScheduleMinutes] = useState(0)
+  const [backupScheduleHoursInput, setBackupScheduleHoursInput] = useState(0)
+  const [backupScheduleMinutesInput, setBackupScheduleMinutesInput] = useState(0)
   const [savingBackupConfig, setSavingBackupConfig] = useState(false)
+  const [savingBackupSchedule, setSavingBackupSchedule] = useState(false)
   const [showSummaryCards, setShowSummaryCards] = useState(false)
+  const [uploadingExternalBackup, setUploadingExternalBackup] = useState(false)
   const summaryTimeoutRef = useRef(null)
+  const externalRestoreInputRef = useRef(null)
 
   const restartSummaryCardsTimer = () => {
     setShowSummaryCards(true)
@@ -71,11 +78,17 @@ function Backup() {
       const backups = Array.isArray(data?.backups) ? data.backups : []
       const configuredRetentionDays = Number.parseInt(data?.retentionDays || '8', 10)
       const configuredKeepLatestBackups = Number.parseInt(data?.keepLatestBackups || '10', 10)
+      const configuredBackupScheduleHours = Number.parseInt(data?.backupScheduleHours || '0', 10)
+      const configuredBackupScheduleMinutes = Number.parseInt(data?.backupScheduleMinutes || '0', 10)
       setBackupItems(backups)
       setStoragePath(data?.storagePath || '')
       setRetentionDays(Number.isFinite(configuredRetentionDays) && configuredRetentionDays > 0 ? configuredRetentionDays : 8)
       setKeepLatestBackups(Number.isFinite(configuredKeepLatestBackups) && configuredKeepLatestBackups > 0 ? configuredKeepLatestBackups : 10)
       setBackupCountInput(Number.isFinite(configuredKeepLatestBackups) && configuredKeepLatestBackups > 0 ? configuredKeepLatestBackups : 10)
+      setBackupScheduleHours(Number.isFinite(configuredBackupScheduleHours) && configuredBackupScheduleHours > 0 ? configuredBackupScheduleHours : 0)
+      setBackupScheduleMinutes(Number.isFinite(configuredBackupScheduleMinutes) && configuredBackupScheduleMinutes > 0 ? configuredBackupScheduleMinutes : 0)
+      setBackupScheduleHoursInput(Number.isFinite(configuredBackupScheduleHours) && configuredBackupScheduleHours > 0 ? configuredBackupScheduleHours : 0)
+      setBackupScheduleMinutesInput(Number.isFinite(configuredBackupScheduleMinutes) && configuredBackupScheduleMinutes > 0 ? configuredBackupScheduleMinutes : 0)
       if (backups.length > 0) {
         setLastBackup(backups[0])
       }
@@ -88,6 +101,17 @@ function Backup() {
 
   useEffect(() => {
     fetchBackups()
+
+    const refreshTimer = window.setInterval(() => {
+      const token = getAuthToken()
+      if (token) {
+        fetchBackups()
+      }
+    }, BACKUP_REFRESH_MS)
+
+    return () => {
+      window.clearInterval(refreshTimer)
+    }
   }, [])
 
   useEffect(() => {
@@ -211,6 +235,53 @@ function Backup() {
     }
   }
 
+  const handleUploadAndRestoreBackup = async (file) => {
+    if (!file) return
+
+    const token = getAuthToken()
+    if (!token) {
+      showErrorToast('You must be logged in to restore an external backup.')
+      return
+    }
+
+    if (!/\.archive\.gz$/i.test(file.name)) {
+      showErrorToast('Please upload a valid backup archive file (.archive.gz).')
+      return
+    }
+
+    const confirmed = window.confirm(`Upload and restore backup "${file.name}" into the current MongoDB database? This will overwrite the existing data.`)
+    if (!confirmed) return
+
+    setUploadingExternalBackup(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/backups/restore-upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/octet-stream',
+          'x-backup-filename': file.name
+        },
+        body: await file.arrayBuffer()
+      })
+
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to upload and restore backup')
+      }
+
+      setLastRestore({
+        name: data?.fileName || file.name,
+        restoredAt: data?.restoredAt || new Date().toISOString()
+      })
+      restartSummaryCardsTimer()
+      showSuccessToast(data?.message || `External backup ${file.name} restored successfully.`)
+    } catch (error) {
+      showErrorToast(error?.message || 'Failed to upload and restore backup')
+    } finally {
+      setUploadingExternalBackup(false)
+    }
+  }
+
   const handleDeleteBackup = async (fileName) => {
     const confirmed = window.confirm(`Delete backup "${fileName}" from the backup storage folder? This action cannot be undone.`)
     if (!confirmed) return
@@ -286,6 +357,56 @@ function Backup() {
       showErrorToast(error?.message || 'Failed to update backup count')
     } finally {
       setSavingBackupConfig(false)
+    }
+  }
+
+  const handleSaveBackupSchedule = async () => {
+    const token = getAuthToken()
+    if (!token) {
+      showErrorToast('You must be logged in to update the backup schedule.')
+      return
+    }
+
+    const parsedHours = Number.parseInt(backupScheduleHoursInput, 10)
+    const parsedMinutes = Number.parseInt(backupScheduleMinutesInput, 10)
+    const normalizedHours = Number.isFinite(parsedHours) && parsedHours > 0 ? parsedHours : 0
+    const normalizedMinutes = Number.isFinite(parsedMinutes) && parsedMinutes > 0 ? parsedMinutes : 0
+    const totalMinutes = (normalizedHours * 60) + normalizedMinutes
+
+    if (!Number.isFinite(totalMinutes) || totalMinutes < 1) {
+      showErrorToast('Backup interval must be at least 1 minute.')
+      return
+    }
+
+    setSavingBackupSchedule(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/backups/schedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          backupIntervalHours: normalizedHours,
+          backupIntervalMinutes: normalizedMinutes
+        })
+      })
+
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to update backup schedule')
+      }
+
+      setBackupScheduleHours(Number.parseInt(data?.backupScheduleHours || String(normalizedHours), 10) || normalizedHours)
+      setBackupScheduleMinutes(Number.parseInt(data?.backupScheduleMinutes || String(normalizedMinutes), 10) || normalizedMinutes)
+      setBackupScheduleHoursInput(Number.parseInt(data?.backupScheduleHours || String(normalizedHours), 10) || normalizedHours)
+      setBackupScheduleMinutesInput(Number.parseInt(data?.backupScheduleMinutes || String(normalizedMinutes), 10) || normalizedMinutes)
+      showSuccessToast(data?.message || 'Backup schedule updated successfully.')
+      await fetchBackups()
+    } catch (error) {
+      showErrorToast(error?.message || 'Failed to update backup schedule')
+    } finally {
+      setSavingBackupSchedule(false)
     }
   }
 
@@ -395,11 +516,50 @@ function Backup() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
                 <RotateCcw size={18} />
               </div>
-              <div style={{ fontWeight: 800 }}>Restore Backup</div>
+              <div style={{ fontWeight: 800 }}>Restore from Internal Backup</div>
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-              {restoringBackup === lastBackup?.name ? 'Restoring latest backup...' : 'Restore from an existing backup to recover data quickly.'}
+              {restoringBackup === lastBackup?.name ? 'Restoring latest backup...' : 'Restore the newest internal snapshot stored on the server.'}
             </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => externalRestoreInputRef.current?.click()}
+            disabled={uploadingExternalBackup}
+            style={{
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+              padding: '1rem',
+              background: 'var(--bg-card)',
+              textAlign: 'left',
+              cursor: uploadingExternalBackup ? 'not-allowed' : 'pointer',
+              color: 'var(--text-header)',
+              opacity: uploadingExternalBackup ? 0.7 : 1
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}>
+                <Upload size={18} />
+              </div>
+              <div style={{ fontWeight: 800 }}>Upload and Restore External Backup</div>
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              {uploadingExternalBackup ? 'Uploading and restoring external backup...' : 'Choose a .archive.gz file from your device and restore it directly.'}
+            </div>
+            <input
+              ref={externalRestoreInputRef}
+              type="file"
+              accept=".archive.gz"
+              style={{ display: 'none' }}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) {
+                  handleUploadAndRestoreBackup(file)
+                }
+                event.target.value = ''
+              }}
+            />
           </button>
         </div>
 
@@ -468,6 +628,95 @@ function Backup() {
             </div>
           </div>
         )}
+
+        <div style={{ marginTop: '1.5rem', border: '1px solid var(--border)', borderRadius: '12px', padding: '1rem', background: 'var(--bg-card)' }}>
+          <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.85rem' }}>Backup Schedule</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 700 }}>
+              Interval (hours)
+              <input
+                type="number"
+                min="0"
+                value={backupScheduleHoursInput}
+                onChange={(event) => setBackupScheduleHoursInput(Number.parseInt(event.target.value || '0', 10))}
+                style={{
+                  width: '92px',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '0.4rem 0.55rem',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-header)',
+                  fontWeight: 700
+                }}
+              />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 700 }}>
+              Interval (mins)
+              <input
+                type="number"
+                min="0"
+                value={backupScheduleMinutesInput}
+                onChange={(event) => setBackupScheduleMinutesInput(Number.parseInt(event.target.value || '0', 10))}
+                style={{
+                  width: '92px',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '0.4rem 0.55rem',
+                  background: 'var(--bg-card)',
+                  color: 'var(--text-header)',
+                  fontWeight: 700
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleSaveBackupSchedule}
+              disabled={savingBackupSchedule}
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: '10px',
+                padding: '0.55rem 0.85rem',
+                background: 'var(--bg-card)',
+                color: 'var(--text-header)',
+                cursor: savingBackupSchedule ? 'not-allowed' : 'pointer',
+                fontWeight: 700,
+                opacity: savingBackupSchedule ? 0.7 : 1
+              }}
+            >
+              {savingBackupSchedule ? 'Saving...' : 'Save Schedule'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
+            <div style={{ color: 'var(--text-header)', fontSize: '0.84rem', fontWeight: 700 }}>
+              {backupScheduleHours > 0 || backupScheduleMinutes > 0
+                ? `Automatic backups every ${backupScheduleHours > 0 ? `${backupScheduleHours} hour${backupScheduleHours === 1 ? '' : 's'}` : ''}${backupScheduleHours > 0 && backupScheduleMinutes > 0 ? ' ' : ''}${backupScheduleMinutes > 0 ? `${backupScheduleMinutes} minute${backupScheduleMinutes === 1 ? '' : 's'}` : ''}.`
+                : 'Automatic backup scheduling is disabled.'}
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                borderRadius: '999px',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.77rem',
+                fontWeight: 900,
+                border: `1px solid ${backupScheduleHours > 0 || backupScheduleMinutes > 0 ? 'rgba(16,185,129,0.5)' : 'var(--border)'}`,
+                background: backupScheduleHours > 0 || backupScheduleMinutes > 0 ? 'rgba(16,185,129,0.18)' : 'rgba(148,163,184,0.14)',
+                color: backupScheduleHours > 0 || backupScheduleMinutes > 0 ? '#0f9f6e' : 'var(--text-muted)'
+              }}
+            >
+              {backupScheduleHours > 0 || backupScheduleMinutes > 0 ? <CircleDot size={12} /> : <Circle size={12} />}
+              {backupScheduleHours > 0 || backupScheduleMinutes > 0 ? 'Active' : 'Inactive'}
+            </div>
+          </div>
+          <div style={{ marginTop: '0.8rem', color: 'var(--text-header)', fontSize: '0.82rem', fontWeight: 700 }}>
+            Use hours and minutes together to define the automatic backup frequency.
+          </div>
+          <div style={{ marginTop: '0.45rem', color: 'var(--text-header)', fontSize: '0.82rem', fontWeight: 700 }}>
+            Last scheduled backup: {lastBackup?.createdAt || 'No backup created yet.'}
+          </div>
+        </div>
 
         <div style={{ marginTop: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>

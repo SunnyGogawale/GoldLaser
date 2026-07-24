@@ -7,6 +7,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const REQUEST_BODY_LIMIT = '200mb';
+const backupRoutes = require('./routes/backups');
 
 // Middleware
 app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
@@ -46,7 +47,7 @@ app.use('/api/purchase-payments', require('./routes/purchasePayments'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
-app.use('/api/backups', require('./routes/backups'));
+app.use('/api/backups', backupRoutes);
 app.use('/api', (req, res) => {
   res.status(404).json({ message: `API route not found: ${req.method} ${req.originalUrl}` });
 });
@@ -83,6 +84,7 @@ if (require.main === module) {
   connectToDatabase()
     .then(async () => {
       console.log('Connected to MongoDB');
+      backupRoutes.startBackupScheduler?.();
       try {
         const Payment = require('./models/SalePayment');
         await Payment.updateMany(

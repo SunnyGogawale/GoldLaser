@@ -4,9 +4,12 @@ const os = require('os')
 const path = require('path')
 const { execFile } = require('child_process')
 const jwt = require('jsonwebtoken')
+const mongoose = require('mongoose')
 const router = express.Router()
 const User = require('../models/User')
 const { sendErrorResponse } = require('../utils/errorHandler')
+
+let backupSchedulerTimer = null
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || ''
@@ -118,6 +121,101 @@ const getKeepLatestBackupsCount = () => {
   return Number.isFinite(keepLatestBackups) && keepLatestBackups > 0 ? keepLatestBackups : 10
 }
 
+const getBackupIntervalHours = () => {
+  const backupIntervalHours = Number.parseInt(process.env.BACKUP_INTERVAL_HOURS || '0', 10)
+  return Number.isFinite(backupIntervalHours) && backupIntervalHours > 0 ? backupIntervalHours : 0
+}
+
+const getBackupIntervalMinutes = () => {
+  const backupIntervalMinutes = Number.parseInt(process.env.BACKUP_INTERVAL_MINUTES || '0', 10)
+  return Number.isFinite(backupIntervalMinutes) && backupIntervalMinutes > 0 ? backupIntervalMinutes : 0
+}
+
+const persistEnvValue = (key, value) => {
+  const envFilePath = path.join(__dirname, '..', '.env')
+  const envContents = fs.existsSync(envFilePath) ? fs.readFileSync(envFilePath, 'utf8') : ''
+  const normalizedValue = String(value)
+  const updatedContents = envContents.match(new RegExp(`^${key}=.*$`, 'm'))
+    ? envContents.replace(new RegExp(`^${key}=.*$`, 'm'), `${key}=${normalizedValue}`)
+    : `${envContents.trim() ? `${envContents.trim()}\n` : ''}${key}=${normalizedValue}\n`
+
+  fs.writeFileSync(envFilePath, updatedContents)
+  process.env[key] = normalizedValue
+}
+
+const createBackupArchive = async () => {
+  const backupRoot = getBackupRoot()
+  fs.mkdirSync(backupRoot, { recursive: true })
+  pruneOldBackups(backupRoot)
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const archiveFile = path.join(backupRoot, `mongodb-${timestamp}.archive.gz`)
+  if (fs.existsSync(archiveFile)) {
+    fs.rmSync(archiveFile, { force: true })
+  }
+
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow'
+  const command = getMongoDumpCommand()
+  const args = ['--uri=' + mongoUri, '--archive=' + archiveFile, '--gzip']
+
+  await runCommand(command, args)
+  const stats = fs.statSync(archiveFile)
+
+  return {
+    backupFile: path.basename(archiveFile),
+    backupDir: backupRoot,
+    backupPath: archiveFile,
+    createdAt: new Date().toISOString(),
+    size: stats.size
+  }
+}
+
+const startBackupScheduler = () => {
+  if (backupSchedulerTimer) {
+    clearInterval(backupSchedulerTimer)
+    backupSchedulerTimer = null
+  }
+
+  const intervalHours = getBackupIntervalHours()
+  const intervalMinutes = getBackupIntervalMinutes()
+  const totalMinutes = (intervalHours * 60) + intervalMinutes
+
+  if (!Number.isFinite(totalMinutes) || totalMinutes < 1) {
+    return
+  }
+
+  const intervalMs = totalMinutes * 60 * 1000
+  backupSchedulerTimer = setInterval(async () => {
+    try {
+      await createBackupArchive()
+    } catch (error) {
+      console.error('Scheduled backup creation failed:', error.message)
+    }
+  }, intervalMs)
+}
+
+const setBackupScheduleInterval = (hours, minutes) => {
+  const parsedHours = Number.parseInt(hours, 10)
+  const parsedMinutes = Number.parseInt(minutes, 10)
+
+  const normalizedHours = Number.isFinite(parsedHours) && parsedHours > 0 ? parsedHours : 0
+  const normalizedMinutes = Number.isFinite(parsedMinutes) && parsedMinutes > 0 ? parsedMinutes : 0
+  const totalMinutes = (normalizedHours * 60) + normalizedMinutes
+
+  if (!Number.isFinite(totalMinutes) || totalMinutes < 1) {
+    throw new Error('Backup interval must be at least 1 minute.')
+  }
+
+  persistEnvValue('BACKUP_INTERVAL_HOURS', normalizedHours)
+  persistEnvValue('BACKUP_INTERVAL_MINUTES', normalizedMinutes)
+  startBackupScheduler()
+
+  return {
+    backupScheduleHours: normalizedHours,
+    backupScheduleMinutes: normalizedMinutes
+  }
+}
+
 const pruneOldBackups = (backupRoot) => {
   if (!fs.existsSync(backupRoot)) return
 
@@ -181,6 +279,8 @@ router.get('/list', requireAdmin, async (req, res) => {
       storagePath: backupRoot,
       retentionDays: getRetentionDays(),
       keepLatestBackups: getKeepLatestBackupsCount(),
+      backupScheduleHours: getBackupIntervalHours(),
+      backupScheduleMinutes: getBackupIntervalMinutes(),
       backups: files
     })
   } catch (err) {
@@ -195,15 +295,7 @@ router.post('/config', requireAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Invalid backup keep count' })
     }
 
-    const envFilePath = path.join(__dirname, '..', '.env')
-    const envContents = fs.existsSync(envFilePath) ? fs.readFileSync(envFilePath, 'utf8') : ''
-    const normalizedCount = String(keepLatestBackups)
-    const updatedContents = envContents.match(/^BACKUP_KEEP_LATEST_COUNT=.*$/m)
-      ? envContents.replace(/^BACKUP_KEEP_LATEST_COUNT=.*$/m, `BACKUP_KEEP_LATEST_COUNT=${normalizedCount}`)
-      : `${envContents.trim() ? `${envContents.trim()}\n` : ''}BACKUP_KEEP_LATEST_COUNT=${normalizedCount}\n`
-
-    fs.writeFileSync(envFilePath, updatedContents)
-    process.env.BACKUP_KEEP_LATEST_COUNT = normalizedCount
+    persistEnvValue('BACKUP_KEEP_LATEST_COUNT', keepLatestBackups)
 
     const backupRoot = getBackupRoot()
     fs.mkdirSync(backupRoot, { recursive: true })
@@ -212,40 +304,41 @@ router.post('/config', requireAdmin, async (req, res) => {
     return res.json({
       message: 'Backup retention count updated successfully',
       keepLatestBackups: keepLatestBackups,
-      retentionDays: getRetentionDays()
+      retentionDays: getRetentionDays(),
+      backupScheduleHours: getBackupIntervalHours()
     })
   } catch (err) {
     return sendErrorResponse(res, err, 'Failed to update backup retention count', 500, 'backups.config')
   }
 })
 
+router.post('/schedule', requireAdmin, async (req, res) => {
+  try {
+    const schedule = setBackupScheduleInterval(req.body?.backupIntervalHours, req.body?.backupIntervalMinutes)
+
+    return res.json({
+      message: 'Backup schedule updated successfully',
+      backupScheduleHours: schedule.backupScheduleHours,
+      backupScheduleMinutes: schedule.backupScheduleMinutes,
+      retentionDays: getRetentionDays(),
+      keepLatestBackups: getKeepLatestBackupsCount()
+    })
+  } catch (err) {
+    return sendErrorResponse(res, err, 'Failed to update backup schedule', 500, 'backups.schedule')
+  }
+})
+
 router.post('/create', requireAdmin, async (req, res) => {
   try {
-    const backupRoot = getBackupRoot()
-    fs.mkdirSync(backupRoot, { recursive: true })
-    pruneOldBackups(backupRoot)
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const archiveFile = path.join(backupRoot, `mongodb-${timestamp}.archive.gz`)
-    if (fs.existsSync(archiveFile)) {
-      fs.rmSync(archiveFile, { force: true })
-    }
-
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow'
-    const command = getMongoDumpCommand()
-    const args = ['--uri=' + mongoUri, '--archive=' + archiveFile, '--gzip']
-
-    await runCommand(command, args)
-
-    const stats = fs.statSync(archiveFile)
+    const backupMeta = await createBackupArchive()
     return res.json({
       message: 'Backup created successfully',
-      storagePath: backupRoot,
-      backupFile: path.basename(archiveFile),
-      backupDir: backupRoot,
-      backupPath: archiveFile,
-      createdAt: new Date().toISOString(),
-      size: stats.size
+      storagePath: backupMeta.backupDir,
+      backupFile: backupMeta.backupFile,
+      backupDir: backupMeta.backupDir,
+      backupPath: backupMeta.backupPath,
+      createdAt: backupMeta.createdAt,
+      size: backupMeta.size
     })
   } catch (err) {
     return sendErrorResponse(res, err, 'Failed to create backup', 500, 'backups.create')
@@ -284,6 +377,10 @@ router.post('/restore', requireAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Backup file not found' })
     }
 
+    if (mongoose.connection?.db) {
+      await mongoose.connection.db.dropDatabase()
+    }
+
     const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow'
     const command = getMongoRestoreCommand()
     const args = ['--uri=' + mongoUri, '--archive=' + archiveFile, '--gzip']
@@ -297,6 +394,43 @@ router.post('/restore', requireAdmin, async (req, res) => {
     })
   } catch (err) {
     return sendErrorResponse(res, err, 'Failed to restore backup', 500, 'backups.restore')
+  }
+})
+
+router.post('/restore-upload', requireAdmin, express.raw({ type: 'application/octet-stream', limit: '200mb' }), async (req, res) => {
+  try {
+    const backupRoot = getBackupRoot()
+    fs.mkdirSync(backupRoot, { recursive: true })
+
+    const fileName = path.basename(String(req.headers['x-backup-filename'] || ''))
+    if (!fileName || !/\.archive\.gz$/i.test(fileName)) {
+      return res.status(400).json({ message: 'Invalid backup file name' })
+    }
+
+    const archiveFile = path.join(backupRoot, fileName)
+    if (fs.existsSync(archiveFile)) {
+      fs.rmSync(archiveFile, { force: true })
+    }
+
+    fs.writeFileSync(archiveFile, Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || ''))
+
+    if (mongoose.connection?.db) {
+      await mongoose.connection.db.dropDatabase()
+    }
+
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow'
+    const command = getMongoRestoreCommand()
+    const args = ['--uri=' + mongoUri, '--archive=' + archiveFile, '--gzip']
+
+    await runCommand(command, args)
+
+    return res.json({
+      message: 'External backup restored successfully',
+      fileName,
+      restoredAt: new Date().toISOString()
+    })
+  } catch (err) {
+    return sendErrorResponse(res, err, 'Failed to restore uploaded backup', 500, 'backups.restore-upload')
   }
 })
 
@@ -337,3 +471,7 @@ router.delete('/delete/:fileName', requireAdmin, async (req, res) => {
 })
 
 module.exports = router
+module.exports.startBackupScheduler = startBackupScheduler
+module.exports.setBackupScheduleInterval = setBackupScheduleInterval
+module.exports.getBackupScheduleHours = getBackupIntervalHours
+module.exports.getBackupScheduleMinutes = getBackupIntervalMinutes
