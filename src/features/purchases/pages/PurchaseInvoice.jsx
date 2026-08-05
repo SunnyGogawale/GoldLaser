@@ -9,6 +9,7 @@ import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
+import { formatDateMMDDYYYY } from '../../../utils/formatters'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/purchase-invoices`;
@@ -253,14 +254,7 @@ function PurchaseInvoice() {
   }
 
   const formatDateDDMMMYYYY = (dateValue) => {
-    if (!dateValue) return '-'
-    const d = new Date(dateValue)
-    if (!d || Number.isNaN(d.getTime())) return '-'
-    const dd = String(d.getDate()).padStart(2, '0')
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    const mmm = months[d.getMonth()] || ''
-    const yyyy = d.getFullYear()
-    return `${dd}-${mmm}-${yyyy}`
+    return formatDateMMDDYYYY(dateValue)
   }
 
   const formatFileSize = (sizeBytes) => {
@@ -939,16 +933,15 @@ function PurchaseInvoice() {
     const invoiceNo = invoice.invoiceNumber || 'PI00001';
     const formatDate = (dateStr) => {
       const date = new Date(dateStr);
-      const day = String(date.getDate()).padStart(2, '0');
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const month = monthNames[date.getMonth()];
-      const year = date.getFullYear();
-      return `${day}-${month}-${year}`;
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const yyyy = date.getFullYear();
+      return `${mm}/${dd}/${yyyy}`;
     };
 
     const invoiceDate = invoice.invoiceDate 
       ? formatDate(invoice.invoiceDate)
-      : '05-Nov-2026';
+      : '11/05/2026';
       
     // Invoice No
     doc.setFont('helvetica', 'bold');
@@ -970,7 +963,7 @@ function PurchaseInvoice() {
       idx + 1,
       item.product?.toString().trim() || '-',
       item.description?.toString().trim() || '-',
-      `${(parseFloat(item.amount) || 0).toLocaleString('en-IN')}/-`
+      `${(parseFloat(item.amount) || 0).toLocaleString('en-US')}/-`
     ]);
     
     autoTable(doc, {
@@ -1007,7 +1000,7 @@ function PurchaseInvoice() {
     const finalY = doc.lastAutoTable?.finalY || y + 40;
     y = finalY + 5;
     const totalAmt = parseFloat(invoice.totalAmount) || 0;
-    const totalAmtStr = totalAmt.toLocaleString('en-IN');
+    const totalAmtStr = totalAmt.toLocaleString('en-US');
     
     doc.setLineWidth(0.5);
     doc.setDrawColor(0, 0, 0);
@@ -1425,7 +1418,7 @@ function PurchaseInvoice() {
                         <th style={{ padding: '0.5rem', textAlign: 'center', width: '50px' }}>Sr No</th>
                         <th style={{ padding: '0.5rem', textAlign: 'left' }}>Product</th>
                         <th style={{ padding: '0.5rem', textAlign: 'left' }}>Description</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '120px' }}>Amount (₹)</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '120px' }}>Amount ($)</th>
                         <th style={{ padding: '0.5rem', textAlign: 'center', width: '60px' }}>Action</th>
                       </tr>
                     </thead>
@@ -1676,7 +1669,7 @@ function PurchaseInvoice() {
                 }}>
                   <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-header)' }}>Total Amount:</span>
                   <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
-                    ₹{invoiceForm.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${invoiceForm.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
 
@@ -1820,7 +1813,7 @@ function PurchaseInvoice() {
                       'Unknown';
                     const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name;
                     const dateLabel = formatDateDDMMMYYYY(invoice.invoiceDate);
-                    const amountLabel = `₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    const amountLabel = `$${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                     const descriptionLabel = invoice.transactionDescription ? String(invoice.transactionDescription) : '-';
 
                     return (
@@ -1976,14 +1969,14 @@ function PurchaseInvoice() {
                         >
                           Amount {sortColumn === 'totalAmount' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
+                        <th style={{ width: '5%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {invoices.map((invoice) => {
                         const label = getClientDisplayLabel(invoice.vendorId)
                         const dateLabel = formatDateDDMMMYYYY(invoice.invoiceDate)
-                        const amountLabel = `₹${invoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                        const amountLabel = `$${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                         const descriptionLabel = invoice.transactionDescription ? String(invoice.transactionDescription) : '-';
 
                         return (
@@ -2023,8 +2016,8 @@ function PurchaseInvoice() {
                             <td style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
                               {amountLabel}
                             </td>
-                            <td style={{ textAlign: 'left', padding: '0.35rem 0.35rem' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', position: 'relative' }}>
+                            <td style={{ width: '5%', textAlign: 'center', padding: '0.35rem 0.35rem' }}>
+                              <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -2050,7 +2043,7 @@ function PurchaseInvoice() {
                                     borderRadius: '6px',
                                     cursor: 'pointer',
                                     color: 'var(--text-muted)',
-                                    transition: 'all 0.2s'
+                                    transition: 'all 0.2s',
                                   }}
                                   title="Actions"
                                 >
@@ -2215,7 +2208,7 @@ function PurchaseInvoice() {
                   <div style={{ display: 'grid', gap: '0.75rem' }}>
                     {(() => {
                       const client = infoInvoice?.vendorId;
-                      const invoiceDate = infoInvoice?.invoiceDate ? new Date(infoInvoice.invoiceDate).toLocaleDateString() : '-';
+                      const invoiceDate = formatDateMMDDYYYY(infoInvoice?.invoiceDate);
                       const transactionDesc = infoInvoice?.transactionDescription || '-';
 
                       return (
@@ -2288,14 +2281,14 @@ function PurchaseInvoice() {
                                 <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.product || '-'}</td>
                                 <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.description || '-'}</td>
                                 <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 700 }}>
-                                  ₹{item.amount ? item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                  ${item.amount ? item.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                                 </td>
                               </tr>
                             ))}
                             <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
                               <td colSpan={2} style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
                               <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
-                                ₹{infoInvoice?.totalAmount ? infoInvoice.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                ${infoInvoice?.totalAmount ? infoInvoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                               </td>
                             </tr>
                           </>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Archive, DatabaseBackup, RotateCcw, Upload } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
+import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const BACKUP_REFRESH_MS = Number(import.meta.env.VITE_BACKUP_REFRESH_MS || 15000)
@@ -434,7 +435,7 @@ function Backup() {
 
       const backupMeta = {
         name: data?.backupFile || (data?.backupDir ? String(data.backupDir).split('/').pop() : 'latest-backup'),
-        createdAt: new Date().toLocaleString(),
+        createdAt: new Date().toISOString(),
         size: data?.size ? `${Math.max(1, Math.round(Number(data.size) / (1024 * 1024)))} MB` : 'Pending',
         status: 'Completed',
         path: data?.backupPath || data?.backupDir || ''
@@ -599,7 +600,7 @@ function Backup() {
               </div>
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.2rem' }}>Restored At</div>
-                <div style={{ color: 'var(--text-main)' }}>{new Date(lastRestore.restoredAt).toLocaleString()}</div>
+                <div style={{ color: 'var(--text-main)' }}>{formatDateTimeMMDDYYYY(lastRestore.restoredAt)}</div>
               </div>
             </div>
           </div>
@@ -615,7 +616,7 @@ function Backup() {
               </div>
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.2rem' }}>Created</div>
-                <div style={{ color: 'var(--text-main)' }}>{lastBackup.createdAt}</div>
+                <div style={{ color: 'var(--text-main)' }}>{formatDateTimeMMDDYYYY(lastBackup.createdAt)}</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.2rem' }}>Size</div>
@@ -710,7 +711,7 @@ function Backup() {
             Use hours and minutes together to define the automatic backup frequency.
           </div>
           <div style={{ marginTop: '0.45rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-            Last scheduled backup: {lastBackup?.createdAt || 'No backup created yet.'}
+            Last scheduled backup: {lastBackup?.createdAt ? formatDateTimeMMDDYYYY(lastBackup.createdAt) : 'No backup created yet.'}
           </div>
         </div>
 
@@ -791,7 +792,7 @@ function Backup() {
               backupItems.map((item) => (
                 <div key={item.name} style={{ display: 'grid', gridTemplateColumns: '3fr 2fr 1fr 1fr 3fr', padding: '0.85rem 1rem', borderTop: '1px solid var(--border)', alignItems: 'center', fontSize: '0.85rem' }}>
                   <div style={{ color: 'var(--text-header)', fontWeight: 600 }}>{item.name}</div>
-                  <div style={{ color: 'var(--text-main)' }}>{item.createdAt}</div>
+                  <div style={{ color: 'var(--text-main)' }}>{formatDateTimeMMDDYYYY(item.createdAt)}</div>
                   <div style={{ color: 'var(--text-main)' }}>{item.size}</div>
                   <div style={{ color: '#10b981', fontWeight: 700 }}>{item.status}</div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

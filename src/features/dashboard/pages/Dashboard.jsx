@@ -34,6 +34,7 @@ import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
+import { formatDateMMDDYYYY } from '../../../utils/formatters'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -73,34 +74,34 @@ const data5Y = generateData(5, 'Year ')
 const inflowDetails = [
   {
     title: 'SALES',
-    amount: '₹ 28,813',
+    amount: '$ 28,813',
     items: [
-      { name: 'Sunita Bhagwan Kumawat', desc: 'Bill #609', amount: '₹ 5,337' },
-      { name: 'Manoj Kailash Khandelwal', desc: 'Items Wt Sale #69', amount: '₹ 23,476' },
+      { name: 'Sunita Bhagwan Kumawat', desc: 'Bill #609', amount: '$ 5,337' },
+      { name: 'Manoj Kailash Khandelwal', desc: 'Items Wt Sale #69', amount: '$ 23,476' },
     ]
   },
   {
     title: 'RECEIPTS',
-    amount: '₹ 14,750',
+    amount: '$ 14,750',
     items: [
-      { name: 'Ravi Mohan Soni', desc: 'Receipt #375', amount: '₹ 3,000' },
-      { name: 'Sunita Bhagwan Kumawat', desc: 'Receipt #389', amount: '₹ 11,750' },
+      { name: 'Ravi Mohan Soni', desc: 'Receipt #375', amount: '$ 3,000' },
+      { name: 'Sunita Bhagwan Kumawat', desc: 'Receipt #389', amount: '$ 11,750' },
     ]
   },
   {
     title: 'CHARGES',
-    amount: '₹ 1,125',
+    amount: '$ 1,125',
     items: [
-      { name: 'Ravi Mohan Soni', desc: 'Charge #128', amount: '₹ 250' },
-      { name: 'Nitin Ramesh Gupta', desc: 'Charge #135', amount: '₹ 875' },
+      { name: 'Ravi Mohan Soni', desc: 'Charge #128', amount: '$ 250' },
+      { name: 'Nitin Ramesh Gupta', desc: 'Charge #135', amount: '$ 875' },
     ]
   },
   {
     title: 'LOAN REPAYMENTS',
-    amount: '₹ 95,788',
+    amount: '$ 95,788',
     items: [
-      { name: 'Meena Ramesh Sharma', desc: 'Repayment #257', amount: '₹ 40' },
-      { name: 'Meena Ramesh Sharma', desc: 'Repayment #258', amount: '₹ 12,065' },
+      { name: 'Meena Ramesh Sharma', desc: 'Repayment #257', amount: '$ 40' },
+      { name: 'Meena Ramesh Sharma', desc: 'Repayment #258', amount: '$ 12,065' },
     ]
   }
 ]
@@ -108,33 +109,33 @@ const inflowDetails = [
 const outflowDetails = [
   {
     title: 'CREDIT SALES',
-    amount: '₹ 26,313',
+    amount: '$ 26,313',
     items: [
-      { name: 'Sunita Bhagwan Kumawat', desc: 'Credit Sale #609', amount: '₹ 5,337' },
-      { name: 'Manoj Kailash Khandelwal', desc: 'Items Wt Credit #69', amount: '₹ 20,976' },
+      { name: 'Sunita Bhagwan Kumawat', desc: 'Credit Sale #609', amount: '$ 5,337' },
+      { name: 'Manoj Kailash Khandelwal', desc: 'Items Wt Credit #69', amount: '$ 20,976' },
     ]
   },
   {
     title: 'CHARGE RECEIVABLES',
-    amount: '₹ 1,125',
+    amount: '$ 1,125',
     items: [
-      { name: 'Ravi Mohan Soni', desc: 'Charge Due #128', amount: '₹ 250' },
-      { name: 'Nitin Ramesh Gupta', desc: 'Charge Due #135', amount: '₹ 875' },
+      { name: 'Ravi Mohan Soni', desc: 'Charge Due #128', amount: '$ 250' },
+      { name: 'Nitin Ramesh Gupta', desc: 'Charge Due #135', amount: '$ 875' },
     ]
   },
   {
     title: 'EXPENSES',
-    amount: '₹ 52',
+    amount: '$ 52',
     items: [
-      { name: 'Mahalaxmi Silver Works', desc: 'Vendor Payment #52', amount: '₹ 52' },
+      { name: 'Mahalaxmi Silver Works', desc: 'Vendor Payment #52', amount: '$ 52' },
     ]
   },
   {
     title: 'LOANS GIVEN',
-    amount: '₹ 64,500',
+    amount: '$ 64,500',
     items: [
-      { name: 'Pooja Rajesh Jain', desc: 'Issue #283', amount: '₹ 26,000' },
-      { name: 'Manoj Kailash Khandelwal', desc: 'Issue #284', amount: '₹ 38,500' },
+      { name: 'Pooja Rajesh Jain', desc: 'Issue #283', amount: '$ 26,000' },
+      { name: 'Manoj Kailash Khandelwal', desc: 'Issue #284', amount: '$ 38,500' },
     ]
   }
 ]
@@ -199,11 +200,11 @@ const recentActivity = [
 ]
 
 const topDebtors = [
-  { name: 'Vikram Pratap Singh', initial: 'VP', color: '#f87171', cash: '₹ 69,336.27', gold: '-', silver: '-' },
-  { name: 'Gopal Mohanlal Soni', initial: 'GM', color: '#60a5fa', cash: '₹ 53,887', gold: '-', silver: '-' },
-  { name: 'Manoj Kailash Khandelwal', initial: 'MK', color: '#34d399', cash: '₹ 53,844', gold: '-', silver: '-' },
-  { name: 'Suresh Girdhari Verma', initial: 'SG', color: '#fbbf24', cash: '₹ 50,520', gold: '2.500 g', silver: '-' },
-  { name: 'Kavita Mahendra Rathore', initial: 'KM', color: '#c084fc', cash: '₹ 50,420', gold: '-1.850 g', silver: '-' }
+  { name: 'Vikram Pratap Singh', initial: 'VP', color: '#f87171', cash: '$ 69,336.27', gold: '-', silver: '-' },
+  { name: 'Gopal Mohanlal Soni', initial: 'GM', color: '#60a5fa', cash: '$ 53,887', gold: '-', silver: '-' },
+  { name: 'Manoj Kailash Khandelwal', initial: 'MK', color: '#34d399', cash: '$ 53,844', gold: '-', silver: '-' },
+  { name: 'Suresh Girdhari Verma', initial: 'SG', color: '#fbbf24', cash: '$ 50,520', gold: '2.500 g', silver: '-' },
+  { name: 'Kavita Mahendra Rathore', initial: 'KM', color: '#c084fc', cash: '$ 50,420', gold: '-1.850 g', silver: '-' }
 ]
 
 function Dashboard() {
@@ -328,7 +329,7 @@ function Dashboard() {
   }, [vendorOverviewSearch, fetchVendorOverview])
 
   const formatMoney = (value, fractionDigits = 2) =>
-    Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
+    Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
 
   const statusBadgeStyle = (status) => {
     if (status === 'Paid') return { background: 'rgba(34,197,94,0.15)', color: 'rgb(34,197,94)' }
@@ -450,9 +451,9 @@ function Dashboard() {
       return {
         goldSold: '0.000 g',
         silverSold: '0.000 g',
-        closingBalance: '₹ 0',
-        inflowTotal: '₹ 0',
-        outflowTotal: '₹ 0',
+        closingBalance: '$ 0',
+        inflowTotal: '$ 0',
+        outflowTotal: '$ 0',
         inflows: [],
         outflows: [],
         activity: [],
@@ -474,28 +475,28 @@ function Dashboard() {
     // Tweak inflow/outflow amounts slightly
     const dInflows = inflowDetails.map(sec => ({
       ...sec,
-      amount: `₹ ${Math.floor(parseInt(sec.amount.replace(/[^\d]/g, '')) * (day % 5 + 8) / 10).toLocaleString()}`,
+      amount: `$ ${Math.floor(parseInt(sec.amount.replace(/[^\d]/g, '')) * (day % 5 + 8) / 10).toLocaleString()}`,
       items: sec.items.map(item => ({
         ...item,
-        amount: `₹ ${Math.floor(parseInt(item.amount.replace(/[^\d]/g, '')) * (day % 5 + 8) / 10).toLocaleString()}`
+        amount: `$ ${Math.floor(parseInt(item.amount.replace(/[^\d]/g, '')) * (day % 5 + 8) / 10).toLocaleString()}`
       }))
     }))
 
     const dOutflows = outflowDetails.map(sec => ({
       ...sec,
-      amount: `₹ ${Math.floor(parseInt(sec.amount.replace(/[^\d]/g, '')) * (day % 5 + 8) / 10).toLocaleString()}`,
+      amount: `$ ${Math.floor(parseInt(sec.amount.replace(/[^\d]/g, '')) * (day % 5 + 8) / 10).toLocaleString()}`,
       items: sec.items.map(item => ({
         ...item,
-        amount: `₹ ${Math.floor(parseInt(item.amount.replace(/[^\d]/g, '')) * (day % 5 + 8) / 10).toLocaleString()}`
+        amount: `$ ${Math.floor(parseInt(item.amount.replace(/[^\d]/g, '')) * (day % 5 + 8) / 10).toLocaleString()}`
       }))
     }))
 
     return {
       goldSold: `${gold} g`,
       silverSold: `${silver} g`,
-      closingBalance: `₹ ${balance.toLocaleString()}`,
-      inflowTotal: `₹ ${inflow.toLocaleString()}`,
-      outflowTotal: `₹ ${outflow.toLocaleString()}`,
+      closingBalance: `$ ${balance.toLocaleString()}`,
+      inflowTotal: `$ ${inflow.toLocaleString()}`,
+      outflowTotal: `$ ${outflow.toLocaleString()}`,
       inflows: dInflows,
       outflows: dOutflows,
       activity: recentActivity.slice(0, (day % 4) + 1),
@@ -503,13 +504,7 @@ function Dashboard() {
     }
   }, [currentDate, isFuture])
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    })
-  }
+  const formatDate = (date) => formatDateMMDDYYYY(date)
 
   const changeDate = (days) => {
     const nextDate = new Date(currentDate)
@@ -582,8 +577,8 @@ function Dashboard() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9ca3af' }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9ca3af' }} tickFormatter={(val) => `₹${val/1000}k`} />
-              <Tooltip formatter={(value) => [`₹ ${value.toLocaleString()}`]} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#9ca3af' }} tickFormatter={(val) => `$${val/1000}k`} />
+              <Tooltip formatter={(value) => [`$ ${value.toLocaleString()}`]} />
               <Area type="monotone" dataKey="inflow" stroke="#10b981" fillOpacity={1} fill="url(#colorInflow)" strokeWidth={2} />
               <Area type="monotone" dataKey="outflow" stroke="#ef4444" fillOpacity={1} fill="url(#colorOutflow)" strokeWidth={2} />
             </AreaChart>
@@ -656,7 +651,7 @@ function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Invoices</div>
               <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                {summaryLoading ? '...' : `₹${formatMoney(monthlySalesInvoices, 0)}`}
+                {summaryLoading ? '...' : `$${formatMoney(monthlySalesInvoices, 0)}`}
               </div>
               <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total value</div>
             </div>
@@ -669,7 +664,7 @@ function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Payments</div>
               <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                {summaryLoading ? '...' : `₹${formatMoney(monthlySalesPayments, 0)}`}
+                {summaryLoading ? '...' : `$${formatMoney(monthlySalesPayments, 0)}`}
               </div>
               <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total received</div>
             </div>
@@ -683,7 +678,7 @@ function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Outstanding</div>
               <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                {summaryLoading ? '...' : `₹${formatMoney(salesOutstanding, 0)}`}
+                {summaryLoading ? '...' : `$${formatMoney(salesOutstanding, 0)}`}
               </div>
               <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Pending receivables</div>
             </div>
@@ -696,7 +691,7 @@ function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Invoices</div>
               <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                {summaryLoading ? '...' : `₹${formatMoney(monthlyPurchaseInvoices, 0)}`}
+                {summaryLoading ? '...' : `$${formatMoney(monthlyPurchaseInvoices, 0)}`}
               </div>
               <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total value</div>
             </div>
@@ -709,7 +704,7 @@ function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Payments</div>
               <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                {summaryLoading ? '...' : `₹${formatMoney(monthlyPurchasePayments, 0)}`}
+                {summaryLoading ? '...' : `$${formatMoney(monthlyPurchasePayments, 0)}`}
               </div>
               <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total paid</div>
             </div>
@@ -722,7 +717,7 @@ function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Outstanding</div>
               <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                {summaryLoading ? '...' : `₹${formatMoney(purchaseOutstanding, 0)}`}
+                {summaryLoading ? '...' : `$${formatMoney(purchaseOutstanding, 0)}`}
               </div>
               <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Pending payables</div>
             </div>
@@ -819,7 +814,7 @@ function Dashboard() {
                           {c.email || '-'}
                         </td>
                         <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: c.pendingAmount < 0 ? 'rgb(34, 197, 94)' : c.pendingAmount > 0 ? 'rgb(249, 115, 22)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          ₹{formatMoney(Math.abs(Number(c.pendingAmount) || 0), 2)}
+                          ${formatMoney(Math.abs(Number(c.pendingAmount) || 0), 2)}
                         </td>
                       </tr>
                     ))
@@ -853,7 +848,7 @@ function Dashboard() {
                           {v.email || '-'}
                         </td>
                         <td style={{ padding: '1rem 0.75rem', textAlign: 'right', color: v.payableAmount < 0 ? 'rgb(34, 197, 94)' : v.payableAmount > 0 ? 'rgb(239, 68, 68)' : 'var(--text-header)', fontWeight: 900, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          ₹{formatMoney(Math.abs(Number(v.payableAmount) || 0), 2)}
+                          ${formatMoney(Math.abs(Number(v.payableAmount) || 0), 2)}
                         </td>
                       </tr>
                     ))
@@ -950,19 +945,19 @@ function Dashboard() {
                 <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '1rem', background: 'var(--bg-main)' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Invoice Amount</div>
                   <div style={{ marginTop: '0.4rem', fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                    ₹{formatMoney(customerModalSalesTotals.totalInvoiceAmount, 0)}
+                    ${formatMoney(customerModalSalesTotals.totalInvoiceAmount, 0)}
                   </div>
                 </div>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '1rem', background: 'var(--bg-main)' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Paid Amount</div>
                   <div style={{ marginTop: '0.4rem', fontSize: '1.2rem', fontWeight: 900, color: 'rgb(34,197,94)' }}>
-                    ₹{formatMoney(customerModalSalesTotals.totalPaidAmount, 0)}
+                    ${formatMoney(customerModalSalesTotals.totalPaidAmount, 0)}
                   </div>
                 </div>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '1rem', background: 'var(--bg-main)' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Pending Amount</div>
                   <div style={{ marginTop: '0.4rem', fontSize: '1.2rem', fontWeight: 900, color: 'rgb(239,68,68)' }}>
-                    ₹{formatMoney(customerModalSalesTotals.totalPendingAmount, 0)}
+                    ${formatMoney(customerModalSalesTotals.totalPendingAmount, 0)}
                   </div>
                 </div>
               </div>
@@ -994,10 +989,10 @@ function Dashboard() {
                       customerModalSalesRows.map((row) => (
                         <tr key={row._id} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>{row.invoiceNumber}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>{new Date(row.invoiceDate).toLocaleDateString()}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>₹{formatMoney(row.invoiceAmount, 0)}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>₹{formatMoney(row.paidAmount, 0)}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>₹{formatMoney(row.pendingAmount, 0)}</td>
+                          <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>{formatDateMMDDYYYY(row.invoiceDate)}</td>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>${formatMoney(row.invoiceAmount, 0)}</td>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>${formatMoney(row.paidAmount, 0)}</td>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>${formatMoney(row.pendingAmount, 0)}</td>
                           <td style={{ padding: '0.75rem 0.5rem' }}>
                             <span style={{ ...statusBadgeStyle(row.status), padding: '0.25rem 0.6rem', borderRadius: 999, fontWeight: 800, fontSize: '0.75rem' }}>
                               {row.status}

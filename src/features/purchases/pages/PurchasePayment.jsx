@@ -8,6 +8,7 @@ import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
+import { formatDateMMDDYYYY } from '../../../utils/formatters'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/purchase-payments`
@@ -949,17 +950,10 @@ function PurchasePayment() {
   }
 
   const formatMoney = (value) =>
-    Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const formatDate = (value) => {
-    if (!value) return '-'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return '-'
-    const day = String(date.getDate()).padStart(2, '0')
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const month = monthNames[date.getMonth()]
-    const year = date.getFullYear()
-    return `${day}-${month}-${year}`
+    return formatDateMMDDYYYY(value)
   }
 
   const formatFileSize = (sizeBytes) => {
@@ -1270,16 +1264,15 @@ function PurchasePayment() {
     const paymentNo = payment.paymentNumber || 'PP00001'
     const formatDate = (dateStr) => {
       const date = new Date(dateStr)
-      const day = String(date.getDate()).padStart(2, '0')
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-      const month = monthNames[date.getMonth()]
-      const year = date.getFullYear()
-      return `${day}-${month}-${year}`
+      const mm = String(date.getMonth() + 1).padStart(2, '0')
+      const dd = String(date.getDate()).padStart(2, '0')
+      const yyyy = date.getFullYear()
+      return `${mm}/${dd}/${yyyy}`
     }
 
     const paymentDate = payment.paymentDate
       ? formatDate(payment.paymentDate)
-      : '05-Nov-2026'
+      : '11/05/2026'
 
     // Payment No
     doc.setFont('helvetica', 'bold')
@@ -1301,7 +1294,7 @@ function PurchasePayment() {
       idx + 1,
       alloc.invoiceNumber || '-',
       (alloc.invoiceDate ? formatDate(alloc.invoiceDate) : '-'),
-      `${(parseFloat(alloc.amount) || 0).toLocaleString('en-IN')}/-`
+      `${(parseFloat(alloc.amount) || 0).toLocaleString('en-US')}/-`
     ])
 
     autoTable(doc, {
@@ -1338,7 +1331,7 @@ function PurchasePayment() {
     const finalY = doc.lastAutoTable?.finalY || y + 40
     y = finalY + 5
     const totalAmt = parseFloat(payment.amount) || 0
-    const totalAmtStr = totalAmt.toLocaleString('en-IN')
+    const totalAmtStr = totalAmt.toLocaleString('en-US')
 
     doc.setLineWidth(0.5)
     doc.setDrawColor(0, 0, 0)
@@ -1630,7 +1623,7 @@ function PurchasePayment() {
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 280px' }}>
                     <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                      Payment Amount (₹) <span style={{ color: 'var(--danger)' }}>*</span>
+                      Payment Amount ($) <span style={{ color: 'var(--danger)' }}>*</span>
                     </label>
                     <input
                       type="number"
@@ -1668,14 +1661,14 @@ function PurchasePayment() {
                     <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                       {Number(availableCredit) > 0 && (
                         <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
-                          Available Credit: ₹{formatMoney(availableCredit)}
+                          Available Credit: ${formatMoney(availableCredit)}
                         </div>
                       )}
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Bill Payment Amount: ₹{formatMoney(billPaymentAmount)}
+                        Bill Payment Amount: ${formatMoney(billPaymentAmount)}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Adjusted Bill Amount: ₹{formatMoney(adjustedBillPaymentAmount)}
+                        Adjusted Bill Amount: ${formatMoney(adjustedBillPaymentAmount)}
                       </div>
                     </div>
                   </div>
@@ -1907,7 +1900,7 @@ function PurchasePayment() {
                                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                                 >
                                   <div style={{ fontWeight: 700 }}>{inv.invoiceNumber}</div>
-                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '3px' }}>₹{formatMoney(inv.pendingAmount || inv.invoiceAmount)}</div>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '3px' }}>${formatMoney(inv.pendingAmount || inv.invoiceAmount)}</div>
                                 </li>
                               ))}
                             </ul>
@@ -1971,10 +1964,10 @@ function PurchasePayment() {
                                 <td style={{ padding: '0.75rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inv.invoiceNumber}>
                                   {inv.invoiceNumber}
                                 </td>
-                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>₹{formatMoney(inv.invoiceAmount)}</td>
-                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>₹{formatMoney(inv.paidAmount)}</td>
+                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>${formatMoney(inv.invoiceAmount)}</td>
+                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>${formatMoney(inv.paidAmount)}</td>
                                 <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: 'rgb(249, 115, 22)', fontWeight: 700 }}>
-                                  ₹{formatMoney(inv.pendingAmount)}
+                                  ${formatMoney(inv.pendingAmount)}
                                 </td>
                                 <td style={{ padding: '0.5rem' }}>
                                   <input
@@ -2028,7 +2021,7 @@ function PurchasePayment() {
                             Total Balance:
                           </td>
                           <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
-                            ₹{formatMoney(totalPending)}
+                            ${formatMoney(totalPending)}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(16,185,129,0.10)' }}>
@@ -2036,7 +2029,7 @@ function PurchasePayment() {
                             Selected Payment Total:
                           </td>
                           <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(16,185,129)' }}>
-                            ₹{formatMoney(selectedAllocationTotal)}
+                            ${formatMoney(selectedAllocationTotal)}
                           </td>
                         </tr>
                         {Number(availableCredit) > 0 && (
@@ -2045,7 +2038,7 @@ function PurchasePayment() {
                               Available Credit:
                             </td>
                             <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
-                              ₹{formatMoney(availableCredit)}
+                              ${formatMoney(availableCredit)}
                             </td>
                           </tr>
                         )}
@@ -2054,7 +2047,7 @@ function PurchasePayment() {
                             Adjusted Bill Amount:
                           </td>
                           <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--text-header)' }}>
-                            ₹{formatMoney(adjustedBillPaymentAmount)}
+                            ${formatMoney(adjustedBillPaymentAmount)}
                           </td>
                         </tr>
                       </tfoot>
@@ -2387,7 +2380,7 @@ function PurchasePayment() {
                   const companyName = payment.vendorId?.companyName || ''
                   const vendorLabel = vendorName ? (companyName ? `${vendorName} - ${companyName}` : vendorName) : (companyName ? companyName : '-')
                   const dateLabel = formatDate(payment.paymentDate)
-                  const amountLabel = `₹${formatMoney(payment.amount)}`
+                  const amountLabel = `$${formatMoney(payment.amount)}`
                   const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                   return (
@@ -2528,7 +2521,7 @@ function PurchasePayment() {
                       >
                         Amount {sortColumn === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
+                      <th style={{ width: '5%', textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2537,7 +2530,7 @@ function PurchasePayment() {
                       const companyName = payment.vendorId?.companyName || ''
                       const vendorLabel = vendorName ? (companyName ? `${vendorName} - ${companyName}` : vendorName) : (companyName ? companyName : '-')
                       const dateLabel = formatDate(payment.paymentDate)
-                      const amountLabel = `₹${formatMoney(payment.amount)}`
+                      const amountLabel = `$${formatMoney(payment.amount)}`
                       const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                       return (
@@ -2580,7 +2573,7 @@ function PurchasePayment() {
                           <td style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
                             {amountLabel}
                           </td>
-                          <td style={{ textAlign: 'left', padding: '0.25rem 0.25rem' }}>
+                          <td style={{ width: '5%', textAlign: 'center', padding: '0.25rem 0.25rem' }}>
                             <div style={{ position: 'relative' }}>
                               <MotionButton
                                 onClick={(e) => {
@@ -2804,7 +2797,7 @@ function PurchasePayment() {
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                               <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Amount</span>
                               <span style={{ color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
-                                ₹{infoPayment?.amount ? infoPayment.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                ${infoPayment?.amount ? infoPayment.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                               </span>
                             </div>
                           </>
@@ -2846,10 +2839,10 @@ function PurchasePayment() {
                                         {alloc.invoiceId?.invoiceNumber || 'Unknown Invoice'}
                                       </td>
                                       <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem' }}>
-                                        ₹{alloc.invoiceId?.totalAmount ? alloc.invoiceId.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                        ${alloc.invoiceId?.totalAmount ? alloc.invoiceId.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                                       </td>
                                       <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem' }}>
-                                        ₹{alloc.amount ? alloc.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                        ${alloc.amount ? alloc.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                                       </td>
                                     </tr>
                                   ))}
@@ -2857,7 +2850,7 @@ function PurchasePayment() {
                                     <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
                                     <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}></td>
                                     <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
-                                      ₹{totalPaidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      ${totalPaidAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </td>
                                   </tr>
                                 </>

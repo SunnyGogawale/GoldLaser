@@ -7,6 +7,7 @@ import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { sanitizeClientErrorMessage } from '../../../utils/api'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
+import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -340,7 +341,7 @@ function User() {
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Created:</div>
-                          <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}</div>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{formatDateTimeMMDDYYYY(u.createdAt)}</div>
                         </div>
                       </div>
                     </div>
@@ -366,7 +367,7 @@ function User() {
                           <td style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{u.email || '-'}</td>
                           <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.roll || u.role || 'user'}</td>
                           <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
-                            {u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}
+                            {formatDateTimeMMDDYYYY(u.createdAt)}
                           </td>
                           <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem' }}>
                             <div style={{ position: 'relative' }}>
@@ -672,7 +673,7 @@ function User() {
                       {loginHistory.map((entry, index) => (
                         <tr key={`${entry}-${index}`} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-main)' }}>{index + 1}</td>
-                          <td style={{ textAlign: 'right', padding: '0.5rem 0.35rem', color: 'var(--text-main)' }}>{new Date(entry).toLocaleString()}</td>
+                          <td style={{ textAlign: 'right', padding: '0.5rem 0.35rem', color: 'var(--text-main)' }}>{formatDateTimeMMDDYYYY(entry)}</td>
                         </tr>
                       ))}
                     </tbody>

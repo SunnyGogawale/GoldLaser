@@ -9,6 +9,7 @@ import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
+import { formatDateMMDDYYYY, formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/vendors`
@@ -128,14 +129,12 @@ function Vendor() {
   }
 
   const formatMoney = (value) =>
-    Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const formatPdfMoney = (value) => `${formatMoney(value)}`
 
   const formatPdfDate = (value) => {
-    const d = value ? new Date(value) : null
-    if (!d || Number.isNaN(d.getTime())) return '-'
-    return d.toLocaleDateString('en-GB')
+    return formatDateMMDDYYYY(value)
   }
 
   const fetchJsonWithAuth = async (url, fallbackMessage) => {
@@ -903,7 +902,7 @@ function Vendor() {
       y += 8
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
-      doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, marginLeft, y)
+      doc.text(`Generated: ${formatDateTimeMMDDYYYY(new Date())}`, marginLeft, y)
 
       y += 8
       doc.setDrawColor(0, 0, 0)
@@ -2088,7 +2087,7 @@ function Vendor() {
                           {outstanding && outstanding !== '0' && (
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Outstanding:</div>
-                              <div style={{ fontSize: '0.875rem', color: outstandingAmount < 0 ? '#16a34a' : 'var(--danger)', fontWeight: 800 }}>{outstanding}</div>
+                              <div style={{ fontSize: '0.875rem', color: outstandingAmount < 0 ? '#16a34a' : 'var(--danger)', fontWeight: 800 }}>${outstanding}</div>
                             </div>
                           )}
                           {/* Custom columns */}
@@ -2121,25 +2120,25 @@ function Vendor() {
                         </th>
                         <th
                           onClick={() => handleSort('vendorName')}
-                          style={{ width: '18%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '18%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Vendor Name {sortColumn === 'vendorName' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('contactNumber')}
-                          style={{ width: '14%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '14%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Mobile {sortColumn === 'contactNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('email')}
-                          style={{ width: '24%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '24%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Email {sortColumn === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
                         <th
                           onClick={() => handleSort('outstanding')}
-                          style={{ width: '16%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                          style={{ width: '16%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                         >
                           Outstanding {sortColumn === 'outstanding' && (sortOrder === 'asc' ? '↑' : '↓')}
                         </th>
@@ -2153,7 +2152,7 @@ function Vendor() {
                             {columnName} {sortColumn === `customField_${columnName}` && (sortOrder === 'asc' ? '↑' : '↓')}
                           </th>
                         ))}
-                        <th style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
+                        <th style={{ width: '5%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2174,7 +2173,7 @@ function Vendor() {
                             <td
                               style={{
                                 width: '18%',
-                                textAlign: 'left',
+                                textAlign: 'center',
                                 padding: '0.35rem 0.35rem',
                                 color: 'var(--text-main)',
                                 borderRight: isAdmin ? '1px solid var(--border)' : 'none',
@@ -2186,22 +2185,22 @@ function Vendor() {
                             >
                               {vendorName || '-'}
                             </td>
-                            <td style={{ width: '14%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(mobile)}>
+                            <td style={{ width: '14%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(mobile)}>
                               {mobile || '-'}
                             </td>
-                            <td style={{ width: '24%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }} title={String(email)}>
+                            <td style={{ width: '24%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }} title={String(email)}>
                               {email || '-'}
                             </td>
-                            <td style={{ width: '16%', textAlign: 'left', padding: '0.35rem 0.35rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)'), borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(outstanding)}>
-                              {outstanding}
+                            <td style={{ width: '16%', textAlign: 'center', padding: '0.35rem 0.35rem', color: outstandingAmount < 0 ? '#16a34a' : (outstandingAmount > 0 ? 'var(--danger)' : 'var(--text-main)'), borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={`${outstanding}`}>
+                              ${outstanding}
                             </td>
                             {/* Custom column cells */}
                             {customColumns.map((columnName) => (
-                              <td key={columnName} style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '180px' }} title={String(vendor.customFields?.[columnName] || '-')}> {
+                              <td key={columnName} style={{ textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '180px' }} title={String(vendor.customFields?.[columnName] || '-')}> {
                                 vendor.customFields?.[columnName] || '-'
                               }</td>
                             ))}
-                            <td style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem' }}>
+                            <td style={{ width: '5%', textAlign: 'center', padding: '0.35rem 0.35rem' }}>
                               <div style={{ position: 'relative' }}>
                                 <MotionButton
                                   onClick={(e) => {

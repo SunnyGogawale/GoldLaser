@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Invoice = require('../models/SaleInvoice');
+const SalePayment = require('../models/SalePayment');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const { sendErrorResponse } = require('../utils/errorHandler');
@@ -43,54 +44,24 @@ function buildInvoiceMatch({ fromDate, toDate, customerId }) {
   return match;
 }
 
-function invoicePaidLookupStage() {
-  return {
-    $lookup: {
-      from: 'salepayments',
-      let: { invoiceId: '$_id' },
-      pipeline: [
-        { $unwind: '$allocations' },
-        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
-        { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
-      ],
-      as: 'paidAgg'
-    }
-  };
-}
-
-function invoiceComputedFieldsStage() {
-  return {
-    $addFields: {
-      paidAmount: { $ifNull: [{ $arrayElemAt: ['$paidAgg.paidAmount', 0] }, 0] },
-      pendingAmount: {
-        $max: [
-          0,
-          { $subtract: [{ $ifNull: ['$totalAmount', 0] }, { $ifNull: [{ $arrayElemAt: ['$paidAgg.paidAmount', 0] }, 0] }] }
-        ]
-      },
-      numericId: {
-        $toInt: {
-          $replaceAll: { input: '$invoiceNumber', find: 'INV', replacement: '' }
-        }
+async function getPaidAmountMapByInvoiceIds(invoiceIds) {
+  const rows = await SalePayment.aggregate([
+    { $unwind: '$allocations' },
+    { $match: { 'allocations.invoiceId': { $in: invoiceIds } } },
+    {
+      $group: {
+        _id: '$allocations.invoiceId',
+        paidAmount: { $sum: '$allocations.amount' }
       }
     }
-  };
-}
+  ]);
 
-function invoiceStatusStage() {
-  return {
-    $addFields: {
-      status: {
-        $switch: {
-          branches: [
-            { case: { $lte: ['$pendingAmount', 0] }, then: 'Paid' },
-            { case: { $gt: ['$paidAmount', 0] }, then: 'Partial' }
-          ],
-          default: 'Pending'
-        }
-      }
-    }
-  };
+  const map = new Map();
+  for (const row of rows) {
+    map.set(String(row._id), row.paidAmount);
+  }
+
+  return map;
 }
 
 router.get('/invoice-summary', async (req, res) => {
@@ -105,11 +76,13 @@ router.get('/invoice-summary', async (req, res) => {
       customerId: req.query.customerId
     });
 
-    // Get all invoices first to collect customer/vendor ids
-    const invoices = await Invoice.find(match)
-      .sort({ invoiceDate: 1, createdAt: 1 })
-      .skip(skip)
-      .limit(limit);
+    const allInvoices = await Invoice.find(match)
+      .sort({ invoiceDate: 1, createdAt: 1 });
+
+    const invoiceIds = allInvoices.map(invoice => invoice._id);
+    const paidMap = await getPaidAmountMapByInvoiceIds(invoiceIds);
+
+    const invoices = allInvoices.slice(skip, skip + limit);
 
     if (invoices.length === 0) {
       return res.json({
@@ -119,9 +92,9 @@ router.get('/invoice-summary', async (req, res) => {
           totalPaidAmount: 0,
           totalPendingAmount: 0
         },
-        total: 0,
+        total: allInvoices.length,
         page,
-        totalPages: 0
+        totalPages: Math.ceil(allInvoices.length / limit)
       });
     }
 
@@ -144,18 +117,6 @@ router.get('/invoice-summary', async (req, res) => {
     const customerMap = new Map(customers.map(c => [c._id.toString(), c]));
     const vendorMap = new Map(vendors.map(v => [v._id.toString(), v]));
 
-    // Get paid amounts via aggregate
-    const invoiceIds = invoices.map(i => i._id);
-    const paidAgg = await Invoice.aggregate([
-      { $match: { _id: { $in: invoiceIds } } },
-      invoicePaidLookupStage(),
-      invoiceComputedFieldsStage(),
-      invoiceStatusStage(),
-      { $project: { _id: 1, paidAmount: 1, pendingAmount: 1, status: 1, totalAmount: 1 } }
-    ]);
-    const paidMap = new Map(paidAgg.map(a => [a._id.toString(), a]));
-
-    // Build rows
     const rows = invoices.map(invoice => {
       let clientName = 'Unknown';
       let clientIdStr;
@@ -172,40 +133,41 @@ router.get('/invoice-summary', async (req, res) => {
         const customer = customerMap.get(clientIdStr);
         clientName = customer?.customerName || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'Unknown';
       }
-      const paidData = paidMap.get(invoice._id.toString()) || { paidAmount: 0, pendingAmount: invoice.totalAmount || 0, status: 'Pending' };
+      const invoiceAmount = Number(invoice.totalAmount || 0);
+      const paidAmount = paidMap.get(String(invoice._id)) || 0;
+      const pendingAmount = Math.max(0, invoiceAmount - paidAmount);
+      const status = paidAmount >= invoiceAmount ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Pending';
+
       return {
         _id: invoice._id,
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
         customerName: clientName,
-        invoiceAmount: invoice.totalAmount || 0,
-        paidAmount: paidData.paidAmount,
-        pendingAmount: paidData.pendingAmount,
-        status: paidData.status
+        invoiceAmount,
+        paidAmount,
+        paymentAmount: paidAmount,
+        pendingAmount,
+        status
       };
     });
 
-    // Get totals
-    const totalAgg = await Invoice.aggregate([
-      { $match: match },
-      invoicePaidLookupStage(),
-      invoiceComputedFieldsStage(),
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } },
-          totalPaidAmount: { $sum: '$paidAmount' },
-          totalPendingAmount: { $sum: '$pendingAmount' }
-        }
-      }
-    ]);
-    const totals = totalAgg[0] || {
+    const totals = allInvoices.reduce((acc, invoice) => {
+      const invoiceAmount = Number(invoice.totalAmount || 0);
+      const paidAmount = paidMap.get(String(invoice._id)) || 0;
+      const pendingAmount = Math.max(0, invoiceAmount - paidAmount);
+
+      acc.totalInvoiceAmount += invoiceAmount;
+      acc.totalPaidAmount += paidAmount;
+      acc.totalPendingAmount += pendingAmount;
+      acc.total += 1;
+
+      return acc;
+    }, {
       total: 0,
       totalInvoiceAmount: 0,
       totalPaidAmount: 0,
       totalPendingAmount: 0
-    };
+    });
 
     res.json({
       rows,
@@ -235,58 +197,51 @@ router.get('/sales', async (req, res) => {
       customerId: req.query.customerId
     });
 
-    const basePipeline = [
-      { $match: match },
-      invoicePaidLookupStage(),
-      invoiceComputedFieldsStage(),
-      invoiceStatusStage()
-    ];
+    const allInvoices = await Invoice.find(match)
+      .sort({ invoiceDate: 1, createdAt: 1 });
 
-    const facet = await Invoice.aggregate([
-      ...basePipeline,
-      {
-        $facet: {
-          rows: [
-            { $sort: { invoiceDate: 1, numericId: 1, createdAt: 1 } },
-            { $skip: skip },
-            { $limit: limit },
-            {
-              $project: {
-                _id: 1,
-                invoiceNumber: 1,
-                invoiceDate: 1,
-                invoiceAmount: { $ifNull: ['$totalAmount', 0] },
-                paidAmount: 1,
-                pendingAmount: 1,
-                status: 1
-              }
-            }
-          ],
-          totals: [
-            {
-              $group: {
-                _id: null,
-                total: { $sum: 1 },
-                totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } },
-                totalPaidAmount: { $sum: '$paidAmount' },
-                totalPendingAmount: { $sum: '$pendingAmount' }
-              }
-            }
-          ]
-        }
-      }
-    ]);
+    const invoiceIds = allInvoices.map(invoice => invoice._id);
+    const paidMap = await getPaidAmountMapByInvoiceIds(invoiceIds);
 
-    const result = facet[0] || { rows: [], totals: [] };
-    const totals = result.totals[0] || {
+    const invoices = allInvoices.slice(skip, skip + limit);
+    const rows = invoices.map(invoice => {
+      const invoiceAmount = Number(invoice.totalAmount || 0);
+      const paidAmount = paidMap.get(String(invoice._id)) || 0;
+      const pendingAmount = Math.max(0, invoiceAmount - paidAmount);
+      const status = paidAmount >= invoiceAmount ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Pending';
+
+      return {
+        _id: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+        invoiceAmount,
+        paidAmount,
+        paymentAmount: paidAmount,
+        pendingAmount,
+        status
+      };
+    });
+
+    const totals = allInvoices.reduce((acc, invoice) => {
+      const invoiceAmount = Number(invoice.totalAmount || 0);
+      const paidAmount = paidMap.get(String(invoice._id)) || 0;
+      const pendingAmount = Math.max(0, invoiceAmount - paidAmount);
+
+      acc.totalInvoiceAmount += invoiceAmount;
+      acc.totalPaidAmount += paidAmount;
+      acc.totalPendingAmount += pendingAmount;
+      acc.total += 1;
+
+      return acc;
+    }, {
       total: 0,
       totalInvoiceAmount: 0,
       totalPaidAmount: 0,
       totalPendingAmount: 0
-    };
+    });
 
     res.json({
-      rows: result.rows,
+      rows,
       totals: {
         totalInvoiceAmount: totals.totalInvoiceAmount,
         totalPaidAmount: totals.totalPaidAmount,

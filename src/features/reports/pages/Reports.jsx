@@ -3,6 +3,7 @@ import { FileText, TrendingUp } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
+import { formatDateMMDDYYYY } from '../../../utils/formatters'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORTS_API_URL = `${API_BASE_URL}/api/reports`
@@ -62,7 +63,7 @@ function Reports() {
   }
 
   const formatMoney = (value, fractionDigits = 0) =>
-    Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
+    Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
 
   const statusStyles = (status) => {
     if (status === 'Paid') return { background: 'rgba(34,197,94,0.12)', color: 'rgb(34,197,94)' }
@@ -103,6 +104,8 @@ function Reports() {
       const url = new URL(`${REPORTS_API_URL}/sales`)
       url.searchParams.set('page', String(page))
       url.searchParams.set('limit', '25')
+      if (appliedFromDate) url.searchParams.set('fromDate', appliedFromDate)
+      if (appliedToDate) url.searchParams.set('toDate', appliedToDate)
       if (appliedCustomerId) url.searchParams.set('customerId', appliedCustomerId)
 
       const response = await fetch(url.toString())
@@ -133,15 +136,10 @@ function Reports() {
   }, [activeTab, appliedFromDate, appliedToDate, appliedCustomerId])
 
   const applyFilters = () => {
-    if (activeTab === 'invoiceSummary') {
-      setAppliedFromDate(draftFromDate)
-      setAppliedToDate(draftToDate)
-      setAppliedCustomerId(selectedCustomerId)
-    } else {
-      setAppliedFromDate('')
-      setAppliedToDate('')
-      setAppliedCustomerId(selectedCustomerId)
-    }
+    setAppliedFromDate(draftFromDate)
+    setAppliedToDate(draftToDate)
+    setAppliedCustomerId(selectedCustomerId)
+
     if (activeTab === 'invoiceSummary') setInvoicePage(1)
     if (activeTab === 'salesReport') setSalesPage(1)
   }
@@ -150,13 +148,8 @@ function Reports() {
     const today = new Date().toISOString().split('T')[0]
     setDraftFromDate(today)
     setDraftToDate(today)
-    if (activeTab === 'invoiceSummary') {
-      setAppliedFromDate(today)
-      setAppliedToDate(today)
-    } else {
-      setAppliedFromDate('')
-      setAppliedToDate('')
-    }
+    setAppliedFromDate(today)
+    setAppliedToDate(today)
     setSelectedCustomerId('')
     setAppliedCustomerId('')
     setCustomerSearchText('')
@@ -367,15 +360,15 @@ function Reports() {
         <div style={{ display: 'flex', gap: '1rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 200px', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 700 }}>Total Invoice Amount</div>
-            <div style={{ color: 'var(--text-header)', fontSize: '1.25rem', fontWeight: 900, marginTop: '0.5rem' }}>₹{formatMoney((activeTab === 'invoiceSummary' ? invoiceTotals.totalInvoiceAmount : salesTotals.totalInvoiceAmount), 0)}</div>
+            <div style={{ color: 'var(--text-header)', fontSize: '1.25rem', fontWeight: 900, marginTop: '0.5rem' }}>${formatMoney((activeTab === 'invoiceSummary' ? invoiceTotals.totalInvoiceAmount : salesTotals.totalInvoiceAmount), 0)}</div>
           </div>
           <div style={{ flex: '1 1 200px', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 700 }}>Total Paid Amount</div>
-            <div style={{ color: 'rgb(34,197,94)', fontSize: '1.25rem', fontWeight: 900, marginTop: '0.5rem' }}>₹{formatMoney((activeTab === 'invoiceSummary' ? invoiceTotals.totalPaidAmount : salesTotals.totalPaidAmount), 0)}</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 700 }}>Total Payment Amount</div>
+            <div style={{ color: 'rgb(34,197,94)', fontSize: '1.25rem', fontWeight: 900, marginTop: '0.5rem' }}>${formatMoney((activeTab === 'invoiceSummary' ? invoiceTotals.totalPaidAmount : salesTotals.totalPaidAmount), 0)}</div>
           </div>
           <div style={{ flex: '1 1 200px', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', fontWeight: 700 }}>Total Pending Amount</div>
-            <div style={{ color: 'rgb(239,68,68)', fontSize: '1.25rem', fontWeight: 900, marginTop: '0.5rem' }}>₹{formatMoney((activeTab === 'invoiceSummary' ? invoiceTotals.totalPendingAmount : salesTotals.totalPendingAmount), 0)}</div>
+            <div style={{ color: 'rgb(239,68,68)', fontSize: '1.25rem', fontWeight: 900, marginTop: '0.5rem' }}>${formatMoney((activeTab === 'invoiceSummary' ? invoiceTotals.totalPendingAmount : salesTotals.totalPendingAmount), 0)}</div>
           </div>
         </div>
       </div>
@@ -396,7 +389,7 @@ function Reports() {
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Invoice Date</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Customer Name</th>
                       <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem' }}>Invoice Amount</th>
-                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem' }}>Paid Amount</th>
+                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem' }}>Payment Amount</th>
                       <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem' }}>Pending Amount</th>
                       <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem' }}>Status</th>
                     </tr>
@@ -405,11 +398,11 @@ function Reports() {
                     {invoiceRows.map(r => (
                       <tr key={r._id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '0.75rem 0.5rem' }}>{r.invoiceNumber}</td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>{new Date(r.invoiceDate).toLocaleDateString()}</td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>{formatDateMMDDYYYY(r.invoiceDate)}</td>
                         <td style={{ padding: '0.75rem 0.5rem' }}>{r.customerName || 'Unknown'}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(r.invoiceAmount, 0)}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(r.paidAmount, 0)}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(r.pendingAmount, 0)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>${formatMoney(r.invoiceAmount, 0)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>${formatMoney(r.paymentAmount ?? r.paidAmount, 0)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>${formatMoney(r.pendingAmount, 0)}</td>
                         <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
                           <span style={{
                             display: 'inline-block',
@@ -502,7 +495,7 @@ function Reports() {
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Invoice Number</th>
                       <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem' }}>Invoice Date</th>
                       <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem' }}>Invoice Amount</th>
-                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem' }}>Paid Amount</th>
+                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem' }}>Payment Amount</th>
                       <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem' }}>Pending Amount</th>
                       <th style={{ textAlign: 'center', padding: '0.75rem 0.5rem' }}>Status</th>
                     </tr>
@@ -511,10 +504,10 @@ function Reports() {
                     {salesRows.map(r => (
                       <tr key={r._id} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '0.75rem 0.5rem' }}>{r.invoiceNumber}</td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>{new Date(r.invoiceDate).toLocaleDateString()}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(r.invoiceAmount, 0)}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(r.paidAmount, 0)}</td>
-                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>₹{formatMoney(r.pendingAmount, 0)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>{formatDateMMDDYYYY(r.invoiceDate)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>${formatMoney(r.invoiceAmount, 0)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>${formatMoney(r.paymentAmount ?? r.paidAmount, 0)}</td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>${formatMoney(r.pendingAmount, 0)}</td>
                         <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
                           <span style={{
                             display: 'inline-block',

@@ -258,7 +258,7 @@ router.get('/list', requireAdmin, async (req, res) => {
         const stats = fs.statSync(fullPath)
         return {
           name: entry.name,
-          createdAt: new Date(stats.mtimeMs).toLocaleString(),
+          createdAt: new Date(stats.mtimeMs).toISOString(),
           size: formatSize(stats.size),
           status: 'Completed',
           path: fullPath
