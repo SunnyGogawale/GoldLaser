@@ -3,7 +3,7 @@ import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Fil
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
-import { parseCsvText, parseCsvData, getSuggestedCsvHeader, toIsoDateString } from '../../../utils/csvParser'
+import { parseCsvText, parseCsvData, getSuggestedCsvHeader, normalizeCsvDateValue, toIsoDateString } from '../../../utils/csvParser'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
@@ -1517,6 +1517,7 @@ function Payment() {
 
         const paymentNumber = String(row[paymentNumberIndex] ?? '').trim()
         const paymentDateValue = String(row[paymentDateIndex] ?? '').trim()
+        const normalizedPaymentDateValue = paymentDateValue ? normalizeCsvDateValue(paymentDateValue) : ''
         const amountValue = String(row[amountIndex] ?? '').trim()
         const descriptionValue = String(row[descriptionIndex] ?? '').trim()
         const parsedAmount = Number.parseFloat(String(amountValue).replace(/[^0-9.-]/g, ''))
@@ -1525,7 +1526,7 @@ function Payment() {
           paymentNumber: paymentNumber || undefined,
           clientId: csvSelectedClientId,
           clientType: 'Customer',
-          paymentDate: paymentDateValue ? toIsoDateString(paymentDateValue).split('T')[0] : new Date().toISOString().split('T')[0],
+          paymentDate: normalizedPaymentDateValue ? toIsoDateString(normalizedPaymentDateValue).split('T')[0] : new Date().toISOString().split('T')[0],
           amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
           description: descriptionValue || 'Imported from CSV',
           allocations: [],

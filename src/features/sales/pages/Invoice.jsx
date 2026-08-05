@@ -159,15 +159,38 @@ const parseCsvDateValue = (value) => {
 
   const slashMatch = trimmed.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
   if (slashMatch) {
-    const day = Number(slashMatch[1]);
-    const month = Number(slashMatch[2]);
+    const first = Number(slashMatch[1]);
+    const second = Number(slashMatch[2]);
     const year = Number(slashMatch[3]);
     const fullYear = year < 100 ? 2000 + year : year;
-    return new Date(fullYear, month - 1, day);
+
+    const monthDayYear = new Date(fullYear, first - 1, second);
+    const dayMonthYear = new Date(fullYear, second - 1, first);
+    const validMonthDayYear = !Number.isNaN(monthDayYear.getTime()) && monthDayYear.getMonth() === first - 1 && monthDayYear.getDate() === second;
+    const validDayMonthYear = !Number.isNaN(dayMonthYear.getTime()) && dayMonthYear.getMonth() === second - 1 && dayMonthYear.getDate() === first;
+
+    if (validMonthDayYear && !validDayMonthYear) {
+      return monthDayYear;
+    }
+    if (validDayMonthYear && !validMonthDayYear) {
+      return dayMonthYear;
+    }
+    if (validMonthDayYear) {
+      return monthDayYear;
+    }
+    if (validDayMonthYear) {
+      return dayMonthYear;
+    }
   }
 
   const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const normalizeCsvDateValue = (value) => {
+  const parsed = parseCsvDateValue(value);
+  if (!parsed) return String(value || '').trim();
+  return formatDateMMDDYYYY(parsed);
 };
 
 const toIsoDateString = (value) => {
@@ -1322,6 +1345,7 @@ function Invoice() {
 
         const invoiceNumber = String(row[invoiceNumberIndex] ?? '').trim();
         const invoiceDateValue = String(row[invoiceDateIndex] ?? '').trim();
+        const normalizedInvoiceDateValue = invoiceDateValue ? normalizeCsvDateValue(invoiceDateValue) : '';
         const productValue = String(row[productIndex] ?? '').trim();
         const descriptionValue = String(row[descriptionIndex] ?? '').trim();
         const amountValue = String(row[amountIndex] ?? '').trim();
@@ -1332,7 +1356,7 @@ function Invoice() {
           transactionDescription: descriptionValue || productValue,
           clientId: csvSelectedCustomerId,
           clientType: 'Customer',
-          invoiceDate: invoiceDateValue ? toIsoDateString(invoiceDateValue) : new Date().toISOString(),
+          invoiceDate: normalizedInvoiceDateValue ? toIsoDateString(normalizedInvoiceDateValue) : new Date().toISOString(),
           items: [{ product: productValue, description: descriptionValue, amount: Number.isFinite(parsedAmount) ? parsedAmount : 0 }],
           totalAmount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
           attachments: [],

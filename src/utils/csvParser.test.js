@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCsvText, parseCsvData, getSuggestedCsvHeader, parseCsvDateValue, toIsoDateString } from './csvParser.js';
+import { parseCsvText, parseCsvData, getSuggestedCsvHeader, parseCsvDateValue, toIsoDateString, normalizeCsvDateValue } from './csvParser.js';
 
 test('parseCsvText parses quoted fields and headers correctly', () => {
   const text = 'payment date,amount,description\n2024-07-01,1000,"Advance payment"\n"2024-07-02",2500,"Partial"';
@@ -13,8 +13,11 @@ test('parseCsvText parses quoted fields and headers correctly', () => {
 test('getSuggestedCsvHeader and date helpers map common column names', () => {
   const headers = ['Payment Date', 'Amount', 'Narration'];
   assert.equal(getSuggestedCsvHeader(headers, ['payment date', 'date']), 'Payment Date');
-  assert.equal(parseCsvDateValue('12/07/2024')?.toISOString().slice(0, 10), '2024-07-12');
-  assert.equal(toIsoDateString('07/12/2024').slice(0, 10), '2024-12-07');
+  assert.equal(parseCsvDateValue('12/07/2024')?.toISOString().slice(0, 10), '2024-12-07');
+  assert.equal(parseCsvDateValue('31-12-2024')?.toISOString().slice(0, 10), '2024-12-31');
+  assert.equal(toIsoDateString('07/12/2024').slice(0, 10), '2024-07-12');
+  assert.equal(normalizeCsvDateValue('07/12/2024'), '07-12-2024');
+  assert.equal(normalizeCsvDateValue('31-12-2024'), '12-31-2024');
 });
 
 test('parseCsvData returns headers and data rows', () => {

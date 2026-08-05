@@ -83,15 +83,42 @@ export const parseCsvDateValue = (value) => {
 
   const slashMatch = trimmed.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
   if (slashMatch) {
-    const day = Number(slashMatch[1]);
-    const month = Number(slashMatch[2]);
+    const first = Number(slashMatch[1]);
+    const second = Number(slashMatch[2]);
     const year = Number(slashMatch[3]);
     const fullYear = year < 100 ? 2000 + year : year;
-    return new Date(Date.UTC(fullYear, month - 1, day));
+
+    const monthDayYear = new Date(Date.UTC(fullYear, first - 1, second));
+    const dayMonthYear = new Date(Date.UTC(fullYear, second - 1, first));
+    const validMonthDayYear = !Number.isNaN(monthDayYear.getTime()) && monthDayYear.getUTCMonth() === first - 1 && monthDayYear.getUTCDate() === second;
+    const validDayMonthYear = !Number.isNaN(dayMonthYear.getTime()) && dayMonthYear.getUTCMonth() === second - 1 && dayMonthYear.getUTCDate() === first;
+
+    if (validMonthDayYear && !validDayMonthYear) {
+      return monthDayYear;
+    }
+    if (validDayMonthYear && !validMonthDayYear) {
+      return dayMonthYear;
+    }
+    if (validMonthDayYear) {
+      return monthDayYear;
+    }
+    if (validDayMonthYear) {
+      return dayMonthYear;
+    }
   }
 
   const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export const normalizeCsvDateValue = (value) => {
+  const parsed = parseCsvDateValue(value);
+  if (!parsed) return String(value || '').trim();
+
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getUTCDate()).padStart(2, '0');
+  const year = parsed.getUTCFullYear();
+  return `${month}-${day}-${year}`;
 };
 
 export const toIsoDateString = (value) => {
