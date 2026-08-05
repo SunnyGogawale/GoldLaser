@@ -126,7 +126,7 @@ function PurchasePayment() {
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
   const [invoiceSearchText, setInvoiceSearchText] = useState('')
   const [isInvoiceDropdownOpen, setIsInvoiceDropdownOpen] = useState(false)
-  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(false)
+  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(true)
   const [invoiceInput, setInvoiceInput] = useState('')
   const [invoiceInputFocused, setInvoiceInputFocused] = useState(false)
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([])
@@ -151,6 +151,8 @@ function PurchasePayment() {
       setSortOrder('asc')
     }
   }
+
+  
 
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
   const [infoOpen, setInfoOpen] = useState(false)
@@ -286,6 +288,54 @@ function PurchasePayment() {
     return ordered
   }, [pendingInvoices, pendingInvoiceOrder])
 
+  useEffect(() => {
+    if (autoAllocateOnSelect) return
+
+    const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
+    const available = Math.max(0, Number(availableCredit) || 0)
+    const totalAvailable = enteredAmount + available
+
+    if (!(totalAvailable > 0)) {
+      setSelectedInvoiceIds([])
+      setInvoicePaymentAmounts({})
+      setInvoiceDescriptions({})
+      return
+    }
+
+    const sortedInvoices = [...orderedPendingInvoices].sort((a, b) => {
+      const dateA = new Date(a.invoiceDate).getTime()
+      const dateB = new Date(b.invoiceDate).getTime()
+      if (dateA !== dateB) return dateA - dateB
+      return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''))
+    })
+
+    let remaining = totalAvailable
+    const autoIds = []
+    for (const inv of sortedInvoices) {
+      if (!(remaining > 0)) break
+      const pendingAmount = Math.max(0, Number(inv.pendingAmount) || 0)
+      if (!(pendingAmount > 0)) continue
+      const allocated = Math.min(pendingAmount, remaining)
+      if (!(allocated > 0)) continue
+      autoIds.push(String(inv._id))
+      remaining -= allocated
+    }
+
+    if (autoIds.length === 0) return
+
+    setSelectedInvoiceIds((prev) => Array.isArray(prev) ? prev.filter((id) => !autoIds.includes(String(id))) : [])
+    setInvoicePaymentAmounts((prev) => {
+      const next = { ...(prev || {}) }
+      for (const id of autoIds) delete next[id]
+      return next
+    })
+    setInvoiceDescriptions((prev) => {
+      const next = { ...(prev || {}) }
+      for (const id of autoIds) delete next[id]
+      return next
+    })
+  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
+
   const parseInvoiceTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim().toLowerCase()).filter(Boolean)
   const parseInvoiceRawTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim()).filter(Boolean)
 
@@ -363,6 +413,56 @@ function PurchasePayment() {
   const adjustedBillPaymentAmount = netAmountToPay
   const enteredPaymentAmount = Math.max(0, Number(paymentForm.amount) || 0)
   const outstandingAmount = Math.round((enteredPaymentAmount - adjustedBillPaymentAmount + Number.EPSILON) * 100) / 100
+
+  const allocatePaymentAmountFifo = (amount) => {
+    const enteredAmount = Math.max(0, Number(amount) || 0)
+    const available = Math.max(0, Number(availableCredit) || 0)
+    const totalAvailable = enteredAmount + available
+
+    if (!(totalAvailable > 0)) {
+      setSelectedInvoiceIds([])
+      setInvoicePaymentAmounts({})
+      setInvoiceDescriptions({})
+      return
+    }
+
+    const sortedInvoices = [...orderedPendingInvoices].sort((a, b) => {
+      const dateA = new Date(a.invoiceDate).getTime()
+      const dateB = new Date(b.invoiceDate).getTime()
+      if (dateA !== dateB) return dateA - dateB
+      return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''))
+    })
+
+    let remaining = totalAvailable
+    const nextAmounts = {}
+    const nextIds = []
+    const nextDescriptions = {}
+
+    for (const inv of sortedInvoices) {
+      if (!(remaining > 0)) break
+      const pendingAmount = Math.max(0, Number(inv.pendingAmount) || 0)
+      if (!(pendingAmount > 0)) continue
+
+      const allocated = Math.min(pendingAmount, remaining)
+      if (!(allocated > 0)) continue
+
+      const id = String(inv._id)
+      nextIds.push(id)
+      nextAmounts[id] = String(Math.round((allocated + Number.EPSILON) * 100) / 100)
+      nextDescriptions[id] = String(invoiceDescriptions[id] || inv.description || '')
+      remaining -= allocated
+    }
+
+    setSelectedInvoiceIds(nextIds)
+    setInvoicePaymentAmounts(nextAmounts)
+    setInvoiceDescriptions((prev) => {
+      const next = {}
+      for (const id of nextIds) {
+        next[id] = nextDescriptions[id]
+      }
+      return next
+    })
+  }
 
   const handleInvoiceSelectionToggle = (invoiceId, checked, pendingAmount, defaultDescription = '') => {
     const id = String(invoiceId)
@@ -568,6 +668,12 @@ function PurchasePayment() {
     setPaymentForm((prev) => ({ ...prev, amount: nextAmount }))
   }, [netAmountToPay, isPaymentAmountManuallyEdited, paymentForm.amount])
 
+  useEffect(() => {
+    if (!autoAllocateOnSelect) return
+    if (!paymentForm.amount) return
+    allocatePaymentAmountFifo(paymentForm.amount)
+  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
+
   const validateForm = () => {
     const newErrors = {}
 
@@ -586,9 +692,7 @@ function PurchasePayment() {
 
     const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
     const selectedIds = Array.from(selectedInvoiceIdSet)
-    if (selectedIds.length === 0) {
-      newErrors.allocations = 'Select at least one invoice'
-    } else {
+    if (selectedIds.length > 0) {
       for (const invoiceId of selectedIds) {
         const inv = pendingById.get(String(invoiceId))
         if (!inv) {
@@ -1670,6 +1774,15 @@ function PurchasePayment() {
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                         Adjusted Bill Amount: ${formatMoney(adjustedBillPaymentAmount)}
                       </div>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.875rem', color: 'var(--text-header)' }}>
+                        <input
+                          type="checkbox"
+                          checked={autoAllocateOnSelect}
+                          onChange={(e) => setAutoAllocateOnSelect(e.target.checked)}
+                          style={{ width: 16, height: 16, cursor: 'pointer' }}
+                        />
+                        <span style={{ fontWeight: 700 }}>Apply payment amount using FIFO</span>
+                      </label>
                     </div>
                   </div>
                   <div style={{ flex: '1 1 280px' }}>
@@ -1699,8 +1812,8 @@ function PurchasePayment() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Pending Invoices</h3>
                     {paymentForm.clientId && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: 'min(420px, 100%)' }}>
-                        <div style={{ position: 'relative', width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', maxWidth: '720px' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
                           {/* Selected chips */}
                           <div style={{
                             display: 'flex',

@@ -622,6 +622,7 @@ router.post('/', async (req, res) => {
     const paymentDate = req.body.paymentDate;
     const amount = Number(req.body.amount) || 0;
     const description = req.body.description || '';
+    const autoAllocateOnSubmit = req.body.autoAllocateOnSubmit !== false;
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
     const requestedAllocations = normalizeRequestedAllocations(req.body.allocations);
     const attachments = normalizePaymentValue('attachments', req.body.attachments);
@@ -638,16 +639,22 @@ router.post('/', async (req, res) => {
           clientType,
           requestedAllocations
         })
-      : await allocatePaymentToInvoices({ clientId, clientType, amount, invoiceOrder });
+      : autoAllocateOnSubmit
+        ? await allocatePaymentToInvoices({ clientId, clientType, amount, invoiceOrder })
+        : { allocations: [], appliedAmount: 0 };
     const { allocations, appliedAmount } = allocationResult;
-    if (!(appliedAmount > 0)) {
+    if ((requestedAllocations.length > 0 || autoAllocateOnSubmit) && !(appliedAmount > 0)) {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }
 
     const creditBalance = await getClientCreditBalance(clientId, clientType);
     const availableCredit = Math.max(0, creditBalance);
     const roundedEnteredAmount = Math.round((amount + Number.EPSILON) * 100) / 100;
-    const finalAmount = requestedAllocations.length > 0 ? roundedEnteredAmount : appliedAmount;
+    const finalAmount = requestedAllocations.length > 0
+      ? roundedEnteredAmount
+      : autoAllocateOnSubmit
+        ? appliedAmount
+        : roundedEnteredAmount;
     if (!(finalAmount > 0)) {
       return res.status(400).json({ message: 'Payment amount must be greater than 0' });
     }
@@ -724,6 +731,7 @@ router.put('/:id', async (req, res) => {
     const paymentDate = req.body.paymentDate || existing.paymentDate;
     const amount = Number(req.body.amount ?? existing.amount) || 0;
     const description = req.body.description ?? existing.description;
+    const autoAllocateOnSubmit = req.body.autoAllocateOnSubmit !== false;
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
     const requestedAllocations = normalizeRequestedAllocations(req.body.allocations);
     const attachments = normalizePaymentValue('attachments', req.body.attachments ?? existing.attachments);
@@ -741,22 +749,28 @@ router.put('/:id', async (req, res) => {
           requestedAllocations,
           excludePaymentId: existing._id
         })
-      : await allocatePaymentToInvoices({
-          clientId,
-          clientType,
-          amount,
-          excludePaymentId: existing._id,
-          invoiceOrder
-        });
+      : autoAllocateOnSubmit
+        ? await allocatePaymentToInvoices({
+            clientId,
+            clientType,
+            amount,
+            excludePaymentId: existing._id,
+            invoiceOrder
+          })
+        : { allocations: [], appliedAmount: 0 };
     const { allocations, appliedAmount } = allocationResult;
-    if (!(appliedAmount > 0)) {
+    if ((requestedAllocations.length > 0 || autoAllocateOnSubmit) && !(appliedAmount > 0)) {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }
 
     const creditBalance = await getClientCreditBalance(clientId, clientType, existing._id);
     const availableCredit = Math.max(0, creditBalance);
     const roundedEnteredAmount = Math.round((amount + Number.EPSILON) * 100) / 100;
-    const finalAmount = requestedAllocations.length > 0 ? roundedEnteredAmount : appliedAmount;
+    const finalAmount = requestedAllocations.length > 0
+      ? roundedEnteredAmount
+      : autoAllocateOnSubmit
+        ? appliedAmount
+        : roundedEnteredAmount;
     if (!(finalAmount > 0)) {
       return res.status(400).json({ message: 'Payment amount must be greater than 0' });
     }
