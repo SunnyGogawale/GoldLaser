@@ -5,6 +5,21 @@
 			"label": "noop2",
 			"type": "shell",
 			"command": "echo noop2"
+		},
+		{
+			"label": "noop3",
+			"type": "shell",
+			"command": "echo noop3"
+		},
+		{
+			"label": "plan-invoice-search",
+			"type": "shell",
+			"command": "echo '1 backend search 2 placeholder 3 validate'"
+		},
+		{
+			"label": "track-purchase-payment-search",
+			"type": "shell",
+			"command": "echo '1 backend all-field search 2 placeholder update 3 validate'"
 		}
 	]
 }

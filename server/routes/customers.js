@@ -205,12 +205,14 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
-    const search = req.query.search || '';
+    const search = String(req.query.search || '').trim();
+    const searchLower = search.toLowerCase();
     const sortColumn = req.query.sortColumn || '';
     const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+    const useBroadSearch = !!search;
 
     let query = {};
-    if (search) {
+    if (!useBroadSearch && search) {
       query = {
         $or: [
           { companyName: { $regex: search, $options: 'i' } },
@@ -219,7 +221,7 @@ router.get('/', async (req, res) => {
       };
     }
 
-    const total = await Customer.countDocuments(query);
+    let total = 0;
     
     // Define sort object
     let sortObj = { createdAt: -1 }; // Default sort
@@ -227,11 +229,15 @@ router.get('/', async (req, res) => {
       sortObj = { [sortColumn]: sortOrder };
     }
 
-    const customers = await Customer.find(query)
-      .populate('createdBy', 'fullName email roll')
-      .sort(sortObj)
-      .skip(skip)
-      .limit(limit);
+    const customers = useBroadSearch
+      ? await Customer.find({})
+          .populate('createdBy', 'fullName email roll')
+          .sort(sortObj)
+      : await Customer.find(query)
+          .populate('createdBy', 'fullName email roll')
+          .sort(sortObj)
+          .skip(skip)
+          .limit(limit);
 
     // Calculate outstanding for each customer
     let customersWithOutstanding = await Promise.all(
@@ -251,9 +257,42 @@ router.get('/', async (req, res) => {
         return sortOrder === 1 ? valA - valB : valB - valA;
       });
     }
+
+    if (useBroadSearch) {
+      customersWithOutstanding = customersWithOutstanding.filter((customer) => {
+        const customFieldValues = Object.values(customer?.customFields || {}).map((value) => String(value || ''));
+        const searchableParts = [
+          customer?.id,
+          customer?.customerName,
+          customer?.companyName,
+          customer?.contactNumber,
+          customer?.alternateNumber,
+          customer?.email,
+          customer?.address,
+          customer?.shippingAddress,
+          customer?.note,
+          customer?.createdBy?.fullName,
+          customer?.createdBy?.email,
+          customer?.outstanding?.outstanding,
+          ...customFieldValues
+        ];
+
+        const searchableText = searchableParts
+          .map((part) => String(part || ''))
+          .join(' ')
+          .toLowerCase();
+
+        return searchableText.includes(searchLower);
+      });
+    }
+
+    total = useBroadSearch ? customersWithOutstanding.length : await Customer.countDocuments(query);
+    const paginatedCustomers = useBroadSearch
+      ? customersWithOutstanding.slice(skip, skip + limit)
+      : customersWithOutstanding;
     
     res.json({
-      customers: customersWithOutstanding,
+      customers: paginatedCustomers,
       total,
       page,
       totalPages: Math.ceil(total / limit)

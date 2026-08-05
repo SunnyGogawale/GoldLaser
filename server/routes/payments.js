@@ -371,7 +371,8 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
-    const search = req.query.search || '';
+    const search = String(req.query.search || '').trim();
+    const searchLower = search.toLowerCase();
     const sortColumn = req.query.sortColumn || 'paymentNumber';
     const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
@@ -403,11 +404,39 @@ router.get('/', async (req, res) => {
     // Filter by search
     let filteredPayments = paymentsWithClients;
     if (search) {
-      filteredPayments = paymentsWithClients.filter(p =>
-        p.paymentNumber.toLowerCase().includes(search.toLowerCase()) ||
-        (p.vendorId?.customerName?.toLowerCase().includes(search.toLowerCase())) ||
-        (p.vendorId?.vendorName?.toLowerCase().includes(search.toLowerCase()))
-      );
+      filteredPayments = paymentsWithClients.filter((p) => {
+        const allocations = Array.isArray(p.allocations) ? p.allocations : [];
+        const allocationInvoiceNumbers = allocations.map((row) => String(row?.invoiceId?.invoiceNumber || row?.invoiceId || ''));
+        const allocationDescriptions = allocations.map((row) => String(row?.description || ''));
+        const allocationAmounts = allocations.map((row) => String(row?.amount || ''));
+        const searchableParts = [
+          p.paymentNumber,
+          p.paymentDate,
+          p.amount,
+          p.description,
+          p.clientType,
+          p.vendorId?.id,
+          p.vendorId?.customerName,
+          p.vendorId?.vendorName,
+          p.vendorId?.companyName,
+          p.vendorId?.contactNumber,
+          p.vendorId?.alternateNumber,
+          p.vendorId?.email,
+          p.vendorId?.address,
+          p.vendorId?.shippingAddress,
+          p.vendorId?.note,
+          ...allocationInvoiceNumbers,
+          ...allocationDescriptions,
+          ...allocationAmounts
+        ];
+
+        const searchableText = searchableParts
+          .map((part) => String(part || ''))
+          .join(' ')
+          .toLowerCase();
+
+        return searchableText.includes(searchLower);
+      });
     }
 
     // Sort the filtered payments
@@ -447,18 +476,7 @@ router.get('/', async (req, res) => {
     });
 
     // Get total count
-    let total;
-    if (search) {
-      total = await Payment.countDocuments({
-        $or: [
-          { paymentNumber: { $regex: search, $options: 'i' } }
-        ]
-      });
-      // Since we can't easily search populated fields in count, use filtered length
-      total = filteredPayments.length;
-    } else {
-      total = await Payment.countDocuments();
-    }
+    const total = search ? filteredPayments.length : await Payment.countDocuments();
 
     // Apply pagination after filtering and sorting
     const paginatedPayments = filteredPayments.slice(skip, skip + limit);

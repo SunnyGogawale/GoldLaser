@@ -2006,7 +2006,7 @@ function Customer() {
               <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
               <input
                 type="text"
-                placeholder="Search by company or customer name..."
+                placeholder="Search any customer field..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{

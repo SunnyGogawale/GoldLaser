@@ -205,12 +205,14 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
-    const search = req.query.search || '';
+    const search = String(req.query.search || '').trim();
+    const searchLower = search.toLowerCase();
     const sortColumn = req.query.sortColumn || '';
     const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+    const useBroadSearch = !!search;
 
     let query = {};
-    if (search) {
+    if (!useBroadSearch && search) {
       query = {
         $or: [
           { companyName: { $regex: search, $options: 'i' } },
@@ -219,7 +221,7 @@ router.get('/', async (req, res) => {
       };
     }
 
-    const total = await Vendor.countDocuments(query);
+    let total = 0;
     
     // Define sort object
     let sortObj = { createdAt: -1 }; // Default sort
@@ -227,11 +229,15 @@ router.get('/', async (req, res) => {
       sortObj = { [sortColumn]: sortOrder };
     }
 
-    const vendors = await Vendor.find(query)
-      .populate('createdBy', 'fullName email roll')
-      .sort(sortObj)
-      .skip(skip)
-      .limit(limit);
+    const vendors = useBroadSearch
+      ? await Vendor.find({})
+          .populate('createdBy', 'fullName email roll')
+          .sort(sortObj)
+      : await Vendor.find(query)
+          .populate('createdBy', 'fullName email roll')
+          .sort(sortObj)
+          .skip(skip)
+          .limit(limit);
 
     // Calculate outstanding for each vendor
     let vendorsWithOutstanding = await Promise.all(
@@ -251,9 +257,42 @@ router.get('/', async (req, res) => {
         return sortOrder === 1 ? valA - valB : valB - valA;
       });
     }
+
+    if (useBroadSearch) {
+      vendorsWithOutstanding = vendorsWithOutstanding.filter((vendor) => {
+        const customFieldValues = Object.values(vendor?.customFields || {}).map((value) => String(value || ''));
+        const searchableParts = [
+          vendor?.id,
+          vendor?.vendorName,
+          vendor?.companyName,
+          vendor?.contactNumber,
+          vendor?.alternateNumber,
+          vendor?.email,
+          vendor?.address,
+          vendor?.shippingAddress,
+          vendor?.note,
+          vendor?.createdBy?.fullName,
+          vendor?.createdBy?.email,
+          vendor?.outstanding?.outstanding,
+          ...customFieldValues
+        ];
+
+        const searchableText = searchableParts
+          .map((part) => String(part || ''))
+          .join(' ')
+          .toLowerCase();
+
+        return searchableText.includes(searchLower);
+      });
+    }
+
+    total = useBroadSearch ? vendorsWithOutstanding.length : await Vendor.countDocuments(query);
+    const paginatedVendors = useBroadSearch
+      ? vendorsWithOutstanding.slice(skip, skip + limit)
+      : vendorsWithOutstanding;
     
     res.json({
-      vendors: vendorsWithOutstanding,
+      vendors: paginatedVendors,
       total,
       page,
       totalPages: Math.ceil(total / limit)

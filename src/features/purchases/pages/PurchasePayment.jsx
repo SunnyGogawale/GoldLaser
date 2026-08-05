@@ -2424,7 +2424,7 @@ function PurchasePayment() {
             <Search size={14} color="var(--text-muted)" style={{ marginRight: '0.4rem' }} />
             <input
               type="text"
-              placeholder="Search by payment no or client..."
+              placeholder="Search any payment field..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{

@@ -166,7 +166,8 @@ router.get('/', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 25;
     const skip = (page - 1) * limit;
-    const search = req.query.search || '';
+    const search = String(req.query.search || '').trim();
+    const searchLower = search.toLowerCase();
     const sortColumn = req.query.sortColumn || 'invoiceDate';
     const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
 
@@ -198,11 +199,39 @@ router.get('/', async (req, res) => {
     // Filter by search
     let filteredInvoices = invoicesWithClients;
     if (search) {
-      filteredInvoices = invoicesWithClients.filter(inv =>
-        inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-        (inv.vendorId?.customerName?.toLowerCase().includes(search.toLowerCase())) ||
-        (inv.vendorId?.vendorName?.toLowerCase().includes(search.toLowerCase()))
-      );
+      filteredInvoices = invoicesWithClients.filter((inv) => {
+        const items = Array.isArray(inv.items) ? inv.items : [];
+        const itemProducts = items.map((item) => String(item?.product || ''));
+        const itemDescriptions = items.map((item) => String(item?.description || ''));
+        const itemAmounts = items.map((item) => String(item?.amount || ''));
+        const searchableParts = [
+          inv.invoiceNumber,
+          inv.transactionDescription,
+          inv.invoiceDate,
+          inv.totalAmount,
+          inv.clientType,
+          inv.vendorId?.id,
+          inv.vendorId?.customerName,
+          inv.vendorId?.vendorName,
+          inv.vendorId?.companyName,
+          inv.vendorId?.contactNumber,
+          inv.vendorId?.alternateNumber,
+          inv.vendorId?.email,
+          inv.vendorId?.address,
+          inv.vendorId?.shippingAddress,
+          inv.vendorId?.note,
+          ...itemProducts,
+          ...itemDescriptions,
+          ...itemAmounts
+        ];
+
+        const searchableText = searchableParts
+          .map((part) => String(part || ''))
+          .join(' ')
+          .toLowerCase();
+
+        return searchableText.includes(searchLower);
+      });
     }
 
     // Sort the filtered invoices
@@ -242,18 +271,7 @@ router.get('/', async (req, res) => {
     });
 
     // Get total count
-    let total;
-    if (search) {
-      total = await Invoice.countDocuments({
-        $or: [
-          { invoiceNumber: { $regex: search, $options: 'i' } }
-        ]
-      });
-      // Since we can't easily search populated fields in count, use filtered length
-      total = filteredInvoices.length;
-    } else {
-      total = await Invoice.countDocuments();
-    }
+    const total = search ? filteredInvoices.length : await Invoice.countDocuments();
 
     // Apply pagination after filtering and sorting
     const paginatedInvoices = filteredInvoices.slice(skip, skip + limit);
