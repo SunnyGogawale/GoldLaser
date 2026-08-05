@@ -363,6 +363,56 @@ function Payment() {
   const enteredPaymentAmount = Math.max(0, Number(paymentForm.amount) || 0)
   const outstandingAmount = Math.round((enteredPaymentAmount - adjustedBillPaymentAmount + Number.EPSILON) * 100) / 100
 
+  const allocatePaymentAmountFifo = (amount) => {
+    const enteredAmount = Math.max(0, Number(amount) || 0)
+    const available = Math.max(0, Number(availableCredit) || 0)
+    const totalAvailable = enteredAmount + available
+
+    if (!(totalAvailable > 0)) {
+      setSelectedInvoiceIds([])
+      setInvoicePaymentAmounts({})
+      setInvoiceDescriptions({})
+      return
+    }
+
+    const sortedInvoices = [...orderedPendingInvoices].sort((a, b) => {
+      const dateA = new Date(a.invoiceDate).getTime()
+      const dateB = new Date(b.invoiceDate).getTime()
+      if (dateA !== dateB) return dateA - dateB
+      return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''))
+    })
+
+    let remaining = totalAvailable
+    const nextAmounts = {}
+    const nextIds = []
+    const nextDescriptions = {}
+
+    for (const inv of sortedInvoices) {
+      if (!(remaining > 0)) break
+      const pendingAmount = Math.max(0, Number(inv.pendingAmount) || 0)
+      if (!(pendingAmount > 0)) continue
+
+      const allocated = Math.min(pendingAmount, remaining)
+      if (!(allocated > 0)) continue
+
+      const id = String(inv._id)
+      nextIds.push(id)
+      nextAmounts[id] = String(Math.round((allocated + Number.EPSILON) * 100) / 100)
+      nextDescriptions[id] = String(invoiceDescriptions[id] || inv.description || '')
+      remaining -= allocated
+    }
+
+    setSelectedInvoiceIds(nextIds)
+    setInvoicePaymentAmounts(nextAmounts)
+    setInvoiceDescriptions((prev) => {
+      const next = {}
+      for (const id of nextIds) {
+        next[id] = nextDescriptions[id]
+      }
+      return next
+    })
+  }
+
   const handleInvoiceSelectionToggle = (invoiceId, checked, pendingAmount, defaultDescription = '') => {
     const id = String(invoiceId)
     setSelectedInvoiceIds((prev) => {
@@ -583,6 +633,11 @@ function Payment() {
     if ((Number(paymentForm.amount) || 0) === nextAmount) return
     setPaymentForm((prev) => ({ ...prev, amount: nextAmount }))
   }, [netAmountToPay, isPaymentAmountManuallyEdited, paymentForm.amount])
+
+  useEffect(() => {
+    if (!paymentForm.amount) return
+    allocatePaymentAmountFifo(paymentForm.amount)
+  }, [paymentForm.amount, orderedPendingInvoices, availableCredit])
 
   const validateForm = () => {
     const newErrors = {}
