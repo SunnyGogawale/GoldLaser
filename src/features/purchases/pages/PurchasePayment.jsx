@@ -1789,7 +1789,7 @@ function PurchasePayment() {
                     <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
                       Description
                     </label>
-                    <input
+                    <textarea
                       type="text"
                       value={paymentForm.description}
                       onChange={(e) => setPaymentForm(prev => ({ ...prev, description: e.target.value }))}
@@ -2197,13 +2197,13 @@ function PurchasePayment() {
                     onDragOver={handleAttachmentDragOver}
                     onDragLeave={handleAttachmentDragLeave}
                     style={{
-                      border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
-                      borderRadius: '16px',
-                      padding: '1rem 0.75rem',
-                      background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
-                      minHeight: '90px',
-                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
-                      transition: 'all 0.2s ease'
+                      // border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
+                      // borderRadius: '16px',
+                      // padding: '1rem 0.75rem',
+                      // background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
+                      // minHeight: '90px',
+                      // boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                      // transition: 'all 0.2s ease'
                     }}
                   >
                     <input
@@ -2230,13 +2230,13 @@ function PurchasePayment() {
                         {!paymentForm.attachments?.length && (
                           <>
                             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
-                              Upload File
+                              {/* Upload File */}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.45, maxWidth: '420px' }}>
-                              Drag and drop files here or click to upload
+                              {/* Drag and drop files here or click to upload */}
                             </div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                              Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each
+                              {/* Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each */}
                             </div>
                           </>
                         )}
@@ -2248,20 +2248,25 @@ function PurchasePayment() {
                             marginTop: '0.2rem',
                             padding: '0.4rem 1rem',
                             borderRadius: '10px',
-                            background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
+                            width:'100%',
+                            height: '40px',
+                            background: 'linear-gradient(180deg, #222a3d 0%, #000000 100%)',
                             color: '#fff',
                             fontWeight: 700,
-                            fontSize: '0.8rem',
+                            fontSize: '0.9rem',
                             boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
                             border: 'none',
                             cursor: loading ? 'not-allowed' : 'pointer',
                             opacity: loading ? 0.7 : 1
                           }}
                         >
-                          Browse Files
+                          Attachment Upload
                         </MotionButton>
                       </div>
                     )}
+                    <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'red' }}>
+                      (Upload Document in format PDF, PNG, JPEG)
+                      </div>
                     <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                       {paymentForm.attachments?.length || 0}/2 selected
                     </div>

@@ -129,7 +129,8 @@ function Payment() {
   const [invoiceInput, setInvoiceInput] = useState('')
   const [invoiceInputFocused, setInvoiceInputFocused] = useState(false)
   const [isInvoiceDropdownOpen, setIsInvoiceDropdownOpen] = useState(false)
-  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(true)
+  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(false)
+  const [applyAvailableCredit, setApplyAvailableCredit] = useState(false)
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([])
   const [invoicePaymentAmounts, setInvoicePaymentAmounts] = useState({})
   const [invoiceDescriptions, setInvoiceDescriptions] = useState({})
@@ -289,53 +290,6 @@ function Payment() {
     return ordered
   }, [pendingInvoices, pendingInvoiceOrder])
 
-  useEffect(() => {
-    if (autoAllocateOnSelect) return
-
-    const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
-    const available = Math.max(0, Number(availableCredit) || 0)
-    const totalAvailable = enteredAmount + available
-
-    if (!(totalAvailable > 0)) {
-      setSelectedInvoiceIds([])
-      setInvoicePaymentAmounts({})
-      setInvoiceDescriptions({})
-      return
-    }
-
-    const sortedInvoices = [...orderedPendingInvoices].sort((a, b) => {
-      const dateA = new Date(a.invoiceDate).getTime()
-      const dateB = new Date(b.invoiceDate).getTime()
-      if (dateA !== dateB) return dateA - dateB
-      return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''))
-    })
-
-    let remaining = totalAvailable
-    const autoIds = []
-    for (const inv of sortedInvoices) {
-      if (!(remaining > 0)) break
-      const pendingAmount = Math.max(0, Number(inv.pendingAmount) || 0)
-      if (!(pendingAmount > 0)) continue
-      const allocated = Math.min(pendingAmount, remaining)
-      if (!(allocated > 0)) continue
-      autoIds.push(String(inv._id))
-      remaining -= allocated
-    }
-
-    if (autoIds.length === 0) return
-
-    setSelectedInvoiceIds((prev) => Array.isArray(prev) ? prev.filter((id) => !autoIds.includes(String(id))) : [])
-    setInvoicePaymentAmounts((prev) => {
-      const next = { ...(prev || {}) }
-      for (const id of autoIds) delete next[id]
-      return next
-    })
-    setInvoiceDescriptions((prev) => {
-      const next = { ...(prev || {}) }
-      for (const id of autoIds) delete next[id]
-      return next
-    })
-  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
 
   const parseInvoiceTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim().toLowerCase()).filter(Boolean)
   const parseInvoiceRawTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim()).filter(Boolean)
@@ -407,23 +361,44 @@ function Payment() {
     return selectedAllocations.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   }, [selectedAllocations])
 
-  const billPaymentAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
-  const netAmountToPay = Math.max(0, Math.round((billPaymentAmount - (Number(availableCredit) || 0) + Number.EPSILON) * 100) / 100)
-  const adjustedBillPaymentAmount = netAmountToPay
   const enteredPaymentAmount = Math.max(0, Number(paymentForm.amount) || 0)
-  const outstandingAmount = Math.round((enteredPaymentAmount - adjustedBillPaymentAmount + Number.EPSILON) * 100) / 100
+  // `availableCredit` is the actual credit balance fetched from the backend.
+  // It must NOT be reduced locally just because the checkbox is selected.
+  // Selecting the checkbox means: consume this balance for this payment.
+  // The displayed Available Credit becomes 0 while the option is active, and
+  // the backend permanently reduces it only after the payment is saved.
+  const usableCreditForPayment = Math.max(0, Number(availableCredit) || 0)
+  const applyAvailableCreditAmount = applyAvailableCredit
+    ? Math.min(usableCreditForPayment, enteredPaymentAmount)
+    : 0
+  const totalFundsAvailable = enteredPaymentAmount
+  // While Apply Available Credit is checked, the captured credit is being used
+  // for this payment, so the on-screen balance is zero. After save, the backend
+  // returns the actual remaining ledger balance.
+  const remainingAvailableCredit = applyAvailableCredit
+    ? 0
+    : Math.max(0, Math.round((usableCreditForPayment + Number.EPSILON) * 100) / 100)
+  const billPaymentAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
+  const availableCreditUsed = applyAvailableCredit
+    ? Math.min(applyAvailableCreditAmount, selectedAllocationTotal)
+    : 0
+  const paymentCashApplied = Math.min(enteredPaymentAmount, selectedAllocationTotal)
+  const outstandingAmount = Math.max(
+    0,
+    Math.round((enteredPaymentAmount - paymentCashApplied + Number.EPSILON) * 100) / 100
+  )
+  const netAmountToPay = Math.max(
+    0,
+    Math.round((selectedAllocationTotal - availableCreditUsed + Number.EPSILON) * 100) / 100
+  )
+  const adjustedBillPaymentAmount = netAmountToPay
 
-  const allocatePaymentAmountFifo = (amount) => {
-    const enteredAmount = Math.max(0, Number(amount) || 0)
-    const available = Math.max(0, Number(availableCredit) || 0)
-    const totalAvailable = enteredAmount + available
-
-    if (!(totalAvailable > 0)) {
-      setSelectedInvoiceIds([])
-      setInvoicePaymentAmounts({})
-      setInvoiceDescriptions({})
-      return
-    }
+  const getFifoAllocation = (cashAmount, useCredit = applyAvailableCredit) => {
+    const enteredAmount = Math.max(0, Number(cashAmount) || 0)
+    let remaining = enteredAmount
+    const nextAmounts = {}
+    const nextIds = []
+    const nextDescriptions = {}
 
     const sortedInvoices = [...orderedPendingInvoices].sort((a, b) => {
       const dateA = new Date(a.invoiceDate).getTime()
@@ -431,11 +406,6 @@ function Payment() {
       if (dateA !== dateB) return dateA - dateB
       return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''))
     })
-
-    let remaining = totalAvailable
-    const nextAmounts = {}
-    const nextIds = []
-    const nextDescriptions = {}
 
     for (const inv of sortedInvoices) {
       if (!(remaining > 0)) break
@@ -452,51 +422,73 @@ function Payment() {
       remaining -= allocated
     }
 
+    return { nextIds, nextAmounts, nextDescriptions, remaining }
+  }
+
+  const allocatePaymentAmountFifo = (amount, useCredit = applyAvailableCredit) => {
+    const enteredAmount = Math.max(0, Number(amount) || 0)
+    const totalAvailable = enteredAmount
+
+    if (!(totalAvailable > 0)) {
+      setSelectedInvoiceIds([])
+      setInvoicePaymentAmounts({})
+      setInvoiceDescriptions({})
+      return
+    }
+
+    const { nextIds, nextAmounts, nextDescriptions } = getFifoAllocation(enteredAmount, useCredit)
+
     setSelectedInvoiceIds(nextIds)
     setInvoicePaymentAmounts(nextAmounts)
-    setInvoiceDescriptions((prev) => {
+    setInvoiceDescriptions(() => {
       const next = {}
-      for (const id of nextIds) {
-        next[id] = nextDescriptions[id]
-      }
+      for (const id of nextIds) next[id] = nextDescriptions[id]
       return next
     })
   }
 
   const handleInvoiceSelectionToggle = (invoiceId, checked, pendingAmount, defaultDescription = '') => {
     const id = String(invoiceId)
-    setSelectedInvoiceIds((prev) => {
-      if (checked) {
-        if (prev.includes(id)) return prev
-        return [...prev, id]
-      }
-      return prev.filter((x) => x !== id)
-    })
 
-    setInvoicePaymentAmounts((prev) => {
-      const next = { ...prev }
-      if (checked) {
-        if (!(Number(next[id]) > 0)) {
-          const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
-          next[id] = normalizedPending ? String(normalizedPending) : ''
-        }
-      } else {
-        delete next[id]
-      }
-      return next
-    })
+    if (checked) {
+      const currentTotal = selectedAllocations.reduce((sum, row) => {
+        return sum + (String(row.invoiceId) === id ? 0 : (Number(row.amount) || 0))
+      }, 0)
 
-    setInvoiceDescriptions((prev) => {
-      const next = { ...prev }
-      if (checked) {
-        if (next[id] === undefined) {
-          next[id] = String(defaultDescription || '')
-        }
-      } else {
+      const fundsAvailable = Math.max(
+        0,
+        enteredPaymentAmount - currentTotal
+      )
+
+      const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
+      const suggestedAmount = Math.min(normalizedPending, fundsAvailable)
+
+      setSelectedInvoiceIds((prev) => prev.includes(id) ? prev : [...prev, id])
+
+      setInvoicePaymentAmounts((prev) => ({
+        ...prev,
+        [id]: suggestedAmount > 0
+          ? String(Math.round((suggestedAmount + Number.EPSILON) * 100) / 100)
+          : ''
+      }))
+
+      setInvoiceDescriptions((prev) => ({
+        ...prev,
+        [id]: prev[id] === undefined ? String(defaultDescription || '') : prev[id]
+      }))
+    } else {
+      setSelectedInvoiceIds((prev) => prev.filter((x) => x !== id))
+      setInvoicePaymentAmounts((prev) => {
+        const next = { ...prev }
         delete next[id]
-      }
-      return next
-    })
+        return next
+      })
+      setInvoiceDescriptions((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+    }
 
     if (formSubmitted && (errors.allocations || errors.amount || errors.allocationDescription)) {
       setErrors((prev) => {
@@ -516,7 +508,44 @@ function Payment() {
     const normalized = dotCount > 1
       ? sanitized.split('.').slice(0, 2).join('.')
       : sanitized
-    setInvoicePaymentAmounts((prev) => ({ ...prev, [id]: normalized }))
+    setInvoicePaymentAmounts((prev) => {
+      const next = { ...prev, [id]: normalized }
+
+      // Keep manual mode flexible: changing one invoice updates only empty
+      // selected rows with the remaining available payment amount.
+      if (!autoAllocateOnSelect) {
+        let remaining = Math.max(
+          0,
+          enteredPaymentAmount
+        )
+        for (const row of orderedPendingInvoices) {
+          const rowId = String(row._id)
+          if (!selectedInvoiceIdSet.has(rowId)) continue
+          if (rowId === id) {
+            remaining -= Math.max(0, Number(normalized) || 0)
+            continue
+          }
+          const current = Number(next[rowId])
+          if (Number.isFinite(current) && current > 0) {
+            remaining -= current
+          }
+        }
+        if (remaining > 0) {
+          for (const row of orderedPendingInvoices) {
+            const rowId = String(row._id)
+            if (!selectedInvoiceIdSet.has(rowId) || rowId === id) continue
+            if (!(Number(next[rowId]) > 0)) {
+              const suggestion = Math.min(Math.max(0, Number(row.pendingAmount) || 0), remaining)
+              if (suggestion > 0) {
+                next[rowId] = String(Math.round((suggestion + Number.EPSILON) * 100) / 100)
+                remaining -= suggestion
+              }
+            }
+          }
+        }
+      }
+      return next
+    })
 
     if (formSubmitted && (errors.allocations || errors.amount || errors.allocationDescription)) {
       setErrors((prev) => {
@@ -678,17 +707,10 @@ function Payment() {
   }, [pendingInvoices])
 
   useEffect(() => {
-    if (isPaymentAmountManuallyEdited) return
-    const nextAmount = netAmountToPay
-    if ((Number(paymentForm.amount) || 0) === nextAmount) return
-    setPaymentForm((prev) => ({ ...prev, amount: nextAmount }))
-  }, [netAmountToPay, isPaymentAmountManuallyEdited, paymentForm.amount])
-
-  useEffect(() => {
     if (!autoAllocateOnSelect) return
-    if (!paymentForm.amount) return
-    allocatePaymentAmountFifo(paymentForm.amount)
-  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
+    allocatePaymentAmountFifo(paymentForm.amount, applyAvailableCredit)
+  }, [autoAllocateOnSelect, applyAvailableCredit, paymentForm.amount, orderedPendingInvoices, availableCredit])
+
 
   const validateForm = () => {
     const newErrors = {}
@@ -696,14 +718,10 @@ function Payment() {
     if (!paymentForm.clientId) newErrors.clientId = 'Please select a client'
     if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
     const amount = Number(paymentForm.amount) || 0
-    if (!(amount > 0)) {
+    const hasSelectedInvoices = selectedInvoiceIdSet.size > 0
+    const canUseCreditOnly = applyAvailableCredit && hasSelectedInvoices && selectedAllocationTotal > 0
+    if (!(amount > 0) && !canUseCreditOnly) {
       newErrors.amount = 'Payment amount must be greater than 0'
-    } else {
-      const roundedAmount = Math.round((amount + Number.EPSILON) * 100) / 100
-      const minimumRequiredAmount = netAmountToPay
-      if (roundedAmount < minimumRequiredAmount) {
-        newErrors.amount = 'Payment amount cannot be less than adjusted bill amount after available credit'
-      }
     }
 
     const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
@@ -754,6 +772,8 @@ function Payment() {
         description: paymentForm.description || '',
         attachments: Array.isArray(paymentForm.attachments) ? paymentForm.attachments : [],
         autoAllocateOnSubmit: autoAllocateOnSelect,
+        applyAvailableCredit,
+        applyAvailableCreditAmount: applyAvailableCredit ? applyAvailableCreditAmount : 0,
         invoiceOrder: orderedPendingInvoices.map((inv) => String(inv._id)),
         allocations: selectedAllocations
       }
@@ -785,6 +805,8 @@ function Payment() {
         attachments: []
       })
       setIsPaymentAmountManuallyEdited(false)
+      setAutoAllocateOnSelect(false)
+      setApplyAvailableCredit(false)
       setPendingInvoiceOrder([])
       setSelectedInvoiceIds([])
       setInvoicePaymentAmounts({})
@@ -865,6 +887,8 @@ function Payment() {
       attachments: []
     })
     setIsPaymentAmountManuallyEdited(false)
+    setAutoAllocateOnSelect(false)
+    setApplyAvailableCredit(false)
     setPendingInvoiceOrder([])
     setSelectedInvoiceIds([])
     setInvoicePaymentAmounts({})
@@ -900,6 +924,8 @@ function Payment() {
         attachments: Array.isArray(data.attachments) ? data.attachments : []
       })
       setIsPaymentAmountManuallyEdited(true)
+      setAutoAllocateOnSelect(false)
+      setApplyAvailableCredit(Number(data.availableCreditApplied) > 0)
       setClientSearchText(clientName ? (companyName ? `${clientName} - ${companyName}` : clientName) : '')
       const allocs = Array.isArray(data.allocations) ? data.allocations : []
       const nextSelectedIds = []
@@ -941,6 +967,8 @@ function Payment() {
       attachments: []
     })
     setIsPaymentAmountManuallyEdited(false)
+    setAutoAllocateOnSelect(false)
+    setApplyAvailableCredit(false)
     setPendingInvoiceOrder([])
     setSelectedInvoiceIds([])
     setInvoicePaymentAmounts({})
@@ -2220,7 +2248,7 @@ function Payment() {
                     <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                       {Number(availableCredit) > 0 && (
                         <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
-                          Available Credit: ${formatMoney(availableCredit)}
+                          Available Credit: ${formatMoney(remainingAvailableCredit)}
                         </div>
                       )}
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -2233,10 +2261,45 @@ function Payment() {
                         <input
                           type="checkbox"
                           checked={autoAllocateOnSelect}
-                          onChange={(e) => setAutoAllocateOnSelect(e.target.checked)}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setAutoAllocateOnSelect(checked)
+                            if (checked) {
+                              allocatePaymentAmountFifo(paymentForm.amount, applyAvailableCredit)
+                            }
+                          }}
                           style={{ width: 16, height: 16, cursor: 'pointer' }}
                         />
                         <span style={{ fontWeight: 700 }}>Apply payment amount using FIFO</span>
+                      </label>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.875rem', color: 'var(--text-header)' }}>
+                        <input
+                          type="checkbox"
+                          checked={applyAvailableCredit}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setApplyAvailableCredit(checked)
+
+                            if (checked) {
+                              // Capture the current credit balance exactly once.
+                              // From this point the UI shows Available Credit as 0,
+                              // while Payment Amount represents the credit being used.
+                              const creditAmount = Math.max(0, Number(availableCredit) || 0)
+                              setPaymentForm(prev => ({
+                                ...prev,
+                                amount: String(creditAmount)
+                              }))
+                              setIsPaymentAmountManuallyEdited(false)
+                              if (autoAllocateOnSelect && creditAmount > 0) {
+                                allocatePaymentAmountFifo(creditAmount, true)
+                              }
+                            } else if (autoAllocateOnSelect) {
+                              allocatePaymentAmountFifo(paymentForm.amount, false)
+                            }
+                          }}
+                          style={{ width: 16, height: 16, cursor: 'pointer' }}
+                        />
+                        <span style={{ fontWeight: 700 }}>Apply Available Credit</span>
                       </label>
                     </div>
                   </div>
@@ -2244,7 +2307,7 @@ function Payment() {
                     <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
                       Description
                     </label>
-                    <input
+                    <textarea
                       type="text"
                       value={paymentForm.description}
                       onChange={(e) => setPaymentForm(prev => ({ ...prev, description: e.target.value }))}
@@ -2601,7 +2664,7 @@ function Payment() {
                             Adjusted Bill Amount:
                           </td>
                           <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
-                            ${formatMoney(availableCredit)}
+                            ${formatMoney(remainingAvailableCredit)}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.06)' }}>
@@ -2646,12 +2709,12 @@ function Payment() {
                     onDragOver={handleAttachmentDragOver}
                     onDragLeave={handleAttachmentDragLeave}
                     style={{
-                      border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
+                      // border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
                       borderRadius: '16px',
                       padding: '1rem 0.75rem',
                       background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
                       minHeight: '90px',
-                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                      // boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
                       transition: 'all 0.2s ease'
                     }}
                   >
@@ -2679,13 +2742,13 @@ function Payment() {
                         {!paymentForm.attachments?.length && (
                           <>
                             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
-                              Upload File
+                              {/* Upload File */}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.45, maxWidth: '420px' }}>
-                              Drag and drop files here or click to upload
+                              {/* Drag and drop files here or click to upload */}
                             </div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                              Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each
+                              {/* Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each */}
                             </div>
                           </>
                         )}
@@ -2697,20 +2760,26 @@ function Payment() {
                             marginTop: '0.2rem',
                             padding: '0.4rem 1rem',
                             borderRadius: '10px',
-                            background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
+                            width:'100%',
+                            height: '40px',
+                            background: 'linear-gradient(180deg, #1b1f28 0%, #000000 100%)',
                             color: '#fff',
                             fontWeight: 700,
-                            fontSize: '0.8rem',
+                            fontSize: '0.9rem',
                             boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
                             border: 'none',
                             cursor: loading ? 'not-allowed' : 'pointer',
                             opacity: loading ? 0.7 : 1
                           }}
                         >
-                          Browse Files
+                         Attachment Upload
                         </MotionButton>
                       </div>
                     )}
+
+                    <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'red' }}>
+                      (Upload Document in format PDF, PNG, JPEG)
+                      </div>
                     <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                       {paymentForm.attachments?.length || 0}/2 selected
                     </div>

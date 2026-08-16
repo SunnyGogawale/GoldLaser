@@ -10,6 +10,7 @@ import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
+import { TiFolderOpen } from "react-icons/ti";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/invoices`;
@@ -516,7 +517,7 @@ function Invoice() {
         itemError.product = 'Product name is required';
         hasItemErrors = true;
       }
-      if (item.amount < 0 || item.amount === '') {
+      if (item.amount === '' || item.amount === null || item.amount === undefined || Number.isNaN(Number(item.amount))) {// if (item.amount < 0 || item.amount === '') {
         itemError.amount = 'Valid amount is required';
         hasItemErrors = true;
       }
@@ -1459,6 +1460,15 @@ function Invoice() {
     }
   };
 
+  const productList = [
+  'Ring',
+  'Band',
+  'Necklace',
+  'Bracelet',
+  'Earring',
+  'Pendant',
+  'Chain'
+];
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0, gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -1961,7 +1971,7 @@ function Invoice() {
                     )}
                   </div>
 
-                  <div style={{ flex: '1 1 280px' }}>
+                  {/* <div style={{ flex: '1 1 280px' }}>
                     <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
                       Transaction Description
                     </label>
@@ -1982,7 +1992,7 @@ function Invoice() {
                         outline: 'none'
                       }}
                     />
-                  </div>
+                  </div> */}
                 </div>
 
                 <div>
@@ -2026,7 +2036,7 @@ function Invoice() {
                           <tr key={index} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
                             <td style={{ padding: '0.5rem' }}>
-                              <input
+                              {/* <input
                                 type="text"
                                 value={item.product}
                                 onChange={(e) => handleItemChange(index, 'product', e.target.value)}
@@ -2040,7 +2050,29 @@ function Invoice() {
                                   color: 'var(--text-header)',
                                   fontSize: '0.875rem'
                                 }}
-                              />
+                              /> */}
+
+                              <select
+                                value={item.product}
+                                onChange={(e) => handleItemChange(index, 'product', e.target.value)}
+                                style={{
+                                width: '100%',
+                                padding: '0.25rem 0.5rem',
+                                border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
+                                borderRadius: '4px',
+                                background: 'transparent',
+                                color: 'var(--text-header)',
+                                fontSize: '0.875rem'
+                              }}
+                              >
+                                <option value="">Select Product</option>
+
+                                {productList.map((product) => (
+                                  <option key={product} value={product}>
+                                    {product}
+                                  </option>
+                                ))}
+                              </select>
                             </td>
                             <td style={{ padding: '0.5rem' }}>
                               <input
@@ -2064,7 +2096,7 @@ function Invoice() {
                                 type="number"
                                 value={item.amount}
                                 onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
-                                min="0"
+                                // min="0"
                                 step="0.01"
                                 style={{
                                   width: '100%',
@@ -2104,6 +2136,49 @@ function Invoice() {
                   )}
                 </div>
 
+
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 280px' }}>
+                    <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                      Transaction Description
+                    </label>
+                    <textarea
+                      type="text"
+                      name="transactionDescription"
+                      value={invoiceForm.transactionDescription}
+                      onChange={handleInputChange}
+                      disabled={loading}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        fontSize: '0.875rem',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-header)',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+
+                  <div style={{
+                    background: 'var(--primary-light, #eef2ff)',
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: '6px',
+                    border: '1px solid var(--primary-border, #c7d2fe)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem'
+                  }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-header)' }}>Total Amount:</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
+                      ${invoiceForm.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+                
+{/* ------------------------------------------------------------------------------------ */}
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>File Attachment</h3>
@@ -2114,13 +2189,13 @@ function Invoice() {
                     onDragOver={handleAttachmentDragOver}
                     onDragLeave={handleAttachmentDragLeave}
                     style={{
-                      border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
-                      borderRadius: '16px',
-                      padding: '1rem 0.75rem',
-                      background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
-                      minHeight: '90px',
-                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
-                      transition: 'all 0.2s ease'
+                      // border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
+                      // borderRadius: '16px',
+                      // padding: '1rem 0.75rem',
+                      // background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
+                      // min  Height: '90px',
+                      // boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                      // transition: 'all 0.2s ease'
                     }}
                   >
                     <input
@@ -2147,19 +2222,21 @@ function Invoice() {
                         {!invoiceForm.attachments?.length && (
                           <>
                             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
-                              Upload File
+                              {/* Upload Filee */}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.2, maxWidth: '420px' }}>
-                              Drag and drop files here or click to upload
+                              {/* Drag and drop files here or click to upload */}
                             </div>
                             <div style={{
                               fontSize: '0.7rem',
                               color: 'var(--text-muted)'
                             }}>
-                              Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each
+                              {/* Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each */}
                             </div>
                           </>
                         )}
+
+                         
                         <MotionButton
                           type="button"
                           onClick={openAttachmentPicker}
@@ -2167,22 +2244,31 @@ function Invoice() {
                           style={{
                             marginTop: '0.2rem',
                             padding: '0.4rem 1rem',
+                            width: '100%',
+                            height: '40px',
                             borderRadius: '10px',
-                            background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
+                            background: 'linear-gradient(180deg, #010102 0%, #161e38 100%)',
                             color: '#fff',
                             fontWeight: 700,
-                            fontSize: '0.8rem',
+                            fontSize: '0.9rem',
                             boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
                             border: 'none',
                             cursor: loading ? 'not-allowed' : 'pointer',
                             opacity: loading ? 0.7 : 1
                           }}
-                        >
-                          Browse Files
+                        > 
+                        
+                          Attachment Upload
                         </MotionButton>
+
+                        
                       </div>
                     )}
+                    <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'red' }}>
+                      (Upload Document in format PDF, PNG, JPEG)
+                      </div>
                     <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+
                       {invoiceForm.attachments?.length || 0}/2 selected
                     </div>
                     <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
@@ -2256,8 +2342,11 @@ function Invoice() {
                   </div>
                 </div>
 
+{/* ------------------------------------------------------------------------------------ */}
+
+
                 <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div style={{
+                  {/* <div style={{
                     background: 'var(--primary-light, #eef2ff)',
                     padding: '0.75rem 1.25rem',
                     borderRadius: '6px',
@@ -2270,7 +2359,8 @@ function Invoice() {
                     <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
                       ${invoiceForm.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                  </div>
+                  </div> */}
+
 
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
                     {!editingInvoiceId && (
@@ -2283,6 +2373,7 @@ function Invoice() {
                           background: 'var(--bg-main)',
                           color: 'var(--text-header)',
                           border: '1px solid var(--border)',
+                    
                           borderRadius: '6px',
                           fontWeight: 700,
                           fontSize: '0.875rem',

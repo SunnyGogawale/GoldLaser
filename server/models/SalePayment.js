@@ -122,6 +122,30 @@ const paymentSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+
+  // Credit created by a normal payment when the payment is larger than
+  // the amount allocated to invoices.
+  availableCreditGenerated: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+
+  // Existing Available Credit consumed by this payment.
+  availableCreditApplied: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+
+  // Current Available Credit balance after this payment is posted.
+  // The dedicated paymentcreditbalances collection is the live source of truth.
+  availableCreditBalance: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+
   description: {
     type: String,
     default: ''
