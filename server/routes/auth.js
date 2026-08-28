@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const { sendErrorResponse } = require('../utils/errorHandler');
+const LOGIN_HISTORY_MAX_RECORDS = 30;
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -21,7 +23,7 @@ const requireAuth = async (req, res, next) => {
     const userId = decoded?.user?.id;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    req.auth = { userId: String(userId) };
+    req.auth = { userId: String(userId), sessionId: decoded?.user?.sessionId || '' };
     return next();
   } catch {
     return res.status(401).json({ message: 'Unauthorized' });
@@ -117,12 +119,15 @@ router.post('/signin', async (req, res) => {
     }
 
     user.loginHistory = Array.isArray(user.loginHistory) ? user.loginHistory : [];
-    user.loginHistory.push(new Date());
+    const sessionId = crypto.randomUUID();
+    user.loginHistory.push({ sessionId, loginTime: new Date(), logoutTime: null });
+    user.loginHistory = user.loginHistory.slice(-LOGIN_HISTORY_MAX_RECORDS);
     await user.save();
 
     const payload = {
       user: {
-        id: user.id
+        id: user.id,
+        sessionId
       }
     };
 
@@ -150,6 +155,33 @@ router.post('/signin', async (req, res) => {
     );
   } catch (err) {
     return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.signin');
+  }
+});
+
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.auth.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const history = Array.isArray(user.loginHistory) ? user.loginHistory : [];
+    for (let index = history.length - 1; index >= 0; index -= 1) {
+      const entry = history[index];
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        !Array.isArray(entry) &&
+        !entry.logoutTime &&
+        (!req.auth.sessionId || entry.sessionId === req.auth.sessionId)
+      ) {
+        entry.logoutTime = new Date();
+        break;
+      }
+    }
+    user.loginHistory = history.slice(-LOGIN_HISTORY_MAX_RECORDS);
+    await user.save();
+    return res.json({ message: 'Logout recorded' });
+  } catch (err) {
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.logout');
   }
 });
 

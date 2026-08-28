@@ -10,6 +10,7 @@ const User = require('../models/User')
 const { sendErrorResponse } = require('../utils/errorHandler')
 
 let backupSchedulerTimer = null
+const MAX_BACKUPS = 25
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || ''
@@ -118,7 +119,9 @@ const getRetentionDays = () => {
 
 const getKeepLatestBackupsCount = () => {
   const keepLatestBackups = Number.parseInt(process.env.BACKUP_KEEP_LATEST_COUNT || '10', 10)
-  return Number.isFinite(keepLatestBackups) && keepLatestBackups > 0 ? keepLatestBackups : 10
+  return Number.isFinite(keepLatestBackups) && keepLatestBackups > 0
+    ? Math.min(keepLatestBackups, MAX_BACKUPS)
+    : 10
 }
 
 const getBackupIntervalHours = () => {
@@ -160,6 +163,7 @@ const createBackupArchive = async () => {
 
   await runCommand(command, args)
   const stats = fs.statSync(archiveFile)
+  pruneOldBackups(backupRoot)
 
   return {
     backupFile: path.basename(archiveFile),
@@ -202,8 +206,8 @@ const setBackupScheduleInterval = (hours, minutes) => {
   const normalizedMinutes = Number.isFinite(parsedMinutes) && parsedMinutes > 0 ? parsedMinutes : 0
   const totalMinutes = (normalizedHours * 60) + normalizedMinutes
 
-  if (!Number.isFinite(totalMinutes) || totalMinutes < 1) {
-    throw new Error('Backup interval must be at least 1 minute.')
+  if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
+    throw new Error('Backup interval cannot be negative.')
   }
 
   persistEnvValue('BACKUP_INTERVAL_HOURS', normalizedHours)
@@ -290,10 +294,11 @@ router.get('/list', requireAdmin, async (req, res) => {
 
 router.post('/config', requireAdmin, async (req, res) => {
   try {
-    const keepLatestBackups = Number.parseInt(req.body?.keepLatestBackups, 10)
-    if (!Number.isFinite(keepLatestBackups) || keepLatestBackups < 1) {
+    const requestedKeepLatestBackups = Number.parseInt(req.body?.keepLatestBackups, 10)
+    if (!Number.isFinite(requestedKeepLatestBackups) || requestedKeepLatestBackups < 1) {
       return res.status(400).json({ message: 'Invalid backup keep count' })
     }
+    const keepLatestBackups = Math.min(requestedKeepLatestBackups, MAX_BACKUPS)
 
     persistEnvValue('BACKUP_KEEP_LATEST_COUNT', keepLatestBackups)
 
@@ -305,7 +310,8 @@ router.post('/config', requireAdmin, async (req, res) => {
       message: 'Backup retention count updated successfully',
       keepLatestBackups: keepLatestBackups,
       retentionDays: getRetentionDays(),
-      backupScheduleHours: getBackupIntervalHours()
+      backupScheduleHours: getBackupIntervalHours(),
+      backupScheduleMinutes: getBackupIntervalMinutes()
     })
   } catch (err) {
     return sendErrorResponse(res, err, 'Failed to update backup retention count', 500, 'backups.config')

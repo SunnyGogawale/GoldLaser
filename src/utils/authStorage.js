@@ -33,3 +33,15 @@ export const markSessionActivity = () => {
 }
 
 export const getLastActivityAt = () => Number(getAuthValue('lastActivityAt') || 0)
+
+export const recordLogout = () => {
+  const token = getAuthToken()
+  if (!token) return
+
+  const apiBaseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
+  fetch(`${apiBaseUrl}/api/auth/logout`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    keepalive: true
+  }).catch(() => {})
+}

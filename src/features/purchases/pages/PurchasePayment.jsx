@@ -2528,7 +2528,7 @@ function PurchasePayment() {
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
                       <th
                         onClick={() => handleSort('paymentNumber')}
-                        style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                        style={{ width: '5%', textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                       >
                         INV No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
@@ -2540,7 +2540,7 @@ function PurchasePayment() {
                       </th>
                       <th
                         onClick={() => handleSort('paymentDate')}
-                        style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                        style={{ width: '10%', textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                       >
                         Date {sortColumn === 'paymentDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
@@ -2552,7 +2552,7 @@ function PurchasePayment() {
                       </th>
                       <th
                         onClick={() => handleSort('amount')}
-                        style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
+                        style={{ width: '10%', textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                       >
                         Amount {sortColumn === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
@@ -2570,13 +2570,13 @@ function PurchasePayment() {
 
                       return (
                         <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(payment.paymentNumber || '')}>
+                          <td style={{ width: '5%', textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(payment.paymentNumber || '')}>
                             {payment.paymentNumber || '-'}
                           </td>
                           <td style={{ width: '20%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '140px' }} title={String(vendorLabel)}>
                             {vendorLabel}
                           </td>
-                          <td style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(dateLabel)}>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(dateLabel)}>
                             {dateLabel}
                           </td>
                           <td
@@ -2595,7 +2595,7 @@ function PurchasePayment() {
                           >
                             {descriptionLabel || '-'}
                           </td>
-                          <td style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
                             {amountLabel}
                           </td>
                           <td style={{ width: '5%', textAlign: 'center', padding: '0.25rem 0.25rem' }}>

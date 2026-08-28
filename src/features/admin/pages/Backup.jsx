@@ -78,7 +78,7 @@ function Backup() {
 
       const backups = Array.isArray(data?.backups) ? data.backups : []
       const configuredRetentionDays = Number.parseInt(data?.retentionDays || '8', 10)
-      const configuredKeepLatestBackups = Number.parseInt(data?.keepLatestBackups || '10', 10)
+      const configuredKeepLatestBackups = Math.min(Number.parseInt(data?.keepLatestBackups || '10', 10), 25)
       const configuredBackupScheduleHours = Number.parseInt(data?.backupScheduleHours || '0', 10)
       const configuredBackupScheduleMinutes = Number.parseInt(data?.backupScheduleMinutes || '0', 10)
       setBackupItems(backups)
@@ -374,8 +374,8 @@ function Backup() {
     const normalizedMinutes = Number.isFinite(parsedMinutes) && parsedMinutes > 0 ? parsedMinutes : 0
     const totalMinutes = (normalizedHours * 60) + normalizedMinutes
 
-    if (!Number.isFinite(totalMinutes) || totalMinutes < 1) {
-      showErrorToast('Backup interval must be at least 1 minute.')
+    if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
+      showErrorToast('Backup interval cannot be negative.')
       return
     }
 
@@ -727,8 +727,9 @@ function Backup() {
                 <input
                   type="number"
                   min="1"
+                  max="25"
                   value={backupCountInput}
-                  onChange={(event) => setBackupCountInput(Number.parseInt(event.target.value || '1', 10))}
+                  onChange={(event) => setBackupCountInput(Math.min(Number.parseInt(event.target.value || '1', 10), 25))}
                   style={{
                     width: '78px',
                     border: '1px solid var(--border)',

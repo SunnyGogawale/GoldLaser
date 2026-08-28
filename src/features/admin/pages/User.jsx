@@ -10,6 +10,7 @@ import { handleApiError, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
+const LOGIN_HISTORY_PAGE_SIZE = 10
 
 function User() {
   // Responsive state
@@ -52,6 +53,7 @@ function User() {
   const [dropdownUp, setDropdownUp] = useState(false)
   const [loginHistoryOpen, setLoginHistoryOpen] = useState(false)
   const [loginHistory, setLoginHistory] = useState([])
+  const [loginHistoryPage, setLoginHistoryPage] = useState(1)
   const [loginHistoryLoading, setLoginHistoryLoading] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -81,6 +83,7 @@ function User() {
     if (!u?._id) return
     setLoginHistoryLoading(true)
     setLoginHistory([])
+    setLoginHistoryPage(1)
     setLoginHistoryOpen(true)
     setError('')
 
@@ -662,22 +665,41 @@ function User() {
                 <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem 0' }}>No login history available.</div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                  <table style={{ width: '100%', border: '1px solid var(--border)', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                        <th style={{ textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-header)', fontWeight: 700 }}>#</th>
-                        <th style={{ textAlign: 'right', padding: '0.5rem 0.35rem', color: 'var(--text-header)', fontWeight: 700 }}>Login Time</th>
+                        <th style={{ width: '15%',textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, border: '1px solid var(--border)' }}>#</th>
+                        <th style={{ width: '33.33%',textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, border: '1px solid var(--border)' }}>Login Time</th>
+                        <th style={{ width: '33.33%',textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, border: '1px solid var(--border)' }}>Logout Time</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {loginHistory.map((entry, index) => (
-                        <tr key={`${entry}-${index}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-main)' }}>{index + 1}</td>
-                          <td style={{ textAlign: 'right', padding: '0.5rem 0.35rem', color: 'var(--text-main)' }}>{formatDateTimeMMDDYYYY(entry)}</td>
+                      {loginHistory
+                        .slice((loginHistoryPage - 1) * LOGIN_HISTORY_PAGE_SIZE, loginHistoryPage * LOGIN_HISTORY_PAGE_SIZE)
+                        .map((entry, pageIndex) => (
+                        <tr key={`${entry}-${(loginHistoryPage - 1) * LOGIN_HISTORY_PAGE_SIZE + pageIndex}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ width: '15%',textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-main)', border: '1px solid var(--border)' }}>{((loginHistoryPage - 1) * LOGIN_HISTORY_PAGE_SIZE) + pageIndex + 1}</td>
+                          <td style={{ width: '33.33%',textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-main)', border: '1px solid var(--border)' }}>{formatDateTimeMMDDYYYY(entry?.loginTime ?? entry)}</td>
+                          <td style={{ width: '33.33%',textAlign: 'center', padding: '0.5rem 0.35rem', color: 'var(--text-main)', border: '1px solid var(--border)' }}>{entry?.logoutTime ? formatDateTimeMMDDYYYY(entry.logoutTime) : '-'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  {loginHistory.length > LOGIN_HISTORY_PAGE_SIZE && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        Showing {((loginHistoryPage - 1) * LOGIN_HISTORY_PAGE_SIZE) + 1}-{Math.min(loginHistoryPage * LOGIN_HISTORY_PAGE_SIZE, loginHistory.length)} of {loginHistory.length}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button type="button" onClick={() => setLoginHistoryPage((page) => Math.max(1, page - 1))} disabled={loginHistoryPage === 1} style={{ padding: '0.4rem 0.7rem', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-header)', cursor: loginHistoryPage === 1 ? 'not-allowed' : 'pointer', opacity: loginHistoryPage === 1 ? 0.5 : 1 }}>
+                          Previous
+                        </button>
+                        <button type="button" onClick={() => setLoginHistoryPage((page) => Math.min(Math.ceil(loginHistory.length / LOGIN_HISTORY_PAGE_SIZE), page + 1))} disabled={loginHistoryPage >= Math.ceil(loginHistory.length / LOGIN_HISTORY_PAGE_SIZE)} style={{ padding: '0.4rem 0.7rem', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--bg-card)', color: 'var(--text-header)', cursor: loginHistoryPage >= Math.ceil(loginHistory.length / LOGIN_HISTORY_PAGE_SIZE) ? 'not-allowed' : 'pointer', opacity: loginHistoryPage >= Math.ceil(loginHistory.length / LOGIN_HISTORY_PAGE_SIZE) ? 0.5 : 1 }}>
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   },
   loginHistory: {
-    type: [Date],
+    type: [mongoose.Schema.Types.Mixed],
     default: []
   }
 });

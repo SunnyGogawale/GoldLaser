@@ -2982,35 +2982,35 @@ function Payment() {
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
                       <th
                         onClick={() => handleSort('paymentNumber')}
-                        style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '5%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                       >
                         INV No {sortColumn === 'paymentNumber' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('vendorId')}
-                        style={{ width: '20%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '20%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                       >
                         Customer Name {sortColumn === 'vendorId' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('paymentDate')}
-                        style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                       >
                         Date {sortColumn === 'paymentDate' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('description')}
-                        style={{ width: '30%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '30%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                       >
                         Description {sortColumn === 'description' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th
                         onClick={() => handleSort('amount')}
-                        style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
                       >
                         Amount {sortColumn === 'amount' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ width: '5%', textAlign: 'center', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700 }}>Action</th>
+                      <th style={{ width: '5%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3028,22 +3028,22 @@ function Payment() {
 
                       return (
                         <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ width: '10%', padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(payment.paymentNumber || '')}>
                             {truncateText(payment.paymentNumber || '')}
                           </td>
-                          <td style={{ width: '20%', padding: '0.5rem 0.375rem', color: 'var(--text-main)', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '140px' }} title={String(customerLabel)}>
+                          <td style={{ width: '20%', padding: '0.35rem 0.35rem', color: 'var(--text-main)', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '140px', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(customerLabel)}>
                             {customerLabel}
                           </td>
-                          <td style={{ width: '10%', padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(dateLabel)}>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(dateLabel)}>
                             {dateLabel}
                           </td>
-                          <td style={{ width: '30%', padding: '0.5rem 0.375rem', color: 'var(--text-main)', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '260px' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
+                          <td style={{ width: '30%', padding: '0.35rem 0.35rem', color: 'var(--text-main)', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '260px', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(descriptionLabel === '-' ? '' : descriptionLabel)}>
                             {descriptionLabel || '-'}
                           </td>
-                          <td style={{ width: '10%', padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={amountLabel}>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
                             {amountLabel}
                           </td>
-                          <td style={{ width: '5%', textAlign: 'center', padding: '0.5rem 0.375rem' }}>
+                          <td style={{ width: '5%', textAlign: 'center', padding: '0.35rem 0.35rem', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                             <div style={{ position: 'relative' }}>
                               <MotionButton
                                 onClick={(e) => {

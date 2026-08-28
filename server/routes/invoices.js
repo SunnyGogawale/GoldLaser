@@ -347,6 +347,29 @@ router.get('/detail/:id', async (req, res) => {
   }
 });
 
+router.get('/:id/history', requireAdmin, async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id, {
+      activity: 1,
+      createdByName: 1,
+      createdAt: 1,
+      updatedByName: 1,
+      updatedAt: 1
+    });
+    if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
+
+    return res.json({
+      createdBy: invoice.createdByName || '-',
+      createdAt: invoice.createdAt,
+      updatedBy: invoice.updatedByName || '-',
+      updatedAt: invoice.updatedAt,
+      activity: Array.isArray(invoice.activity) ? invoice.activity : []
+    });
+  } catch (err) {
+    return sendErrorResponse(res, err, 'Failed to load invoice history', 500, 'invoices.history');
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const invoice = await getInvoiceWithClient(req.params.id);

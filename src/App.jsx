@@ -15,7 +15,7 @@ import Backup from './features/admin/pages/Backup'
 import Vendor from './features/vendors/pages/Vendor'
 import PurchaseInvoice from './features/purchases/pages/PurchaseInvoice'
 import PurchasePayment from './features/purchases/pages/PurchasePayment'
-import { clearAuthSession, getAuthToken, getLastActivityAt, markSessionActivity } from './utils/authStorage'
+import { clearAuthSession, getAuthToken, getLastActivityAt, markSessionActivity, recordLogout } from './utils/authStorage'
 import PageTransition from './components/PageTransition'
 import ToastProvider from './components/ToastProvider'
 import './App.css'
@@ -96,6 +96,7 @@ function App() {
   }
 
   const logout = useCallback(() => {
+    recordLogout()
     clearAuthSession()
     setIsLoggedIn(false)
   }, [])

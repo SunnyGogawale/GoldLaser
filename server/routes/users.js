@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs')
 const router = express.Router()
 const User = require('../models/User')
 const { sendErrorResponse } = require('../utils/errorHandler')
+const LOGIN_HISTORY_MAX_RECORDS = 30
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || ''
@@ -127,9 +128,15 @@ router.get('/:id/login-history', requireAdmin, async (req, res) => {
     const target = await User.findById(targetId, { password: 0 })
     if (!target) return res.status(404).json({ message: 'User not found' })
 
-    const loginHistory = Array.isArray(target.loginHistory)
-      ? [...target.loginHistory].sort((a, b) => new Date(b) - new Date(a))
+    const sortedLoginHistory = Array.isArray(target.loginHistory)
+      ? [...target.loginHistory].sort((a, b) => new Date(b?.loginTime || b) - new Date(a?.loginTime || a))
       : []
+    const loginHistory = sortedLoginHistory.slice(0, LOGIN_HISTORY_MAX_RECORDS)
+
+    if (sortedLoginHistory.length > LOGIN_HISTORY_MAX_RECORDS) {
+      target.loginHistory = [...loginHistory].reverse()
+      await target.save()
+    }
 
     return res.json({ loginHistory })
   } catch (err) {

@@ -17,7 +17,7 @@ import {
   ClipboardCheck,
   Archive
 } from 'lucide-react'
-import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue } from '../utils/authStorage'
+import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue, recordLogout } from '../utils/authStorage'
 import { modalMotionProps, overlayMotionProps } from './PageTransition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 import MotionButton from './MotionButton'
@@ -475,7 +475,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
             type="button"
             className="nav-item logout-btn"
             onClick={() => {
-          clearAuthSession()
+              recordLogout()
+              clearAuthSession()
               setIsLoggedIn(false)
               navigate('/login', { replace: true })
             }}
@@ -620,7 +621,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                   <MotionButton
                     type="button"
                     onClick={() => {
-          clearAuthSession()
+                      recordLogout()
+                      clearAuthSession()
                       setIsLoggedIn(false)
                       setIsProfileMenuOpen(false)
                       navigate('/login', { replace: true })
