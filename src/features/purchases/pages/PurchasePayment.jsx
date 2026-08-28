@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import jsPDF from 'jspdf'
@@ -159,6 +159,9 @@ function PurchasePayment() {
   const [infoPayment, setInfoPayment] = useState(null)
   const [infoLoading, setInfoLoading] = useState(false)
   const [infoNowMs, setInfoNowMs] = useState(0)
+  const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false)
+  const [paymentHistory, setPaymentHistory] = useState(null)
+  const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false)
   const [openDropdownId, setOpenDropdownId] = useState(null)
   const [dropdownPurchasePayment, setDropdownPurchasePayment] = useState(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
@@ -826,6 +829,27 @@ function PurchasePayment() {
   const closeInfo = () => {
     setInfoOpen(false)
     setInfoPayment(null)
+  }
+
+  const openPaymentHistory = async (payment) => {
+    if (!isAdmin || !payment?._id) return
+    setPaymentHistoryOpen(true)
+    setPaymentHistoryLoading(true)
+    setPaymentHistory(null)
+    try {
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${payment._id}/history`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(data?.message || 'Failed to load payment history')
+      setPaymentHistory(data)
+    } catch (error) {
+      showErrorToast(error?.message || 'Failed to load payment history')
+      setPaymentHistoryOpen(false)
+    } finally {
+      setPaymentHistoryLoading(false)
+    }
   }
 
   const handleCancelEdit = async () => {
@@ -2046,6 +2070,7 @@ function PurchasePayment() {
                             const invoiceId = String(inv._id)
                             const enteredAmount = invoicePaymentAmounts[invoiceId] || ''
                             const enteredDescription = invoiceDescriptions[invoiceId] ?? String(inv.description || '')
+                                const isChecked = selectedInvoiceIdSet.has(invoiceId)
                             return (
                               <tr
                                 key={inv._id}
@@ -2893,6 +2918,60 @@ function PurchasePayment() {
         </ActionMenuPortal>
       )}
 
+      {paymentHistoryOpen && isAdmin && (
+        <ActionMenuPortal>
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setPaymentHistoryOpen(false)
+            }}
+          >
+            <div className="card" style={{ width: 'min(980px, 96vw)', maxHeight: '85vh', overflow: 'auto', padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-header)' }}>Payment History</div>
+                  <div style={{ marginTop: '0.2rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>{paymentHistory?.paymentNumber || 'Payment'}</div>
+                </div>
+                <MotionButton type="button" onClick={() => setPaymentHistoryOpen(false)} style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 8, padding: '0.35rem', cursor: 'pointer', color: 'var(--text-muted)' }} title="Close">
+                  <X size={18} />
+                </MotionButton>
+              </div>
+              {paymentHistoryLoading ? (
+                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading payment history...</div>
+              ) : paymentHistory ? (
+                <div style={{ marginTop: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Created By</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.createdBy || '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Created Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.createdAt ? new Date(paymentHistory.createdAt).toLocaleString('en-US') : '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Updated By</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.updatedBy || '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Updated Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.updatedAt ? new Date(paymentHistory.updatedAt).toLocaleString('en-US') : '-'}</div></div>
+                  </div>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead><tr style={{ background: 'var(--bg-main)' }}>
+                        {['Field Name', 'Old Value', 'New Value', 'Changed By', 'Changed Date & Time'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-header)' }}>{label}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {(paymentHistory.activity || []).flatMap((event) => (event.changes || []).map((change) => ({ ...change, userName: event.userName, at: event.at }))).map((change, index) => (
+                          <tr key={`${change.field}-${change.at}-${index}`}>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-header)', fontWeight: 700 }}>{change.field}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{change.from || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{change.to || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)' }}>{change.userName || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)' }}>{change.at ? new Date(change.at).toLocaleString('en-US') : '-'}</td>
+                          </tr>
+                        ))}
+                        {(!paymentHistory.activity || paymentHistory.activity.every((event) => !(event.changes || []).length)) && <tr><td colSpan={5} style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No field changes recorded.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </ActionMenuPortal>
+      )}
+
       {/* Dropdown Menu */}
       {openDropdownId && dropdownPurchasePayment && (
         <ActionMenuPortal>
@@ -2943,6 +3022,32 @@ function PurchasePayment() {
                   <Eye size={14} />
                   View
                 </MotionButton>
+                {isAdmin && (
+                  <MotionButton
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openPaymentHistory(dropdownPurchasePayment)
+                      setOpenDropdownId(null)
+                      setDropdownPurchasePayment(null)
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.375rem 0.75rem',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-header)',
+                      fontSize: '0.875rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <Clock3 size={14} />
+                    Payment History
+                  </MotionButton>
+                )}
                 <MotionButton
                   onClick={(e) => {
                     e.stopPropagation()

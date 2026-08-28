@@ -570,6 +570,46 @@ router.get('/detail/:id', async (req, res) => {
   }
 });
 
+router.get('/:id/history', requireAdmin, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id)
+      .select('paymentNumber createdBy createdByName createdAt updatedBy updatedByName updatedAt activity')
+      .populate('createdBy', 'fullName email')
+      .populate('updatedBy', 'fullName email');
+
+    if (!payment) return res.status(404).json({ message: 'Payment not found' });
+
+    let activity = Array.isArray(payment.activity) ? payment.activity : [];
+    if (activity.length === 0) {
+      activity = [{
+        action: 'create',
+        at: payment.createdAt,
+        userName: payment.createdBy?.fullName || payment.createdByName || '',
+        userEmail: payment.createdBy?.email || ''
+      }];
+      if (payment.updatedAt && payment.createdAt && new Date(payment.updatedAt).getTime() !== new Date(payment.createdAt).getTime()) {
+        activity.unshift({
+          action: 'update',
+          at: payment.updatedAt,
+          userName: payment.updatedBy?.fullName || payment.updatedByName || '',
+          userEmail: payment.updatedBy?.email || ''
+        });
+      }
+    }
+
+    return res.json({
+      paymentNumber: payment.paymentNumber,
+      createdBy: payment.createdBy?.fullName || payment.createdByName || '-',
+      createdAt: payment.createdAt,
+      updatedBy: payment.updatedBy?.fullName || payment.updatedByName || '-',
+      updatedAt: payment.updatedAt,
+      activity
+    });
+  } catch (err) {
+    return sendErrorResponse(res, err, 'Failed to load payment history', 500, 'payments.history');
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const payment = await getPaymentWithClient(req.params.id);

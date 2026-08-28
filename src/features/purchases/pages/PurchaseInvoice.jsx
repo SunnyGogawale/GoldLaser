@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, FileText, Image as ImageIcon, MoreHorizontal, Download } from 'lucide-react';
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage';
@@ -148,6 +148,9 @@ function PurchaseInvoice() {
   const [infoInvoice, setInfoInvoice] = useState(null);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoNowMs, setInfoNowMs] = useState(0);
+  const [invoiceHistoryOpen, setInvoiceHistoryOpen] = useState(false);
+  const [invoiceHistory, setInvoiceHistory] = useState(null);
+  const [invoiceHistoryLoading, setInvoiceHistoryLoading] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [dropdownInvoice, setDropdownInvoice] = useState(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -707,6 +710,27 @@ function PurchaseInvoice() {
   const closeInfo = () => {
     setInfoOpen(false);
     setInfoInvoice(null);
+  };
+
+  const openInvoiceHistory = async (invoice) => {
+    if (!isAdmin || !invoice?._id) return;
+    setInvoiceHistoryOpen(true);
+    setInvoiceHistoryLoading(true);
+    setInvoiceHistory(null);
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_URL}/${invoice._id}/history`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.message || 'Failed to load invoice history');
+      setInvoiceHistory(data);
+    } catch (error) {
+      showErrorToast(error?.message || 'Failed to load invoice history');
+      setInvoiceHistoryOpen(false);
+    } finally {
+      setInvoiceHistoryLoading(false);
+    }
   };
 
   const handleEditInvoice = (invoice) => {
@@ -2249,6 +2273,60 @@ function PurchaseInvoice() {
       )}
       </AnimatePresence>
 
+      {invoiceHistoryOpen && isAdmin && (
+        <ActionMenuPortal>
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setInvoiceHistoryOpen(false);
+            }}
+          >
+            <div className="card" style={{ width: 'min(980px, 96vw)', maxHeight: '85vh', overflow: 'auto', padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-header)' }}>Invoice History</div>
+                  <div style={{ marginTop: '0.2rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>{dropdownInvoice?.invoiceNumber || 'Invoice'}</div>
+                </div>
+                <MotionButton type="button" onClick={() => setInvoiceHistoryOpen(false)} style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 8, padding: '0.35rem', cursor: 'pointer', color: 'var(--text-muted)' }} title="Close">
+                  <X size={18} />
+                </MotionButton>
+              </div>
+              {invoiceHistoryLoading ? (
+                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading invoice history...</div>
+              ) : invoiceHistory ? (
+                <div style={{ marginTop: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Created By</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.createdBy || '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Created Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.createdAt ? new Date(invoiceHistory.createdAt).toLocaleString('en-US') : '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Updated By</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.updatedBy || '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Updated Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.updatedAt ? new Date(invoiceHistory.updatedAt).toLocaleString('en-US') : '-'}</div></div>
+                  </div>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                      <thead><tr style={{ background: 'var(--bg-main)' }}>
+                        {['Field Name', 'Old Value', 'New Value', 'Changed By', 'Changed Date & Time'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-header)' }}>{label}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {(invoiceHistory.activity || []).flatMap((event) => (event.changes || []).map((change) => ({ ...change, userName: event.userName, at: event.at }))).map((change, index) => (
+                          <tr key={`${change.field}-${change.at}-${index}`}>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-header)', fontWeight: 700 }}>{change.field}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{change.from || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{change.to || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)' }}>{change.userName || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)' }}>{change.at ? new Date(change.at).toLocaleString('en-US') : '-'}</td>
+                          </tr>
+                        ))}
+                        {(!invoiceHistory.activity || invoiceHistory.activity.every((event) => !(event.changes || []).length)) && <tr><td colSpan={5} style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No field changes recorded.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </ActionMenuPortal>
+      )}
+
       {/* Dropdown Menu */}
       {openDropdownId && dropdownInvoice && (
         <ActionMenuPortal>
@@ -2299,6 +2377,32 @@ function PurchaseInvoice() {
             <Eye size={14} />
             View
           </MotionButton>
+          {isAdmin && (
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                openInvoiceHistory(dropdownInvoice);
+                setOpenDropdownId(null);
+                setDropdownInvoice(null);
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <Clock3 size={14} />
+              Invoice History
+            </MotionButton>
+          )}
           <MotionButton
             onClick={(e) => {
               e.stopPropagation();

@@ -36,6 +36,25 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
+const requireAdmin = async (req, res, next) => {
+  try {
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded?.user?.id || decoded?.id || decoded?.userId || decoded?._id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const user = await User.findById(userId);
+    const role = String(user?.roll || user?.role || 'user').toLowerCase();
+    if (role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+
+    return next();
+  } catch (err) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+};
+
 const getAuthUserId = (req) => {
   try {
     const token = getBearerToken(req);
@@ -577,6 +596,46 @@ router.get('/detail/:id', async (req, res) => {
     res.json(payment);
   } catch (err) {
     sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'purchasePayments.detail');
+  }
+});
+
+router.get('/:id/history', requireAdmin, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id)
+      .select('paymentNumber createdBy createdByName createdAt updatedBy updatedByName updatedAt activity')
+      .populate('createdBy', 'fullName email')
+      .populate('updatedBy', 'fullName email');
+
+    if (!payment) return res.status(404).json({ message: 'Payment not found' });
+
+    let activity = Array.isArray(payment.activity) ? payment.activity : [];
+    if (activity.length === 0) {
+      activity = [{
+        action: 'create',
+        at: payment.createdAt,
+        userName: payment.createdBy?.fullName || payment.createdByName || '',
+        userEmail: payment.createdBy?.email || ''
+      }];
+      if (payment.updatedAt && payment.createdAt && new Date(payment.updatedAt).getTime() !== new Date(payment.createdAt).getTime()) {
+        activity.unshift({
+          action: 'update',
+          at: payment.updatedAt,
+          userName: payment.updatedBy?.fullName || payment.updatedByName || '',
+          userEmail: payment.updatedBy?.email || ''
+        });
+      }
+    }
+
+    return res.json({
+      paymentNumber: payment.paymentNumber,
+      createdBy: payment.createdBy?.fullName || payment.createdByName || '-',
+      createdAt: payment.createdAt,
+      updatedBy: payment.updatedBy?.fullName || payment.updatedByName || '-',
+      updatedAt: payment.updatedAt,
+      activity
+    });
+  } catch (err) {
+    return sendErrorResponse(res, err, 'Failed to load payment history', 500, 'purchasePayments.history');
   }
 });
 
