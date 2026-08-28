@@ -32,4 +32,7 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+userSchema.index({ createdAt: -1 });
+userSchema.index({ roll: 1 });
+
 module.exports = mongoose.model('User', userSchema);

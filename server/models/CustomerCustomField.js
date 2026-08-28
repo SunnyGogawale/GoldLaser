@@ -14,4 +14,6 @@ const customerCustomFieldSchema = new mongoose.Schema({
   timestamps: true
 })
 
+customerCustomFieldSchema.index({ createdAt: 1 })
+
 module.exports = mongoose.model('CustomerCustomField', customerCustomFieldSchema)

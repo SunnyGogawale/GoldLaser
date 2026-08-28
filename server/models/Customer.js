@@ -104,4 +104,10 @@ const customerSchema = new mongoose.Schema({
   timestamps: true
 });
 
+customerSchema.index({ createdAt: -1 });
+customerSchema.index({ customerName: 1 });
+customerSchema.index({ companyName: 1 });
+customerSchema.index({ contactNumber: 1 });
+customerSchema.index({ email: 1 });
+
 module.exports = mongoose.model('Customer', customerSchema);

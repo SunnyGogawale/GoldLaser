@@ -104,4 +104,10 @@ const vendorSchema = new mongoose.Schema({
   timestamps: true
 });
 
+vendorSchema.index({ createdAt: -1 });
+vendorSchema.index({ vendorName: 1 });
+vendorSchema.index({ companyName: 1 });
+vendorSchema.index({ contactNumber: 1 });
+vendorSchema.index({ email: 1 });
+
 module.exports = mongoose.model('Vendor', vendorSchema);

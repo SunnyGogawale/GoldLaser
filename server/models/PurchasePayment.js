@@ -138,4 +138,9 @@ const paymentSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Speeds payment ledgers, pending-balance calculations, and allocation lookups.
+paymentSchema.index({ clientId: 1, clientType: 1, paymentDate: 1, createdAt: 1 });
+paymentSchema.index({ paymentDate: 1, createdAt: 1 });
+paymentSchema.index({ 'allocations.invoiceId': 1 });
+
 module.exports = mongoose.model('PurchasePayment', paymentSchema);

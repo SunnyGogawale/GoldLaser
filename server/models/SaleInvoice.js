@@ -134,4 +134,8 @@ const invoiceSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Supports client ledger queries and ordered invoice timelines.
+invoiceSchema.index({ clientId: 1, clientType: 1, invoiceDate: 1, createdAt: 1 });
+invoiceSchema.index({ invoiceDate: 1, createdAt: 1 });
+
 module.exports = mongoose.model('SaleInvoice', invoiceSchema, 'saleinvoices');
