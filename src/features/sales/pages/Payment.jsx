@@ -696,14 +696,10 @@ function Payment() {
     if (!paymentForm.clientId) newErrors.clientId = 'Please select a client'
     if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
     const amount = Number(paymentForm.amount) || 0
-    if (!(amount > 0)) {
-      newErrors.amount = 'Payment amount must be greater than 0'
-    } else {
-      const roundedAmount = Math.round((amount + Number.EPSILON) * 100) / 100
-      const minimumRequiredAmount = netAmountToPay
-      if (roundedAmount < minimumRequiredAmount) {
-        newErrors.amount = 'Payment amount cannot be less than adjusted bill amount after available credit'
-      }
+    const roundedAmount = Math.round((amount + Number.EPSILON) * 100) / 100
+    const minimumRequiredAmount = netAmountToPay
+    if (roundedAmount < minimumRequiredAmount) {
+      newErrors.amount = 'Payment amount cannot be less than adjusted bill amount after available credit'
     }
 
     const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
@@ -718,10 +714,6 @@ function Payment() {
         const enteredAmount = Number(invoicePaymentAmounts[String(invoiceId)])
         const pendingAmount = Math.max(0, Number(inv.pendingAmount) || 0)
         const rowDescription = String(invoiceDescriptions[String(invoiceId)] || '').trim()
-        if (!(enteredAmount > 0)) {
-          newErrors.allocations = `Enter payment amount for invoice ${inv.invoiceNumber}`
-          break
-        }
         if (enteredAmount > pendingAmount) {
           newErrors.allocations = `Payment amount cannot exceed balance for invoice ${inv.invoiceNumber}`
           break
