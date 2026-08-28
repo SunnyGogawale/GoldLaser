@@ -468,6 +468,7 @@ function Payment() {
 
   const handleInvoiceSelectionToggle = (invoiceId, checked, pendingAmount, defaultDescription = '') => {
     const id = String(invoiceId)
+    setIsPaymentAmountManuallyEdited(true)
     setSelectedInvoiceIds((prev) => {
       if (checked) {
         if (prev.includes(id)) return prev
@@ -2234,11 +2235,9 @@ function Payment() {
                       <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.amount}</p>
                     )}
                     <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                      {Number(availableCredit) > 0 && (
-                        <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
-                          Available Credit: ${formatMoney(availableCredit)}
-                        </div>
-                      )}
+                      <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
+                        Available Credit: ${formatMoney(availableCredit)}
+                      </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                         Bill Payment Amount: ${formatMoney(billPaymentAmount)}
                       </div>
@@ -2492,6 +2491,7 @@ function Payment() {
                   <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', tableLayout: 'fixed' }}>
                       <colgroup>
+                        <col style={{ width: '5%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '10%' }} />
@@ -2501,6 +2501,7 @@ function Payment() {
                       </colgroup>
                       <thead style={{ background: 'var(--bg-main)' }}>
                         <tr>
+                          <th style={{ padding: '0.5rem', textAlign: 'center' }}>Select</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice No</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Amt</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Paid</th>
@@ -2512,7 +2513,7 @@ function Payment() {
                       <tbody>
                         {filteredPendingInvoices.length === 0 ? (
                           <tr>
-                            <td colSpan={6} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                            <td colSpan={7} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                               {paymentForm.clientId ? (invoiceInput ? 'No pending invoices match this search.' : 'No pending invoices for this client.') : 'Select a client to view pending invoices.'}
                             </td>
                           </tr>
@@ -2530,6 +2531,16 @@ function Payment() {
                                 background: selectedInvoiceSet.has(String(inv.invoiceNumber || '').toLowerCase()) ? 'rgba(99,102,241,0.06)' : 'transparent'
                               }}
                             >
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => handleInvoiceSelectionToggle(inv._id, e.target.checked, inv.pendingAmount, inv.description)}
+                                  disabled={loading}
+                                  aria-label={`Select invoice ${inv.invoiceNumber}`}
+                                  style={{ width: 16, height: 16, cursor: loading ? 'not-allowed' : 'pointer' }}
+                                />
+                              </td>
                               <td style={{ padding: '0.75rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inv.invoiceNumber}>
                                 {inv.invoiceNumber}
                               </td>
@@ -2586,34 +2597,42 @@ function Payment() {
                       </tbody>
                       <tfoot>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.08)' }}>
-                          <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                          <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
                             Total Balance:
                           </td>
-                          <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
                             ${formatMoney(totalPending)}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(16,185,129,0.10)' }}>
-                          <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                          <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
                             Selected Payment Total:
                           </td>
-                          <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(16,185,129)' }}>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(16,185,129)' }}>
                             ${formatMoney(selectedAllocationTotal)}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(22,163,74,0.08)' }}>
-                          <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
-                            Adjusted Bill Amount:
+                          <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                            Available Credit:
                           </td>
-                          <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
                             ${formatMoney(availableCredit)}
                           </td>
                         </tr>
+                        <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(22,163,74,0.08)' }}>
+                          <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                            Adjusted Bill Amount:
+                          </td>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
+                            ${formatMoney(adjustedBillPaymentAmount)}
+                          </td>
+                        </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.06)' }}>
-                          <td colSpan={5} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                          <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
                             Net Amount to Pay:
                           </td>
-                          <td colSpan={2} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
                             ${formatMoney(adjustedBillPaymentAmount)}
                           </td>
                         </tr>
