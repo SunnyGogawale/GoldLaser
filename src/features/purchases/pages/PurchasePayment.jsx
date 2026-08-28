@@ -2017,17 +2017,15 @@ function PurchasePayment() {
                   <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', tableLayout: 'fixed' }}>
                       <colgroup>
-                        <col style={{ width: '5%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '40%' }} />
-                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '20%' }} />
                       </colgroup>
                       <thead style={{ background: 'var(--bg-main)' }}>
                         <tr>
-                          <th style={{ padding: '0.5rem', textAlign: 'center', width: 80 }}>Select</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice No</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Amt</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Paid</th>
@@ -2039,14 +2037,13 @@ function PurchasePayment() {
                       <tbody>
                         {filteredPendingInvoices.length === 0 ? (
                           <tr>
-                            <td colSpan={7} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                            <td colSpan={6} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                               {paymentForm.clientId ? (invoiceInput ? 'No pending invoices match this search.' : 'No pending invoices for this client.') : 'Select a client to view pending invoices.'}
                             </td>
                           </tr>
                         ) : (
                           filteredPendingInvoices.map((inv) => {
                             const invoiceId = String(inv._id)
-                            const isChecked = selectedInvoiceIdSet.has(invoiceId)
                             const enteredAmount = invoicePaymentAmounts[invoiceId] || ''
                             const enteredDescription = invoiceDescriptions[invoiceId] ?? String(inv.description || '')
                             return (
@@ -2057,15 +2054,6 @@ function PurchasePayment() {
                                   background: selectedInvoiceSet.has(String(inv.invoiceNumber || '').toLowerCase()) ? 'rgba(99,102,241,0.06)' : 'transparent'
                                 }}
                               >
-                                <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(e) => handleInvoiceSelectionToggle(inv._id, e.target.checked, inv.pendingAmount, inv.description)}
-                                    disabled={loading}
-                                    style={{ width: 16, height: 16, cursor: loading ? 'not-allowed' : 'pointer' }}
-                                  />
-                                </td>
                                 <td style={{ padding: '0.75rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inv.invoiceNumber}>
                                   {inv.invoiceNumber}
                                 </td>
@@ -2431,46 +2419,6 @@ function PurchasePayment() {
           </div>
         </div>
 
-        {selectedPaymentIds.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', padding: '0.75rem 1rem', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.08)' }}>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
-              {selectedPaymentIds.length} selected
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <MotionButton
-                onClick={handleBulkDeletePayments}
-                style={{
-                  padding: '0.45rem 0.8rem',
-                  background: 'var(--danger)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontWeight: 700,
-                  fontSize: '0.8rem',
-                  cursor: 'pointer'
-                }}
-              >
-                Delete Selected
-              </MotionButton>
-              <MotionButton
-                onClick={() => setSelectedPaymentIds([])}
-                style={{
-                  padding: '0.45rem 0.8rem',
-                  background: 'var(--bg-main)',
-                  color: 'var(--text-header)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '6px',
-                  fontWeight: 700,
-                  fontSize: '0.8rem',
-                  cursor: 'pointer'
-                }}
-              >
-                Clear
-              </MotionButton>
-            </div>
-          </div>
-        )}
-
         {listLoading ? (
           <div style={{ textAlign: 'center', padding: '2rem' }}>Loading payments...</div>
         ) : payments.length === 0 ? (
@@ -2499,14 +2447,6 @@ function PurchasePayment() {
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', marginTop: '0.2rem' }}>
-                          <input
-                            type="checkbox"
-                            checked={selectedPaymentIds.includes(payment._id)}
-                            onChange={() => togglePaymentSelection(payment._id)}
-                            style={{ accentColor: 'var(--primary)', width: '16px', height: '16px', cursor: 'pointer' }}
-                          />
-                        </label>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{
                             fontSize: '1rem',
@@ -2586,16 +2526,6 @@ function PurchasePayment() {
                 <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      {(
-                        <th style={{ width: '4%', textAlign: 'center', padding: '0.25rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
-                          <input
-                            type="checkbox"
-                            checked={payments.length > 0 && payments.every((payment) => selectedPaymentIds.includes(payment._id))}
-                            onChange={toggleSelectAllVisiblePayments}
-                            style={{ accentColor: 'var(--primary)', width: '15px', height: '15px', cursor: 'pointer' }}
-                          />
-                        </th>
-                      )}
                       <th
                         onClick={() => handleSort('paymentNumber')}
                         style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
@@ -2640,16 +2570,6 @@ function PurchasePayment() {
 
                       return (
                         <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          {(
-                            <td style={{ width: '4%', textAlign: 'center', padding: '0.25rem', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
-                              <input
-                                type="checkbox"
-                                checked={selectedPaymentIds.includes(payment._id)}
-                                onChange={() => togglePaymentSelection(payment._id)}
-                                style={{ accentColor: 'var(--primary)', width: '15px', height: '15px', cursor: 'pointer' }}
-                              />
-                            </td>
-                          )}
                           <td style={{ width: '10%', textAlign: 'left', padding: '0.25rem 0.25rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(payment.paymentNumber || '')}>
                             {payment.paymentNumber || '-'}
                           </td>

@@ -2468,17 +2468,15 @@ function Payment() {
                   <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', tableLayout: 'fixed' }}>
                       <colgroup>
-                        <col style={{ width: '5%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '10%' }} />
                         <col style={{ width: '40%' }} />
-                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '20%' }} />
                       </colgroup>
                       <thead style={{ background: 'var(--bg-main)' }}>
                         <tr>
-                          <th style={{ padding: '0.5rem', textAlign: 'center', width: 80 }}>Select</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice No</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Invoice Amt</th>
                           <th style={{ padding: '0.5rem', textAlign: 'left' }}>Paid</th>
@@ -2490,14 +2488,13 @@ function Payment() {
                       <tbody>
                         {filteredPendingInvoices.length === 0 ? (
                           <tr>
-                            <td colSpan={7} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                            <td colSpan={6} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                               {paymentForm.clientId ? (invoiceInput ? 'No pending invoices match this search.' : 'No pending invoices for this client.') : 'Select a client to view pending invoices.'}
                             </td>
                           </tr>
                         ) : (
                           filteredPendingInvoices.map((inv) => {
                             const invoiceId = String(inv._id)
-                            const isChecked = selectedInvoiceIdSet.has(invoiceId)
                             const enteredAmount = invoicePaymentAmounts[invoiceId] || ''
                             const enteredDescription = invoiceDescriptions[invoiceId] ?? String(inv.description || '')
                             return (
@@ -2508,15 +2505,6 @@ function Payment() {
                                 background: selectedInvoiceSet.has(String(inv.invoiceNumber || '').toLowerCase()) ? 'rgba(99,102,241,0.06)' : 'transparent'
                               }}
                             >
-                              <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={(e) => handleInvoiceSelectionToggle(inv._id, e.target.checked, inv.pendingAmount, inv.description)}
-                                  disabled={loading}
-                                  style={{ width: 16, height: 16, cursor: loading ? 'not-allowed' : 'pointer' }}
-                                />
-                              </td>
                               <td style={{ padding: '0.75rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inv.invoiceNumber}>
                                 {inv.invoiceNumber}
                               </td>
@@ -2886,41 +2874,6 @@ function Payment() {
           <EmptyDataCard />
         ) : (
           <div>
-            {selectedPaymentIds.length > 0 && (
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                <MotionButton
-                  onClick={handleBulkDeletePayments}
-                  style={{
-                    padding: '0.45rem 0.8rem',
-                    background: 'var(--danger)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                    fontSize: '0.82rem'
-                  }}
-                >
-                  <Trash2 size={14} style={{ marginRight: '0.3rem' }} />
-                  Delete Selected
-                </MotionButton>
-                <MotionButton
-                  onClick={() => setSelectedPaymentIds([])}
-                  style={{
-                    padding: '0.45rem 0.8rem',
-                    background: 'var(--bg-main)',
-                    color: 'var(--text-header)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                    fontSize: '0.82rem'
-                  }}
-                >
-                  Clear
-                </MotionButton>
-              </div>
-            )}
             {/* Mobile/Tablet Card View */}
             {isMobile ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -2948,12 +2901,6 @@ function Payment() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={selectedPaymentIds.includes(payment._id)}
-                            onChange={() => togglePaymentSelection(payment._id)}
-                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                          />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
                               fontSize: '1rem',
@@ -3033,14 +2980,6 @@ function Payment() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.80rem', tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      <th style={{ width: '4%', textAlign: 'center', padding: '0.5rem 0.25rem', color: 'var(--text-header)', fontWeight: 700 }}>
-                        <input
-                          type="checkbox"
-                          checked={payments.length > 0 && payments.every((payment) => selectedPaymentIds.includes(payment._id))}
-                          onChange={toggleSelectAllVisiblePayments}
-                          style={{ width: '15px', height: '15px', cursor: 'pointer' }}
-                        />
-                      </th>
                       <th
                         onClick={() => handleSort('paymentNumber')}
                         style={{ width: '10%', textAlign: 'left', padding: '0.5rem 0.375rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
@@ -3089,14 +3028,6 @@ function Payment() {
 
                       return (
                         <tr key={payment._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ width: '4%', textAlign: 'center', padding: '0.5rem 0.25rem' }}>
-                            <input
-                              type="checkbox"
-                              checked={selectedPaymentIds.includes(payment._id)}
-                              onChange={() => togglePaymentSelection(payment._id)}
-                              style={{ width: '15px', height: '15px', cursor: 'pointer' }}
-                            />
-                          </td>
                           <td style={{ width: '10%', padding: '0.5rem 0.375rem', color: 'var(--text-main)' }} title={String(payment.paymentNumber || '')}>
                             {truncateText(payment.paymentNumber || '')}
                           </td>

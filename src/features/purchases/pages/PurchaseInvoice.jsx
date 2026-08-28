@@ -1767,41 +1767,6 @@ function PurchaseInvoice() {
             <EmptyDataCard />
           ) : (
             <div>
-              {isAdmin && selectedInvoiceIds.length > 0 && (
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                  <MotionButton
-                    onClick={handleBulkDeleteInvoices}
-                    style={{
-                      padding: '0.45rem 0.8rem',
-                      background: 'var(--danger)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: 700,
-                      fontSize: '0.82rem'
-                    }}
-                  >
-                    <Trash2 size={14} style={{ marginRight: '0.3rem' }} />
-                    Delete Selected
-                  </MotionButton>
-                  <MotionButton
-                    onClick={() => setSelectedInvoiceIds([])}
-                    style={{
-                      padding: '0.45rem 0.8rem',
-                      background: 'var(--bg-main)',
-                      color: 'var(--text-header)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: 700,
-                      fontSize: '0.82rem'
-                    }}
-                  >
-                    Clear
-                  </MotionButton>
-                </div>
-              )}
               {/* Mobile/Tablet Card View */}
               {isMobile ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1828,12 +1793,6 @@ function PurchaseInvoice() {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
-                            <input
-                              type="checkbox"
-                              checked={selectedInvoiceIds.includes(invoice._id)}
-                              onChange={() => toggleInvoiceSelection(invoice._id)}
-                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                            />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{
                                 fontSize: '1rem',
@@ -1931,14 +1890,6 @@ function PurchaseInvoice() {
                   <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                        <th style={{ width: '4%', textAlign: 'center', padding: '0.35rem 0.25rem', color: 'var(--text-header)', fontWeight: 700 }}>
-                          <input
-                            type="checkbox"
-                            checked={invoices.length > 0 && invoices.every((invoice) => selectedInvoiceIds.includes(invoice._id))}
-                            onChange={toggleSelectAllVisibleInvoices}
-                            style={{ width: '15px', height: '15px', cursor: 'pointer' }}
-                          />
-                        </th>
                         <th
                           onClick={() => handleSort('invoiceNumber')}
                           style={{ width: '10%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, cursor: 'pointer', userSelect: 'none', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}
@@ -1981,14 +1932,6 @@ function PurchaseInvoice() {
 
                         return (
                           <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ width: '4%', textAlign: 'center', padding: '0.35rem 0.25rem' }}>
-                              <input
-                                type="checkbox"
-                                checked={selectedInvoiceIds.includes(invoice._id)}
-                                onChange={() => toggleInvoiceSelection(invoice._id)}
-                                style={{ width: '15px', height: '15px', cursor: 'pointer' }}
-                              />
-                            </td>
                             <td style={{ textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={String(invoice.invoiceNumber || '')}>
                               {truncateText(invoice.invoiceNumber || '')}
                             </td>
