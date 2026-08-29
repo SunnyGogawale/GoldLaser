@@ -1438,14 +1438,14 @@ function PurchaseInvoice() {
                 </div>
 
                 <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.875rem' }}>
                     <thead style={{ background: 'var(--bg-main)' }}>
                       <tr>
-                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '50px' }}>Sr No</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>Product</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left' }}>Description</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '120px' }}>Amount ($)</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '60px' }}>Action</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '8%' }}>Sr No</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', width: '25%' }}>Product</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'left', width: '40%' }}>Description</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '18%' }}>Amount ($)</th>
+                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '10%' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
