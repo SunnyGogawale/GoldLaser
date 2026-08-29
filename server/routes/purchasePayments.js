@@ -145,8 +145,14 @@ async function getNextPaymentNumber() {
   let maxId = 0;
 
   for (const payment of payments) {
-    if (payment.paymentNumber && payment.paymentNumber.startsWith('PPAY')) {
-      const idNumber = parseInt(payment.paymentNumber.replace('PPAY', ''), 10);
+    if (payment.paymentNumber) {
+      // Handle both old formats (PPAY123) and new format (00123)
+      let idNumber = 0;
+      if (payment.paymentNumber.startsWith('PPAY')) {
+        idNumber = parseInt(payment.paymentNumber.replace('PPAY', ''), 10);
+      } else {
+        idNumber = parseInt(payment.paymentNumber, 10);
+      }
       if (!isNaN(idNumber) && idNumber > maxId) {
         maxId = idNumber;
       }
@@ -154,7 +160,7 @@ async function getNextPaymentNumber() {
   }
 
   const nextId = maxId + 1;
-  return `PPAY${nextId}`;
+  return String(nextId).padStart(5, '0');
 }
 
 async function getPaidAmountMapByInvoiceIds(invoiceIds, excludePaymentId) {
@@ -391,12 +397,12 @@ router.get('/', async (req, res) => {
     const skip = (page - 1) * limit;
     const search = String(req.query.search || '').trim();
     const searchLower = search.toLowerCase();
-    const sortColumn = req.query.sortColumn || 'paymentNumber';
-    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+    const sortColumn = req.query.sortColumn || 'paymentDate';
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
 
     // First fetch all payments without pagination
     let payments = await Payment.find()
-      .sort({ paymentNumber: -1 });
+      .sort({ paymentDate: -1, createdAt: -1, _id: -1 });
 
     // Fetch customers and vendors
     const customerIds = payments.filter(p => p.clientType === 'Customer').map(p => p.clientId);
@@ -472,8 +478,8 @@ router.get('/', async (req, res) => {
           bVal = b.paymentNumber || '';
           break;
         case 'paymentDate':
-          aVal = new Date(a.paymentDate);
-          bVal = new Date(b.paymentDate);
+          aVal = new Date(a.paymentDate).getTime();
+          bVal = new Date(b.paymentDate).getTime();
           break;
         case 'amount':
           aVal = a.amount || 0;
@@ -490,6 +496,11 @@ router.get('/', async (req, res) => {
 
       if (aVal < bVal) return -1 * sortOrder;
       if (aVal > bVal) return 1 * sortOrder;
+
+      const aCreatedAt = new Date(a.createdAt || a.paymentDate || 0).getTime();
+      const bCreatedAt = new Date(b.createdAt || b.paymentDate || 0).getTime();
+      if (aCreatedAt < bCreatedAt) return -1 * sortOrder;
+      if (aCreatedAt > bCreatedAt) return 1 * sortOrder;
       return 0;
     });
 

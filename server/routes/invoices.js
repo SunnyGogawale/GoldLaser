@@ -131,19 +131,25 @@ const normalizeInvoiceValue = (field, value) => {
 async function getNextInvoiceNumber() {
   const invoices = await Invoice.find({}, 'invoiceNumber');
   let maxId = 0;
-  
+
   for (const invoice of invoices) {
-    if (invoice.invoiceNumber && invoice.invoiceNumber.startsWith('INV')) {
-      const idNumber = parseInt(invoice.invoiceNumber.replace('INV', ''), 10);
+    if (invoice.invoiceNumber) {
+      // Handle legacy format INV123 and new format 00123
+      let idNumber = 0;
+      if (invoice.invoiceNumber.startsWith('INV')) {
+        idNumber = parseInt(invoice.invoiceNumber.replace('INV', ''), 10);
+      } else {
+        idNumber = parseInt(invoice.invoiceNumber, 10);
+      }
+
       if (!isNaN(idNumber) && idNumber > maxId) {
         maxId = idNumber;
       }
     }
   }
-  
-  // Format without padding, e.g., INV1, INV2
+
   const nextId = maxId + 1;
-  return `INV${nextId}`;
+  return String(nextId).padStart(5, '0');
 }
 
 // Get next invoice number
@@ -179,11 +185,11 @@ router.get('/', async (req, res) => {
     const search = String(req.query.search || '').trim();
     const searchLower = search.toLowerCase();
     const sortColumn = req.query.sortColumn || 'invoiceDate';
-    const sortOrder = req.query.sortOrder === 'desc' ? -1 : 1;
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
 
     // First fetch all invoices without pagination (since we need to sort after attaching clients)
     let invoices = await Invoice.find()
-      .sort({ invoiceDate: 1, createdAt: 1 });
+      .sort({ invoiceDate: -1, createdAt: -1, _id: -1 });
 
     // Fetch customers and vendors
     const customerIds = invoices.filter(inv => inv.clientType === 'Customer').map(inv => inv.clientId);
@@ -277,6 +283,11 @@ router.get('/', async (req, res) => {
 
       if (aVal < bVal) return -1 * sortOrder;
       if (aVal > bVal) return 1 * sortOrder;
+
+      const aCreatedAt = new Date(a.createdAt || a.invoiceDate || 0).getTime();
+      const bCreatedAt = new Date(b.createdAt || b.invoiceDate || 0).getTime();
+      if (aCreatedAt < bCreatedAt) return -1 * sortOrder;
+      if (aCreatedAt > bCreatedAt) return 1 * sortOrder;
       return 0;
     });
 

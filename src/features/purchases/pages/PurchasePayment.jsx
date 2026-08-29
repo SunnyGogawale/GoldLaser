@@ -2071,7 +2071,7 @@ function PurchasePayment() {
                             const invoiceId = String(inv._id)
                             const enteredAmount = invoicePaymentAmounts[invoiceId] || ''
                             const enteredDescription = invoiceDescriptions[invoiceId] ?? String(inv.description || '')
-                                const isChecked = selectedInvoiceIdSet.has(invoiceId)
+                                    const isChecked = selectedInvoiceIdSet.has(invoiceId)
                             return (
                               <tr
                                 key={inv._id}
