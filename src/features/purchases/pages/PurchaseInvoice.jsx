@@ -153,6 +153,7 @@ function PurchaseInvoice() {
   const [invoiceHistoryOpen, setInvoiceHistoryOpen] = useState(false);
   const [invoiceHistory, setInvoiceHistory] = useState(null);
   const [invoiceHistoryLoading, setInvoiceHistoryLoading] = useState(false);
+  const [invoiceHistoryPage, setInvoiceHistoryPage] = useState(1);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [dropdownInvoice, setDropdownInvoice] = useState(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -279,9 +280,9 @@ function PurchaseInvoice() {
     ...vendors.map(v => ({ ...v, type: 'Vendor', name: v.vendorName }))
   ], [vendors]);
 
-  const filteredVendors = useMemo(() => allVendors.filter(v => 
-    v.name?.toLowerCase().includes(vendorSearchText.toLowerCase()) || 
-    v.companyName?.toLowerCase().includes(vendorSearchText.toLowerCase()) || 
+  const filteredVendors = useMemo(() => allVendors.filter(v =>
+    v.name?.toLowerCase().includes(vendorSearchText.toLowerCase()) ||
+    v.companyName?.toLowerCase().includes(vendorSearchText.toLowerCase()) ||
     v.id?.toLowerCase().includes(vendorSearchText.toLowerCase())
   ), [allVendors, vendorSearchText]);
 
@@ -355,7 +356,7 @@ function PurchaseInvoice() {
       const amount = parseFloat(item.amount) || 0;
       return sum + amount;
     }, 0);
-    
+
     setInvoiceForm(prev => ({ ...prev, totalAmount: total }));
   }, [invoiceForm.items]);
 
@@ -406,7 +407,7 @@ function PurchaseInvoice() {
       ...prev,
       [name]: value
     }));
-    
+
     if (formSubmitted && errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -419,7 +420,7 @@ function PurchaseInvoice() {
   const handleItemChange = (index, field, value) => {
     const newItems = [...invoiceForm.items];
     newItems[index] = { ...newItems[index], [field]: value };
-    
+
     setInvoiceForm(prev => ({
       ...prev,
       items: newItems
@@ -592,11 +593,11 @@ function PurchaseInvoice() {
   const handleInvoiceSubmit = async (e) => {
     e.preventDefault();
     setFormSubmitted(true);
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
     try {
       const token = getAuthToken();
@@ -610,12 +611,12 @@ function PurchaseInvoice() {
           },
           body: JSON.stringify(invoiceForm)
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.message || 'Error updating invoice');
         }
-        
+
         setEditingInvoiceId(null);
         showSuccessToast('Invoice updated successfully!');
       } else {
@@ -628,15 +629,15 @@ function PurchaseInvoice() {
           },
           body: JSON.stringify(invoiceForm)
         });
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.message || 'Error saving invoice');
         }
-        
+
         showSuccessToast('Invoice created successfully!');
       }
-      
+
       // Reset form immediately after success
       setInvoiceForm({
         invoiceNumber: '',
@@ -716,6 +717,7 @@ function PurchaseInvoice() {
 
   const openInvoiceHistory = async (invoice) => {
     if (!isAdmin || !invoice?._id) return;
+    setInvoiceHistoryPage(1);
     setInvoiceHistoryOpen(true);
     setInvoiceHistoryLoading(true);
     setInvoiceHistory(null);
@@ -742,7 +744,7 @@ function PurchaseInvoice() {
     const clientName = client?.customerName || client?.vendorName || '';
     const companyName = client?.companyName || '';
     const clientIdStr = client?.id || '';
-    
+
     setInvoiceForm({
       invoiceNumber: invoice.invoiceNumber,
       clientId: clientId,
@@ -828,12 +830,12 @@ function PurchaseInvoice() {
     doc.setDrawColor(0, 0, 0); // Black border
     doc.setFillColor(255, 255, 255);
     doc.setTextColor(0, 0, 0);
-    
+
     // --- Top Section (Company Info & Logo) ---
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.text('PURCHASE INVOICE', marginLeft, y);
-    
+
     // Company Info (Left)
     y += 8;
     doc.setFontSize(10);
@@ -848,7 +850,7 @@ function PurchaseInvoice() {
     y += 5;
     doc.setFont('helvetica', 'normal');
     doc.text(companySettings.companyContactNumber || 'Contact No', marginLeft, y);
-    
+
     // Logo Placeholder (Right)
     const logoX = pageWidth - marginRight - 50;
     doc.setLineWidth(0.5);
@@ -858,7 +860,7 @@ function PurchaseInvoice() {
     doc.setFont('helvetica', 'bold');
     doc.text('Company', logoX + 25, 32, { align: 'center' });
     doc.text('Logo', logoX + 25, 42, { align: 'center' });
-    
+
     // --- Bill To Section ---
     y = 65;
     doc.setFontSize(10);
@@ -867,14 +869,14 @@ function PurchaseInvoice() {
     y += 6;
     const client = invoice.vendorId;
     const isCustomer = client?.customerName;
-    
+
     const rightColX = pageWidth - marginRight - 80;
     // Customer/Vendor Name
     doc.setFont('helvetica', 'bold');
     doc.text('Name:', marginLeft, y);
     doc.setFont('helvetica', 'normal');
     doc.text(isCustomer ? client.customerName : (client?.vendorName || 'N/A'), marginLeft + 20, y);
-    
+
     // Email in the same row on the right
     if (isCustomer && client.email || !isCustomer && client?.email) {
       doc.setFont('helvetica', 'bold');
@@ -883,7 +885,7 @@ function PurchaseInvoice() {
       doc.text(isCustomer ? client.email : (client?.email || ''), rightColX + 15, y);
     }
     y += 5;
-    
+
     if (isCustomer) {
       // Display customer details with bold titles
       let hasCompanyOrPhone = false;
@@ -902,7 +904,7 @@ function PurchaseInvoice() {
         hasCompanyOrPhone = true;
       }
       if (hasCompanyOrPhone) y += 5;
-      
+
       if (client.address) {
         doc.setFont('helvetica', 'bold');
         doc.text('Address:', marginLeft, y);
@@ -910,7 +912,7 @@ function PurchaseInvoice() {
         doc.text(client.address, marginLeft + 20, y);
         y += 5;
       }
-      
+
       if (client.alternateNumber) {
         doc.setFont('helvetica', 'bold');
         doc.text('Alt:', marginLeft, y);
@@ -936,7 +938,7 @@ function PurchaseInvoice() {
         hasCompanyOrPhone = true;
       }
       if (hasCompanyOrPhone) y += 5;
-      
+
       if (client?.address) {
         doc.setFont('helvetica', 'bold');
         doc.text('Address:', marginLeft, y);
@@ -945,7 +947,7 @@ function PurchaseInvoice() {
         y += 5;
       }
     }
-    
+
     // --- Invoice Details ---
     y += 5; // Add space before invoice details
     doc.setLineWidth(0.3);
@@ -955,7 +957,7 @@ function PurchaseInvoice() {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('Invoice details', marginLeft, y);
-    
+
     const invoiceNo = invoice.invoiceNumber || 'PI00001';
     const formatDate = (dateStr) => {
       const date = new Date(dateStr);
@@ -965,23 +967,23 @@ function PurchaseInvoice() {
       return `${mm}/${dd}/${yyyy}`;
     };
 
-    const invoiceDate = invoice.invoiceDate 
+    const invoiceDate = invoice.invoiceDate
       ? formatDate(invoice.invoiceDate)
       : '11/05/2026';
-      
+
     // Invoice No
     doc.setFont('helvetica', 'bold');
     doc.text('Invoice No:', marginLeft, y + 6);
     doc.setFont('helvetica', 'normal');
     doc.text(invoiceNo, marginLeft + 25, y + 6);
-    
+
     // Invoice Date on next line
     y += 5;
     doc.setFont('helvetica', 'bold');
     doc.text('Invoice Date:', marginLeft, y + 6);
     doc.setFont('helvetica', 'normal');
     doc.text(invoiceDate, marginLeft + 25, y + 6);
-    
+
     // --- Items Table ---
     y += 15;
     const items = invoice.items || [];
@@ -991,7 +993,7 @@ function PurchaseInvoice() {
       item.description?.toString().trim() || '-',
       `${(parseFloat(item.amount) || 0).toLocaleString('en-US')}/-`
     ]);
-    
+
     autoTable(doc, {
       startY: y,
       head: [['Sr No', 'Product', 'Description', 'Amount']],
@@ -1021,13 +1023,13 @@ function PurchaseInvoice() {
         3: { cellWidth: 35, halign: 'right' }
       }
     });
-    
+
     // --- Total ---
     const finalY = doc.lastAutoTable?.finalY || y + 40;
     y = finalY + 5;
     const totalAmt = parseFloat(invoice.totalAmount) || 0;
     const totalAmtStr = totalAmt.toLocaleString('en-US');
-    
+
     doc.setLineWidth(0.5);
     doc.setDrawColor(0, 0, 0);
     doc.line(marginLeft, y, pageWidth - marginRight, y);
@@ -1036,7 +1038,7 @@ function PurchaseInvoice() {
     doc.setFont('helvetica', 'bold');
     doc.text('Total', pageWidth - marginRight - 60, y);
     doc.text(`${totalAmtStr}/-`, pageWidth - marginRight, y, { align: 'right' });
-    
+
     // --- Company Footer ---
     y += 20;
     doc.setFontSize(10);
@@ -1045,7 +1047,7 @@ function PurchaseInvoice() {
     y += 5;
     doc.setFont('helvetica', 'normal');
     doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y);
-    
+
     // --- Bank Details ---
     y += 20;
     doc.setFontSize(10);
@@ -1170,6 +1172,12 @@ function PurchaseInvoice() {
     }
   };
 
+  const historyRows = (invoiceHistory?.activity || []).flatMap((event) => (event.changes || []).map((change) => ({ ...change, userName: event.userName, at: event.at })));
+  const historyPageSize = 20;
+  const historyTotalPages = Math.max(1, Math.ceil(historyRows.length / historyPageSize));
+  const currentHistoryPage = Math.min(invoiceHistoryPage, historyTotalPages);
+  const paginatedHistoryRows = historyRows.slice((currentHistoryPage - 1) * historyPageSize, currentHistoryPage * historyPageSize);
+
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
@@ -1196,562 +1204,562 @@ function PurchaseInvoice() {
 
       <AnimatePresence>
         {formOpen && (
-        <ActionMenuPortal>
-          <motion.div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.55)',
-              zIndex: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '1rem'
-            }}
-            initial={overlayMotion.initial}
-            animate={overlayMotion.animate}
-            exit={overlayMotion.exit}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) closeInvoiceForm()
-            }}
-          >
+          <ActionMenuPortal>
             <motion.div
-              className="card"
               style={{
-                width: 'min(1100px, 96vw)',
-                maxHeight: '88vh',
-                overflow: 'auto',
-                padding: '1.5rem'
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.55)',
+                zIndex: 9999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1rem'
               }}
-              initial={modalMotion.initial}
-              animate={modalMotion.animate}
-              exit={modalMotion.exit}
-              transition={{ duration: 0.24, ease: 'easeOut' }}
+              initial={overlayMotion.initial}
+              animate={overlayMotion.animate}
+              exit={overlayMotion.exit}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) closeInvoiceForm()
+              }}
             >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
-                {editingInvoiceId ? 'Edit Invoice' : 'New Invoice'}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
-                <div
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    border: '1px solid var(--border)',
-                    borderRadius: 999,
-                    background: 'var(--bg-main)',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.875rem',
-                    fontWeight: 800,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Invoice No : {invoiceForm.invoiceNumber || 'xxxx'}
-                </div>
-                <MotionButton
-                  type="button"
-                  onClick={closeInvoiceForm}
-                  disabled={loading}
-                  className="btn btn-secondary"
-                  style={{
-                    padding: '0.5rem 1rem',
-                    // background: 'var(--bg-main)',
-                    color: 'var(--text-header)',
-                    // border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    fontSize: '0.9375rem',
-                    fontWeight: 600,
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    opacity: loading ? 0.7 : 1
-                  }}
-                >
-                  <X size={16} />
-                  {/* Close */}
-                </MotionButton>
-              </div>
-            </div>
-
-            <form onSubmit={handleInvoiceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 280px', position: 'relative' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Select Company <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="text"
-                      placeholder="Search Company..."
-                      value={vendorSearchText}
-                      onChange={(e) => {
-                        setVendorSearchText(e.target.value);
-                        setIsVendorDropdownOpen(e.target.value.length > 0);
-                        if (invoiceForm.clientId) {
-                          setInvoiceForm(prev => ({ ...prev, clientId: '', clientType: 'Vendor' }));
-                        }
-                        if (formSubmitted && errors.clientId) {
-                          setErrors(prev => {
-                            const newE = { ...prev };
-                            delete newE.clientId;
-                            return newE;
-                          });
-                        }
-                      }}
-                      onFocus={(e) => {
-                        if (e.target.value.length > 0) setIsVendorDropdownOpen(true);
-                      }}
-                      onBlur={() => setTimeout(() => setIsVendorDropdownOpen(false), 200)}
-                      disabled={loading}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem 0.75rem',
-                        border: `1px solid ${errors.clientId ? 'var(--danger)' : 'var(--border)'}`,
-                        borderRadius: '6px',
-                        fontSize: '0.875rem',
-                        background: 'var(--bg-card)',
-                        color: 'var(--text-header)',
-                        outline: 'none'
-                      }}
-                    />
-                    {isVendorDropdownOpen && (
-                      <ul style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        right: 0,
-                        maxHeight: '250px',
-                        overflowY: 'auto',
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '6px',
-                        marginTop: '4px',
-                        padding: 0,
-                        listStyle: 'none',
-                        zIndex: 10,
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                      }}>
-                        {filteredVendors.map(vendor => (
-                          <li
-                            key={vendor._id + vendor.type}
-                            onClick={() => {
-                              setInvoiceForm(prev => ({ ...prev, clientId: vendor._id, clientType: vendor.type }));
-                              setVendorSearchText(`${vendor.name}${vendor.companyName ? ' - ' + vendor.companyName : ''}`);
-                              setIsVendorDropdownOpen(false);
-                            }}
-                            style={{
-                              padding: '0.5rem 0.75rem',
-                              cursor: 'pointer',
-                              fontSize: '0.875rem',
-                              color: 'var(--text-header)',
-                              borderBottom: '1px solid var(--border)',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
-                            onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                            >
-                            {vendor.name}{vendor.companyName ? ' - ' + vendor.companyName : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  {formSubmitted && errors.clientId && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.clientId}</p>
-                  )}
-                </div>
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Invoice Date <span style={{ color: 'var(--danger)' }}>*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="invoiceDate"
-                    value={invoiceForm.invoiceDate}
-                    onChange={handleInputChange}
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      border: `1px solid ${errors.invoiceDate ? 'var(--danger)' : 'var(--border)'}`,
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)'
-                    }}
-                  />
-                  {formSubmitted && errors.invoiceDate && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.invoiceDate}</p>
-                  )}
-                </div>
-
-                <div style={{ flex: '1 1 280px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
-                    Transaction Description
-                  </label>
-                  <input
-                    type="text"
-                    name="transactionDescription"
-                    value={invoiceForm.transactionDescription}
-                    onChange={handleInputChange}
-                    disabled={loading}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      background: 'var(--bg-card)',
-                      color: 'var(--text-header)',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Invoice Items</h3>
-                  <MotionButton
-                    type="button"
-                    onClick={addItemRow}
-                    disabled={loading}
-                    style={{
-                      padding: '0.25rem 0.75rem',
-                      background: 'transparent',
-                      color: 'var(--text-header)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      fontSize: '0.875rem'
-                    }}
-                  >
-                    <Plus size={14} /> Add Row
-                  </MotionButton>
-                </div>
-
-                <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.875rem' }}>
-                    <thead style={{ background: 'var(--bg-main)' }}>
-                      <tr>
-                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '8%' }}>Sr No</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', width: '25%' }}>Product</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'left', width: '40%' }}>Description</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'right', width: '18%' }}>Amount ($)</th>
-                        <th style={{ padding: '0.5rem', textAlign: 'center', width: '10%' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoiceForm.items.map((item, index) => (
-                        <tr key={index} style={{ borderTop: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
-                          <td style={{ padding: '0.5rem' }}>
-                            <select
-                              value={item.product || 'Ring'}
-                              onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                              style={{
-                                width: '100%',
-                                padding: '0.25rem 0.5rem',
-                                border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
-                                borderRadius: '4px',
-                                background: 'var(--bg-card)',
-                                color: 'var(--text-header)',
-                                fontSize: '0.875rem'
-                              }}
-                            >
-                              <option value="">Select Product</option>
-                              {PRODUCT_OPTIONS.map((option) => (
-                                <option key={option} value={option}>{option}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td style={{ padding: '0.5rem' }}>
-                            <input
-                              type="text"
-                              value={item.description}
-                              onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                              placeholder="Enter description"
-                              style={{
-                                width: '100%',
-                                padding: '0.25rem 0.5rem',
-                                border: '1px solid transparent',
-                                borderRadius: '4px',
-                                background: 'transparent',
-                                color: 'var(--text-header)',
-                                fontSize: '0.875rem'
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.5rem' }}>
-                            <input
-                              type="number"
-                              value={item.amount}
-                              onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
-                              min="0"
-                              step="0.01"
-                              style={{
-                                width: '100%',
-                                padding: '0.25rem 0.5rem',
-                                border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.amount ? 'var(--danger)' : 'transparent'}`,
-                                borderRadius: '4px',
-                                background: 'transparent',
-                                color: 'var(--text-header)',
-                                textAlign: 'right',
-                                fontSize: '0.875rem'
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                            <MotionButton
-                              type="button"
-                              onClick={() => removeItemRow(index)}
-                              disabled={invoiceForm.items.length === 1}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: invoiceForm.items.length === 1 ? 'var(--text-muted)' : 'var(--danger)',
-                                cursor: invoiceForm.items.length === 1 ? 'not-allowed' : 'pointer',
-                                padding: '0.25rem'
-                              }}
-                            >
-                              <Trash2 size={16} />
-                            </MotionButton>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {formSubmitted && errors.items && (
-                  <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.items}</p>
-                )}
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>File Attachment</h3>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Max 2 files</div>
-                </div>
-                <div
-                  onDrop={handleAttachmentDrop}
-                  onDragOver={handleAttachmentDragOver}
-                  onDragLeave={handleAttachmentDragLeave}
-                  style={{
-                    border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
-                    borderRadius: '16px',
-                    padding: '1rem 0.75rem',
-                    background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
-                    minHeight: '90px',
-                    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  <input
-                    ref={attachmentInputRef}
-                    id="purchase-invoice-attachment-input"
-                    type="file"
-                    accept={ATTACHMENT_ACCEPT}
-                    multiple
-                    onChange={handleAttachmentChange}
-                    disabled={loading || (Array.isArray(invoiceForm.attachments) && invoiceForm.attachments.length >= 5)}
-                    style={{ display: 'none' }}
-                  />
-                  {(invoiceForm.attachments?.length || 0) < 5 && (
+              <motion.div
+                className="card"
+                style={{
+                  width: 'min(1100px, 96vw)',
+                  maxHeight: '88vh',
+                  overflow: 'auto',
+                  padding: '1.5rem'
+                }}
+                initial={modalMotion.initial}
+                animate={modalMotion.animate}
+                exit={modalMotion.exit}
+                transition={{ duration: 0.24, ease: 'easeOut' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>
+                    {editingInvoiceId ? 'Edit Invoice' : 'New Invoice'}
+                  </h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
                     <div
                       style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.25rem',
-                        textAlign: 'center'
+                        padding: '0.4rem 0.75rem',
+                        border: '1px solid var(--border)',
+                        borderRadius: 999,
+                        background: 'var(--bg-main)',
+                        color: 'var(--text-muted)',
+                        fontSize: '0.875rem',
+                        fontWeight: 800,
+                        whiteSpace: 'nowrap'
                       }}
                     >
-                      {!invoiceForm.attachments?.length && (
-                        <>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
-                            Upload File
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.2, maxWidth: '420px' }}>
-                            Drag and drop files here or click to upload
-                          </div>
-                          <div style={{
-                            fontSize: '0.7rem',
-                            color: 'var(--text-muted)'
-                          }}>
-                            Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each
-                          </div>
-                        </>
-                      )}
-                      <MotionButton
-                        type="button"
-                        onClick={openAttachmentPicker}
-                        disabled={loading}
-                        style={{
-                          marginTop: '0.2rem',
-                          padding: '0.4rem 1rem',
-                          borderRadius: '10px',
-                          background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
-                          color: '#fff',
-                          fontWeight: 700,
-                          fontSize: '0.8rem',
-                          boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
-                          border: 'none',
-                          cursor: loading ? 'not-allowed' : 'pointer',
-                          opacity: loading ? 0.7 : 1
-                        }}
-                      >
-                        Browse Files
-                      </MotionButton>
+                      Invoice No : {invoiceForm.invoiceNumber || 'xxxx'}
                     </div>
-                  )}
-                  <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                    {invoiceForm.attachments?.length || 0}/2 selected
-                  </div>
-                  <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
-                    {(invoiceForm.attachments || []).map((attachment, index) => (
-                      <div
-                        key={`${attachment.name}-${index}`}
-                        style={{
-                          border: '1px solid var(--border)',
-                          borderRadius: '14px',
-                          background: 'var(--bg-card)',
-                          padding: '0.65rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem'
-                        }}
-                      >
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-main)',
-                          display: 'grid',
-                          placeItems: 'center',
-                          color: 'var(--text-muted)',
-                          flex: '0 0 auto'
-                        }}>
-                          {String(attachment.type || '').startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
-                        </div>
-
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-header)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={attachment.name}>
-                            {attachment.name}
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
-                            {formatFileSize(attachment.size)}
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '0 0 auto' }}>
-                          <button
-                            type="button"
-                            style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
-                            title="More"
-                          >
-                            <MoreHorizontal size={20} />
-                          </button>
-                          <a
-                            href={attachment.dataUrl}
-                            download={attachment.name}
-                            style={{ color: 'var(--text-muted)', display: 'grid', placeItems: 'center' }}
-                            title="Download"
-                          >
-                            <Download size={18} />
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => removeAttachment(index)}
-                            style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
-                            title="Remove file"
-                          >
-                            <X size={20} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {attachmentError && (
-                    <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.5rem' }}>{attachmentError}</p>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{
-                  background: 'var(--primary-light, #eef2ff)',
-                  padding: '0.75rem 1.25rem',
-                  borderRadius: '6px',
-                  border: '1px solid var(--primary-border, #c7d2fe)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem'
-                }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-header)' }}>Total Amount:</span>
-                  <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
-                    ${invoiceForm.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  {!editingInvoiceId && (
                     <MotionButton
                       type="button"
-                      onClick={handleCancelEdit}
+                      onClick={closeInvoiceForm}
                       disabled={loading}
+                      className="btn btn-secondary"
                       style={{
                         padding: '0.5rem 1rem',
-                        background: 'var(--bg-main)',
+                        // background: 'var(--bg-main)',
                         color: 'var(--text-header)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '6px',
-                        fontWeight: 700,
-                        fontSize: '0.875rem',
-                        cursor: 'pointer',
+                        // border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        fontSize: '0.9375rem',
+                        fontWeight: 600,
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.2s',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.25rem'
+                        gap: '0.5rem',
+                        opacity: loading ? 0.7 : 1
                       }}
                     >
-                      <RotateCcw size={14} /> Reset
+                      <X size={16} />
+                      {/* Close */}
                     </MotionButton>
-                  )}
-                  <MotionButton
-                    type="submit"
-                    disabled={loading}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      background: 'var(--primary)',
-                      color: 'white',
-                      border: 'none',
+                  </div>
+                </div>
+
+                <form onSubmit={handleInvoiceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 280px', position: 'relative' }}>
+                      <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                        Select Company <span style={{ color: 'var(--danger)' }}>*</span>
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="text"
+                          placeholder="Search Company..."
+                          value={vendorSearchText}
+                          onChange={(e) => {
+                            setVendorSearchText(e.target.value);
+                            setIsVendorDropdownOpen(e.target.value.length > 0);
+                            if (invoiceForm.clientId) {
+                              setInvoiceForm(prev => ({ ...prev, clientId: '', clientType: 'Vendor' }));
+                            }
+                            if (formSubmitted && errors.clientId) {
+                              setErrors(prev => {
+                                const newE = { ...prev };
+                                delete newE.clientId;
+                                return newE;
+                              });
+                            }
+                          }}
+                          onFocus={(e) => {
+                            if (e.target.value.length > 0) setIsVendorDropdownOpen(true);
+                          }}
+                          onBlur={() => setTimeout(() => setIsVendorDropdownOpen(false), 200)}
+                          disabled={loading}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem 0.75rem',
+                            border: `1px solid ${errors.clientId ? 'var(--danger)' : 'var(--border)'}`,
+                            borderRadius: '6px',
+                            fontSize: '0.875rem',
+                            background: 'var(--bg-card)',
+                            color: 'var(--text-header)',
+                            outline: 'none'
+                          }}
+                        />
+                        {isVendorDropdownOpen && (
+                          <ul style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            maxHeight: '250px',
+                            overflowY: 'auto',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            marginTop: '4px',
+                            padding: 0,
+                            listStyle: 'none',
+                            zIndex: 10,
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}>
+                            {filteredVendors.map(vendor => (
+                              <li
+                                key={vendor._id + vendor.type}
+                                onClick={() => {
+                                  setInvoiceForm(prev => ({ ...prev, clientId: vendor._id, clientType: vendor.type }));
+                                  setVendorSearchText(`${vendor.name}${vendor.companyName ? ' - ' + vendor.companyName : ''}`);
+                                  setIsVendorDropdownOpen(false);
+                                }}
+                                style={{
+                                  padding: '0.5rem 0.75rem',
+                                  cursor: 'pointer',
+                                  fontSize: '0.875rem',
+                                  color: 'var(--text-header)',
+                                  borderBottom: '1px solid var(--border)',
+                                  transition: 'background 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.target.style.background = 'var(--bg-main)'}
+                                onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                              >
+                                {vendor.name}{vendor.companyName ? ' - ' + vendor.companyName : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      {formSubmitted && errors.clientId && (
+                        <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.clientId}</p>
+                      )}
+                    </div>
+
+                    <div style={{ flex: '1 1 280px' }}>
+                      <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                        Invoice Date <span style={{ color: 'var(--danger)' }}>*</span>
+                      </label>
+                      <input
+                        type="date"
+                        name="invoiceDate"
+                        value={invoiceForm.invoiceDate}
+                        onChange={handleInputChange}
+                        disabled={loading}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          border: `1px solid ${errors.invoiceDate ? 'var(--danger)' : 'var(--border)'}`,
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)'
+                        }}
+                      />
+                      {formSubmitted && errors.invoiceDate && (
+                        <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.invoiceDate}</p>
+                      )}
+                    </div>
+
+                    <div style={{ flex: '1 1 280px' }}>
+                      <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 700, color: 'var(--text-header)', fontSize: '0.875rem' }}>
+                        Transaction Description
+                      </label>
+                      <input
+                        type="text"
+                        name="transactionDescription"
+                        value={invoiceForm.transactionDescription}
+                        onChange={handleInputChange}
+                        disabled={loading}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          fontSize: '0.875rem',
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Invoice Items</h3>
+                      <MotionButton
+                        type="button"
+                        onClick={addItemRow}
+                        disabled={loading}
+                        style={{
+                          padding: '0.25rem 0.75rem',
+                          background: 'transparent',
+                          color: 'var(--text-header)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        <Plus size={14} /> Add Row
+                      </MotionButton>
+                    </div>
+
+                    <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.875rem' }}>
+                        <thead style={{ background: 'var(--bg-main)' }}>
+                          <tr>
+                            <th style={{ padding: '0.5rem', textAlign: 'center', width: '8%' }}>Sr No</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'left', width: '25%' }}>Product</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'left', width: '40%' }}>Description</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'right', width: '18%' }}>Amount ($)</th>
+                            <th style={{ padding: '0.5rem', textAlign: 'center', width: '10%' }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {invoiceForm.items.map((item, index) => (
+                            <tr key={index} style={{ borderTop: '1px solid var(--border)' }}>
+                              <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
+                              <td style={{ padding: '0.5rem' }}>
+                                <select
+                                  value={item.product || 'Ring'}
+                                  onChange={(e) => handleItemChange(index, 'product', e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.25rem 0.5rem',
+                                    border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
+                                    borderRadius: '4px',
+                                    background: 'var(--bg-card)',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.875rem'
+                                  }}
+                                >
+                                  <option value="">Select Product</option>
+                                  {PRODUCT_OPTIONS.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td style={{ padding: '0.5rem' }}>
+                                <input
+                                  type="text"
+                                  value={item.description}
+                                  onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                  placeholder="Enter description"
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.25rem 0.5rem',
+                                    border: '1px solid transparent',
+                                    borderRadius: '4px',
+                                    background: 'transparent',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.875rem'
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.5rem' }}>
+                                <input
+                                  type="number"
+                                  value={item.amount}
+                                  onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
+                                  min="0"
+                                  step="0.01"
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.25rem 0.5rem',
+                                    border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.amount ? 'var(--danger)' : 'transparent'}`,
+                                    borderRadius: '4px',
+                                    background: 'transparent',
+                                    color: 'var(--text-header)',
+                                    textAlign: 'right',
+                                    fontSize: '0.875rem'
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                                <MotionButton
+                                  type="button"
+                                  onClick={() => removeItemRow(index)}
+                                  disabled={invoiceForm.items.length === 1}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: invoiceForm.items.length === 1 ? 'var(--text-muted)' : 'var(--danger)',
+                                    cursor: invoiceForm.items.length === 1 ? 'not-allowed' : 'pointer',
+                                    padding: '0.25rem'
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </MotionButton>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {formSubmitted && errors.items && (
+                      <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.items}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>File Attachment</h3>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Max 2 files</div>
+                    </div>
+                    <div
+                      onDrop={handleAttachmentDrop}
+                      onDragOver={handleAttachmentDragOver}
+                      onDragLeave={handleAttachmentDragLeave}
+                      style={{
+                        border: `2px dashed ${isAttachmentDragging ? 'var(--primary)' : 'rgba(209, 213, 219, 0.95)'}`,
+                        borderRadius: '16px',
+                        padding: '1rem 0.75rem',
+                        background: isAttachmentDragging ? 'rgba(37, 99, 235, 0.05)' : 'var(--bg-card)',
+                        minHeight: '90px',
+                        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <input
+                        ref={attachmentInputRef}
+                        id="purchase-invoice-attachment-input"
+                        type="file"
+                        accept={ATTACHMENT_ACCEPT}
+                        multiple
+                        onChange={handleAttachmentChange}
+                        disabled={loading || (Array.isArray(invoiceForm.attachments) && invoiceForm.attachments.length >= 5)}
+                        style={{ display: 'none' }}
+                      />
+                      {(invoiceForm.attachments?.length || 0) < 5 && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.25rem',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {!invoiceForm.attachments?.length && (
+                            <>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-header)' }}>
+                                Upload File
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.2, maxWidth: '420px' }}>
+                                Drag and drop files here or click to upload
+                              </div>
+                              <div style={{
+                                fontSize: '0.7rem',
+                                color: 'var(--text-muted)'
+                              }}>
+                                Supported formats: JPEG, JPG, PNG, GIF, WebP, SVG, PDF up to 25 MB each
+                              </div>
+                            </>
+                          )}
+                          <MotionButton
+                            type="button"
+                            onClick={openAttachmentPicker}
+                            disabled={loading}
+                            style={{
+                              marginTop: '0.2rem',
+                              padding: '0.4rem 1rem',
+                              borderRadius: '10px',
+                              background: 'linear-gradient(180deg, #4c7cf0 0%, #315be0 100%)',
+                              color: '#fff',
+                              fontWeight: 700,
+                              fontSize: '0.8rem',
+                              boxShadow: '0 10px 20px rgba(49, 91, 224, 0.22)',
+                              border: 'none',
+                              cursor: loading ? 'not-allowed' : 'pointer',
+                              opacity: loading ? 0.7 : 1
+                            }}
+                          >
+                            Browse Files
+                          </MotionButton>
+                        </div>
+                      )}
+                      <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        {invoiceForm.attachments?.length || 0}/2 selected
+                      </div>
+                      <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+                        {(invoiceForm.attachments || []).map((attachment, index) => (
+                          <div
+                            key={`${attachment.name}-${index}`}
+                            style={{
+                              border: '1px solid var(--border)',
+                              borderRadius: '14px',
+                              background: 'var(--bg-card)',
+                              padding: '0.65rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem'
+                            }}
+                          >
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border)',
+                              background: 'var(--bg-main)',
+                              display: 'grid',
+                              placeItems: 'center',
+                              color: 'var(--text-muted)',
+                              flex: '0 0 auto'
+                            }}>
+                              {String(attachment.type || '').startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
+                            </div>
+
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-header)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={attachment.name}>
+                                {attachment.name}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                                {formatFileSize(attachment.size)}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '0 0 auto' }}>
+                              <button
+                                type="button"
+                                style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+                                title="More"
+                              >
+                                <MoreHorizontal size={20} />
+                              </button>
+                              <a
+                                href={attachment.dataUrl}
+                                download={attachment.name}
+                                style={{ color: 'var(--text-muted)', display: 'grid', placeItems: 'center' }}
+                                title="Download"
+                              >
+                                <Download size={18} />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => removeAttachment(index)}
+                                style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'grid', placeItems: 'center' }}
+                                title="Remove file"
+                              >
+                                <X size={20} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {attachmentError && (
+                        <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.5rem' }}>{attachmentError}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{
+                      background: 'var(--primary-light, #eef2ff)',
+                      padding: '0.75rem 1.25rem',
                       borderRadius: '6px',
-                      fontWeight: 700,
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
+                      border: '1px solid var(--primary-border, #c7d2fe)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.25rem'
-                    }}
-                  >
-                    <Save size={14} />
-                    {loading ? 'Saving...' : editingInvoiceId ? 'Update Invoice' : 'Save Invoice'}
-                  </MotionButton>
-                </div>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
-        </ActionMenuPortal>
-      )}
+                      gap: '0.75rem'
+                    }}>
+                      <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-header)' }}>Total Amount:</span>
+                      <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
+                        ${invoiceForm.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      {!editingInvoiceId && (
+                        <MotionButton
+                          type="button"
+                          onClick={handleCancelEdit}
+                          disabled={loading}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            background: 'var(--bg-main)',
+                            color: 'var(--text-header)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '0.875rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                          }}
+                        >
+                          <RotateCcw size={14} /> Reset
+                        </MotionButton>
+                      )}
+                      <MotionButton
+                        type="submit"
+                        disabled={loading}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: 'var(--primary)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <Save size={14} />
+                        {loading ? 'Saving...' : editingInvoiceId ? 'Update Invoice' : 'Save Invoice'}
+                      </MotionButton>
+                    </div>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          </ActionMenuPortal>
+        )}
       </AnimatePresence>
 
       {/* Invoice List */}
@@ -1759,7 +1767,7 @@ function PurchaseInvoice() {
         <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Invoice List</h2>
-            
+
             {/* Search Bar */}
             <div style={{
               display: 'flex',
@@ -1789,7 +1797,7 @@ function PurchaseInvoice() {
               />
             </div>
           </div>
-          
+
           {loading ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>Loading invoices...</div>
           ) : invoices.length === 0 ? (
@@ -2031,10 +2039,10 @@ function PurchaseInvoice() {
                   </table>
                 </div>
               )}
-              
+
               {/* Pagination */}
               {totalPages > 1 && (
-                <div style={{ 
+                <div style={{
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
@@ -2058,7 +2066,7 @@ function PurchaseInvoice() {
                   >
                     Previous
                   </MotionButton>
-                  
+
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                     <MotionButton
                       key={page}
@@ -2078,7 +2086,7 @@ function PurchaseInvoice() {
                       {page}
                     </MotionButton>
                   ))}
-                  
+
                   <MotionButton
                     onClick={() => fetchInvoices(currentPage + 1, searchQuery)}
                     disabled={currentPage === totalPages}
@@ -2104,178 +2112,178 @@ function PurchaseInvoice() {
 
       <AnimatePresence>
         {infoOpen && (
-        <ActionMenuPortal>
-          <motion.div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.55)',
-              zIndex: 9999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '1rem'
-            }}
-            initial={overlayMotion.initial}
-            animate={overlayMotion.animate}
-            exit={overlayMotion.exit}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) closeInfo()
-            }}
-          >
+          <ActionMenuPortal>
             <motion.div
-              className="card"
               style={{
-                width: 'min(700px, 96vw)',
-                maxHeight: '88vh',
-                overflow: 'auto',
-                padding: '1.25rem'
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.55)',
+                zIndex: 9999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1rem'
               }}
-              initial={modalMotion.initial}
-              animate={modalMotion.animate}
-              exit={modalMotion.exit}
-              transition={{ duration: 0.24, ease: 'easeOut' }}
+              initial={overlayMotion.initial}
+              animate={overlayMotion.animate}
+              exit={overlayMotion.exit}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) closeInfo()
+              }}
             >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-              <div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Invoice Details</div>
-                <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {infoInvoice?.invoiceNumber ? `Invoice • ${infoInvoice.invoiceNumber}` : 'Invoice'}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <MotionButton
-                  type="button"
-                  onClick={refreshInfo}
-                  disabled={infoLoading}
-                  style={{
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    borderRadius: 10,
-                    padding: '0.45rem',
-                    cursor: infoLoading ? 'not-allowed' : 'pointer',
-                    color: 'var(--text-muted)',
-                    opacity: infoLoading ? 0.6 : 1
-                  }}
-                  title="Refresh"
-                >
-                  <RotateCcw size={18} />
-                </MotionButton>
-                <MotionButton
-                  type="button"
-                  onClick={closeInfo}
-                  style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
-                  title="Close"
-                >
-                  <X size={18} />
-                </MotionButton>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '1.5rem' }}>
-              {/* Client Details */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Client Details</div>
-                <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'grid', gap: '0.75rem' }}>
-                    {(() => {
-                      const client = infoInvoice?.vendorId;
-                      const invoiceDate = formatDateMMDDYYYY(infoInvoice?.invoiceDate);
-                      const transactionDesc = infoInvoice?.transactionDescription || '-';
-
-                      return (
-                        <>
-                          {client?.customerName && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.customerName}</span>
-                            </div>
-                          )}
-                          {client?.vendorName && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
-                            </div>
-                          )}
-                          {client?.id && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
-                            </div>
-                          )}
-                          {infoInvoice?.clientType && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
-                              <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem', textTransform: 'capitalize' }}>{infoInvoice.clientType}</span>
-                            </div>
-                          )}
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Invoice Date</span>
-                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{invoiceDate}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Description</span>
-                            <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{transactionDesc}</span>
-                          </div>
-                        </>
-                      )
-                    })()}
+              <motion.div
+                className="card"
+                style={{
+                  width: 'min(700px, 96vw)',
+                  maxHeight: '88vh',
+                  overflow: 'auto',
+                  padding: '1.25rem'
+                }}
+                initial={modalMotion.initial}
+                animate={modalMotion.animate}
+                exit={modalMotion.exit}
+                transition={{ duration: 0.24, ease: 'easeOut' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                  <div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-header)' }}>Invoice Details</div>
+                    <div style={{ marginTop: 2, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {infoInvoice?.invoiceNumber ? `Invoice • ${infoInvoice.invoiceNumber}` : 'Invoice'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <MotionButton
+                      type="button"
+                      onClick={refreshInfo}
+                      disabled={infoLoading}
+                      style={{
+                        border: '1px solid var(--border)',
+                        background: 'transparent',
+                        borderRadius: 10,
+                        padding: '0.45rem',
+                        cursor: infoLoading ? 'not-allowed' : 'pointer',
+                        color: 'var(--text-muted)',
+                        opacity: infoLoading ? 0.6 : 1
+                      }}
+                      title="Refresh"
+                    >
+                      <RotateCcw size={18} />
+                    </MotionButton>
+                    <MotionButton
+                      type="button"
+                      onClick={closeInfo}
+                      style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: 10, padding: '0.45rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+                      title="Close"
+                    >
+                      <X size={18} />
+                    </MotionButton>
                   </div>
                 </div>
-              </div>
 
-              {/* Items Table */}
-              <div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Items</div>
-                <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
-                        <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Product</th>
-                        <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Description</th>
-                        <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const items = infoInvoice?.items || [];
-                        if (items.length === 0) {
+                <div style={{ marginTop: '1.5rem' }}>
+                  {/* Client Details */}
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Client Details</div>
+                    <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'grid', gap: '0.75rem' }}>
+                        {(() => {
+                          const client = infoInvoice?.vendorId;
+                          const invoiceDate = formatDateMMDDYYYY(infoInvoice?.invoiceDate);
+                          const transactionDesc = infoInvoice?.transactionDescription || '-';
+
                           return (
-                            <tr>
-                              <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No items found</td>
-                            </tr>
+                            <>
+                              {client?.customerName && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                                  <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.customerName}</span>
+                                </div>
+                              )}
+                              {client?.vendorName && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Name</span>
+                                  <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.vendorName}</span>
+                                </div>
+                              )}
+                              {client?.id && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Client ID</span>
+                                  <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{client.id}</span>
+                                </div>
+                              )}
+                              {infoInvoice?.clientType && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Type</span>
+                                  <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem', textTransform: 'capitalize' }}>{infoInvoice.clientType}</span>
+                                </div>
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Invoice Date</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{invoiceDate}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.875rem' }}>Description</span>
+                                <span style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>{transactionDesc}</span>
+                              </div>
+                            </>
                           )
-                        }
-                        return (
-                          <>
-                            {items.map((item, idx) => (
-                              <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                                <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.product || '-'}</td>
-                                <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.description || '-'}</td>
-                                <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 700 }}>
-                                  ${item.amount ? item.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                                </td>
-                              </tr>
-                            ))}
-                            <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
-                              <td colSpan={2} style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
-                              <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
-                                ${infoInvoice?.totalAmount ? infoInvoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                              </td>
-                            </tr>
-                          </>
-                        )
-                      })()}
-                    </tbody>
-                  </table>
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Items Table */}
+                  <div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Items</div>
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
+                            <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Product</th>
+                            <th style={{ textAlign: 'left', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Description</th>
+                            <th style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.875rem' }}>Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            const items = infoInvoice?.items || [];
+                            if (items.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No items found</td>
+                                </tr>
+                              )
+                            }
+                            return (
+                              <>
+                                {items.map((item, idx) => (
+                                  <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                    <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.product || '-'}</td>
+                                    <td style={{ padding: '0.75rem', color: 'var(--text-main)', fontSize: '0.875rem' }}>{item.description || '-'}</td>
+                                    <td style={{ padding: '0.75rem', textAlign: 'right', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 700 }}>
+                                      ${item.amount ? item.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                    </td>
+                                  </tr>
+                                ))}
+                                <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-main)' }}>
+                                  <td colSpan={2} style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--text-header)', fontWeight: 800, fontSize: '0.9rem' }}>Total</td>
+                                  <td style={{ textAlign: 'right', padding: '0.75rem', color: 'var(--danger)', fontWeight: 900, fontSize: '0.95rem' }}>
+                                    ${infoInvoice?.totalAmount ? infoInvoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                  </td>
+                                </tr>
+                              </>
+                            )
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-        </ActionMenuPortal>
-      )}
+              </motion.div>
+            </motion.div>
+          </ActionMenuPortal>
+        )}
       </AnimatePresence>
 
       {invoiceHistoryOpen && isAdmin && (
@@ -2300,31 +2308,40 @@ function PurchaseInvoice() {
                 <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading invoice history...</div>
               ) : invoiceHistory ? (
                 <div style={{ marginTop: '1rem' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Created By</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.createdBy || '-'}</div></div>
-                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Created Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.createdAt ? new Date(invoiceHistory.createdAt).toLocaleString('en-US') : '-'}</div></div>
-                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Updated By</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.updatedBy || '-'}</div></div>
-                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Updated Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.updatedAt ? new Date(invoiceHistory.updatedAt).toLocaleString('en-US') : '-'}</div></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem', fontSize: '0.72rem' }}>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>Created By</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.createdBy || '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>Created Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.createdAt ? new Date(invoiceHistory.createdAt).toLocaleString('en-US') : '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>Updated By</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.updatedBy || '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>Updated Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{invoiceHistory.updatedAt ? new Date(invoiceHistory.updatedAt).toLocaleString('en-US') : '-'}</div></div>
                   </div>
                   <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
                       <thead><tr style={{ background: 'var(--bg-main)' }}>
-                        {['Field Name', 'Old Value', 'New Value', 'Changed By', 'Changed Date & Time'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-header)' }}>{label}</th>)}
+                        {['Field Name', 'Old Value', 'New Value', 'Changed By', 'Changed Date & Time'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-header)', fontSize: '0.7rem' }}>{label}</th>)}
                       </tr></thead>
                       <tbody>
-                        {(invoiceHistory.activity || []).flatMap((event) => (event.changes || []).map((change) => ({ ...change, userName: event.userName, at: event.at }))).map((change, index) => (
+                        {paginatedHistoryRows.length > 0 ? paginatedHistoryRows.map((change, index) => (
                           <tr key={`${change.field}-${change.at}-${index}`}>
-                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-header)', fontWeight: 700 }}>{change.field}</td>
-                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{change.from || '-'}</td>
-                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{change.to || '-'}</td>
-                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)' }}>{change.userName || '-'}</td>
-                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)' }}>{change.at ? new Date(change.at).toLocaleString('en-US') : '-'}</td>
+                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.7rem' }}>{change.field}</td>
+                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.7rem' }}>{change.from || '-'}</td>
+                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.7rem' }}>{change.to || '-'}</td>
+                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-main)', fontSize: '0.7rem' }}>{change.userName || '-'}</td>
+                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-main)', fontSize: '0.7rem' }}>{change.at ? new Date(change.at).toLocaleString('en-US') : '-'}</td>
                           </tr>
-                        ))}
-                        {(!invoiceHistory.activity || invoiceHistory.activity.every((event) => !(event.changes || []).length)) && <tr><td colSpan={5} style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No field changes recorded.</td></tr>}
+                        )) : <tr><td colSpan={5} style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No field changes recorded.</td></tr>}
                       </tbody>
                     </table>
                   </div>
+                  {historyRows.length > historyPageSize && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginTop: '0.85rem', flexWrap: 'wrap', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      <div>Showing {Math.min((currentHistoryPage - 1) * historyPageSize + 1, historyRows.length)}-{Math.min(currentHistoryPage * historyPageSize, historyRows.length)} of {historyRows.length}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button type="button" onClick={() => setInvoiceHistoryPage((prev) => Math.max(1, prev - 1))} disabled={currentHistoryPage === 1} style={{ padding: '0.35rem 0.7rem', borderRadius: '6px', border: '1px solid var(--border)', background: currentHistoryPage === 1 ? 'var(--bg-main)' : 'var(--bg-card)', color: 'var(--text-header)', cursor: currentHistoryPage === 1 ? 'not-allowed' : 'pointer', opacity: currentHistoryPage === 1 ? 0.6 : 1 }}>Previous</button>
+                        <span>Page {currentHistoryPage} / {historyTotalPages}</span>
+                        <button type="button" onClick={() => setInvoiceHistoryPage((prev) => Math.min(historyTotalPages, prev + 1))} disabled={currentHistoryPage >= historyTotalPages} style={{ padding: '0.35rem 0.7rem', borderRadius: '6px', border: '1px solid var(--border)', background: currentHistoryPage >= historyTotalPages ? 'var(--bg-main)' : 'var(--bg-card)', color: 'var(--text-header)', cursor: currentHistoryPage >= historyTotalPages ? 'not-allowed' : 'pointer', opacity: currentHistoryPage >= historyTotalPages ? 0.6 : 1 }}>Next</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -2339,217 +2356,217 @@ function PurchaseInvoice() {
             const attachmentMenuItems = getAttachmentMenuItems(dropdownInvoice.attachments || []);
 
             return (
-          <div
-            ref={dropdownRef}
-            style={{
-              position: 'fixed',
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              zIndex: 99999,
-              minWidth: '220px',
-              maxWidth: '260px',
-              maxHeight: 'min(320px, 70vh)',
-              overflowY: 'auto'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              setInfoInvoice(dropdownInvoice);
-              setInfoOpen(true);
-              closeActionDropdown();
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Eye size={14} />
-            View
-          </MotionButton>
-          {isAdmin && (
-            <MotionButton
-              onClick={(e) => {
-                e.stopPropagation();
-                openInvoiceHistory(dropdownInvoice);
-                setOpenDropdownId(null);
-                setDropdownInvoice(null);
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '0.375rem 0.75rem',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--text-header)',
-                fontSize: '0.875rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}
-            >
-              <Clock3 size={14} />
-              Invoice History
-            </MotionButton>
-          )}
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              if (attachmentMenuItems.length > 0) {
-                setAttachmentsMenuOpen(prev => !prev);
-              }
-            }}
-            disabled={attachmentMenuItems.length === 0}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: attachmentsMenuOpen ? 'var(--bg-main)' : 'transparent',
-              border: 'none',
-              cursor: attachmentMenuItems.length === 0 ? 'not-allowed' : 'pointer',
-              color: attachmentMenuItems.length === 0 ? 'var(--text-muted)' : 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.5rem',
-              transition: 'all 0.2s',
-              opacity: attachmentMenuItems.length === 0 ? 0.7 : 1
-            }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ImageIcon size={14} />
-              View Attachments
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-              {attachmentMenuItems.length}
-            </span>
-          </MotionButton>
-          {attachmentsMenuOpen && attachmentMenuItems.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '0.35rem 0' }}>
-              {attachmentMenuItems.map(({ attachment, label }, index) => (
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: 'fixed',
+                  top: dropdownPosition.top,
+                  left: dropdownPosition.left,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  zIndex: 99999,
+                  minWidth: '220px',
+                  maxWidth: '260px',
+                  maxHeight: 'min(320px, 70vh)',
+                  overflowY: 'auto'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MotionButton
-                  key={`${attachment.name || 'attachment'}-${index}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    openAttachmentPreview(attachment);
+                    setInfoInvoice(dropdownInvoice);
+                    setInfoOpen(true);
+                    closeActionDropdown();
                   }}
                   style={{
                     width: '100%',
                     textAlign: 'left',
-                    padding: '0.45rem 0.75rem',
+                    padding: '0.375rem 0.75rem',
                     background: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
                     color: 'var(--text-header)',
-                    fontSize: '0.84rem',
+                    fontSize: '0.875rem',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem',
                     transition: 'all 0.2s'
                   }}
-                  title={attachment.name || label}
                 >
-                  {isImageAttachment(attachment) ? <ImageIcon size={13} /> : <FileText size={13} />}
-                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
-                    <span>{label}</span>
-                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
-                      {attachment.name || 'Unnamed file'}
-                    </span>
+                  <Eye size={14} />
+                  View
+                </MotionButton>
+                {isAdmin && (
+                  <MotionButton
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openInvoiceHistory(dropdownInvoice);
+                      setOpenDropdownId(null);
+                      setDropdownInvoice(null);
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.375rem 0.75rem',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-header)',
+                      fontSize: '0.875rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <Clock3 size={14} />
+                    Invoice History
+                  </MotionButton>
+                )}
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (attachmentMenuItems.length > 0) {
+                      setAttachmentsMenuOpen(prev => !prev);
+                    }
+                  }}
+                  disabled={attachmentMenuItems.length === 0}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: attachmentsMenuOpen ? 'var(--bg-main)' : 'transparent',
+                    border: 'none',
+                    cursor: attachmentMenuItems.length === 0 ? 'not-allowed' : 'pointer',
+                    color: attachmentMenuItems.length === 0 ? 'var(--text-muted)' : 'var(--text-header)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s',
+                    opacity: attachmentMenuItems.length === 0 ? 0.7 : 1
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ImageIcon size={14} />
+                    View Attachments
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                    {attachmentMenuItems.length}
                   </span>
                 </MotionButton>
-              ))}
-            </div>
-          )}
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditInvoice(dropdownInvoice);
-              closeActionDropdown();
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Edit2 size={14} />
-            Edit
-          </MotionButton>
-          <MotionButton
-            onClick={(e) => {
-              e.stopPropagation();
-              generatePurchaseInvoicePDF(dropdownInvoice);
-              closeActionDropdown();
-            }}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.375rem 0.75rem',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-header)',
-              fontSize: '0.875rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Eye size={14} />
-            View PDF
-          </MotionButton>
-            <MotionButton
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteInvoice(dropdownInvoice._id);
-                closeActionDropdown();
-              }}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                padding: '0.375rem 0.75rem',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--danger)',
-                fontSize: '0.875rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <Trash2 size={14} />
-              Delete
-            </MotionButton>
-          </div>
+                {attachmentsMenuOpen && attachmentMenuItems.length > 0 && (
+                  <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '0.35rem 0' }}>
+                    {attachmentMenuItems.map(({ attachment, label }, index) => (
+                      <MotionButton
+                        key={`${attachment.name || 'attachment'}-${index}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openAttachmentPreview(attachment);
+                        }}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '0.45rem 0.75rem',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--text-header)',
+                          fontSize: '0.84rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          transition: 'all 0.2s'
+                        }}
+                        title={attachment.name || label}
+                      >
+                        {isImageAttachment(attachment) ? <ImageIcon size={13} /> : <FileText size={13} />}
+                        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                          <span>{label}</span>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
+                            {attachment.name || 'Unnamed file'}
+                          </span>
+                        </span>
+                      </MotionButton>
+                    ))}
+                  </div>
+                )}
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditInvoice(dropdownInvoice);
+                    closeActionDropdown();
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-header)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Edit2 size={14} />
+                  Edit
+                </MotionButton>
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    generatePurchaseInvoicePDF(dropdownInvoice);
+                    closeActionDropdown();
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-header)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Eye size={14} />
+                  View PDF
+                </MotionButton>
+                <MotionButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteInvoice(dropdownInvoice._id);
+                    closeActionDropdown();
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '0.375rem 0.75rem',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--danger)',
+                    fontSize: '0.875rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete
+                </MotionButton>
+              </div>
             )
           })()}
         </ActionMenuPortal>
