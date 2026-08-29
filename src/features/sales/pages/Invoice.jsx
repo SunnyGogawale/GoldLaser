@@ -241,6 +241,8 @@ function Invoice() {
     fetchSettings()
   }, [])
 
+  const PRODUCT_OPTIONS = ['Ring', 'Gold', 'Chain', 'Necklace'];
+
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
     invoiceNumber: '',
@@ -249,7 +251,7 @@ function Invoice() {
     invoiceDate: new Date().toISOString().split('T')[0],
     transactionDescription: '',
     items: [
-      { product: '', description: '', amount: 0 }
+      { product: 'Ring', description: '', amount: 0 }
     ],
     attachments: [],
     totalAmount: 0
@@ -585,7 +587,7 @@ function Invoice() {
   const addItemRow = () => {
     setInvoiceForm(prev => ({
       ...prev,
-      items: [...prev.items, { product: '', description: '', amount: 0 }]
+      items: [...prev.items, { product: 'Ring', description: '', amount: 0 }]
     }));
   };
 
@@ -800,7 +802,7 @@ function Invoice() {
         clientType: 'Customer',
         invoiceDate: new Date().toISOString().split('T')[0],
         transactionDescription: '',
-        items: [{ product: '', description: '', amount: 0 }],
+        items: [{ product: 'Ring', description: '', amount: 0 }],
         attachments: [],
         totalAmount: 0
       });
@@ -920,7 +922,7 @@ function Invoice() {
       clientType: 'Customer',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
-      items: [{ product: '', description: '', amount: 0 }],
+      items: [{ product: 'Ring', description: '', amount: 0 }],
       attachments: [],
       totalAmount: 0
     });
@@ -941,7 +943,7 @@ function Invoice() {
       clientType: 'Customer',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
-      items: [{ product: '', description: '', amount: 0 }],
+      items: [{ product: 'Ring', description: '', amount: 0 }],
       attachments: [],
       totalAmount: 0
     });
@@ -2050,21 +2052,24 @@ function Invoice() {
                           <tr key={index} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
                             <td style={{ padding: '0.5rem' }}>
-                              <input
-                                type="text"
-                                value={item.product}
+                              <select
+                                value={item.product || 'Ring'}
                                 onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                                placeholder="Enter product name"
                                 style={{
                                   width: '100%',
                                   padding: '0.25rem 0.5rem',
                                   border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
                                   borderRadius: '4px',
-                                  background: 'transparent',
+                                  background: 'var(--bg-card)',
                                   color: 'var(--text-header)',
                                   fontSize: '0.875rem'
                                 }}
-                              />
+                              >
+                                <option value="">Select Product</option>
+                                {PRODUCT_OPTIONS.map((option) => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                              </select>
                             </td>
                             <td style={{ padding: '0.5rem' }}>
                               <input
