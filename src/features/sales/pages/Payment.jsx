@@ -732,19 +732,12 @@ function Payment() {
     setLoading(true)
     try {
       const token = getAuthToken()
-      
-      // Calculate amount: if blank/0 and invoices selected, use total of selected allocations
-      const userAmount = Number(paymentForm.amount) || 0
-      const finalAmount = userAmount === 0 && selectedAllocations.length > 0 
-        ? selectedAllocationTotal 
-        : userAmount
-      
       const payload = {
         paymentNumber: paymentForm.paymentNumber,
         clientId: paymentForm.clientId,
         clientType: paymentForm.clientType,
         paymentDate: paymentForm.paymentDate,
-        amount: Math.round((finalAmount + Number.EPSILON) * 100) / 100,
+        amount: Math.round(((Number(paymentForm.amount) || 0) + Number.EPSILON) * 100) / 100,
         description: paymentForm.description || '',
         attachments: Array.isArray(paymentForm.attachments) ? paymentForm.attachments : [],
         autoAllocateOnSubmit: autoAllocateOnSelect,
