@@ -253,6 +253,7 @@ function Invoice() {
     items: [
       { product: 'Ring', description: '', amount: 0 }
     ],
+    memos: [],
     attachments: [],
     totalAmount: 0
   });
@@ -540,11 +541,13 @@ function Invoice() {
 
     invoiceForm.items.forEach((item, index) => {
       const itemError = {};
-      if (!item.product.trim()) {
+      const trimmedProduct = typeof item.product === 'string' ? item.product.trim() : '';
+      if (!trimmedProduct) {
         itemError.product = 'Product name is required';
         hasItemErrors = true;
       }
-      if (item.amount < 0 || item.amount === '') {
+      const parsedAmount = item.amount === '' || item.amount === null || item.amount === undefined ? NaN : Number(item.amount);
+      if (Number.isNaN(parsedAmount)) {
         itemError.amount = 'Valid amount is required';
         hasItemErrors = true;
       }
@@ -590,6 +593,79 @@ function Invoice() {
     setInvoiceForm(prev => ({
       ...prev,
       items: [...prev.items, { product: 'Ring', description: '', amount: 0 }]
+    }));
+  };
+
+  const createMemoEntry = () => ({
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `memo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    title: '',
+    description: '',
+    memoItems: [{ product: 'Ring', description: '', amount: 0 }]
+  });
+
+  const addMemoRow = () => {
+    setInvoiceForm(prev => ({
+      ...prev,
+      memos: [...(Array.isArray(prev.memos) ? prev.memos : []), createMemoEntry()]
+    }));
+  };
+
+  const handleMemoChange = (index, field, value) => {
+    setInvoiceForm(prev => ({
+      ...prev,
+      memos: (Array.isArray(prev.memos) ? prev.memos : []).map((memo, memoIndex) =>
+        memoIndex === index ? { ...memo, [field]: value } : memo
+      )
+    }));
+  };
+
+  const handleMemoItemChange = (memoIndex, itemIndex, field, value) => {
+    setInvoiceForm(prev => ({
+      ...prev,
+      memos: (Array.isArray(prev.memos) ? prev.memos : []).map((memo, index) => {
+        if (index !== memoIndex) return memo;
+        return {
+          ...memo,
+          memoItems: (Array.isArray(memo.memoItems) ? memo.memoItems : []).map((item, itemRowIndex) =>
+            itemRowIndex === itemIndex ? { ...item, [field]: value } : item
+          )
+        };
+      })
+    }));
+  };
+
+  const addMemoItemRow = (memoIndex) => {
+    setInvoiceForm(prev => ({
+      ...prev,
+      memos: (Array.isArray(prev.memos) ? prev.memos : []).map((memo, index) => {
+        if (index !== memoIndex) return memo;
+        return {
+          ...memo,
+          memoItems: [...(Array.isArray(memo.memoItems) ? memo.memoItems : []), { product: 'Ring', description: '', amount: 0 }]
+        };
+      })
+    }));
+  };
+
+  const removeMemoItemRow = (memoIndex, itemIndex) => {
+    setInvoiceForm(prev => ({
+      ...prev,
+      memos: (Array.isArray(prev.memos) ? prev.memos : []).map((memo, index) => {
+        if (index !== memoIndex) return memo;
+        const items = Array.isArray(memo.memoItems) ? memo.memoItems : [];
+        const filtered = items.filter((_, rowIndex) => rowIndex !== itemIndex);
+        return {
+          ...memo,
+          memoItems: filtered.length > 0 ? filtered : [{ product: 'Ring', description: '', amount: 0 }]
+        };
+      })
+    }));
+  };
+
+  const removeMemoRow = (index) => {
+    setInvoiceForm(prev => ({
+      ...prev,
+      memos: (Array.isArray(prev.memos) ? prev.memos : []).filter((_, memoIndex) => memoIndex !== index)
     }));
   };
 
@@ -805,6 +881,7 @@ function Invoice() {
         invoiceDate: new Date().toISOString().split('T')[0],
         transactionDescription: '',
         items: [{ product: 'Ring', description: '', amount: 0 }],
+        memos: [],
         attachments: [],
         totalAmount: 0
       });
@@ -906,6 +983,12 @@ function Invoice() {
         description: item.description,
         amount: item.amount
       })),
+      memos: Array.isArray(invoice.memos) ? invoice.memos.map(memo => ({
+        id: memo?.id || `memo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        title: memo?.title || '',
+        description: memo?.description || '',
+        createdAt: memo?.createdAt || new Date().toISOString()
+      })) : [],
       attachments: Array.isArray(invoice.attachments) ? invoice.attachments : [],
       totalAmount: invoice.totalAmount
     });
@@ -2022,26 +2105,48 @@ function Invoice() {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Invoice Items</h3>
-                    <MotionButton
-                      type="button"
-                      onClick={addItemRow}
-                      disabled={loading}
-                      style={{
-                        padding: '0.25rem 0.75rem',
-                        background: 'transparent',
-                        color: 'var(--text-header)',
-                        border: '1px solid var(--border)',
-                        borderRadius: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                        fontSize: '0.875rem'
-                      }}
-                    >
-                      <Plus size={14} /> Add Row
-                    </MotionButton>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <MotionButton
+                        type="button"
+                        onClick={addItemRow}
+                        disabled={loading}
+                        style={{
+                          padding: '0.25rem 0.75rem',
+                          background: 'transparent',
+                          color: 'var(--text-header)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        <Plus size={14} /> Add Row
+                      </MotionButton>
+                      <MotionButton
+                        type="button"
+                        onClick={addMemoRow}
+                        disabled={loading}
+                        style={{
+                          padding: '0.25rem 0.75rem',
+                          background: 'transparent',
+                          color: 'var(--text-header)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        <Plus size={14} /> Add Memo
+                      </MotionButton>
+                    </div>
                   </div>
 
                   <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
@@ -2101,7 +2206,6 @@ function Invoice() {
                                 type="number"
                                 value={item.amount}
                                 onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
-                                min="0"
                                 step="0.01"
                                 style={{
                                   width: '100%',
@@ -2140,6 +2244,104 @@ function Invoice() {
                     <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.items}</p>
                   )}
                 </div>
+
+                {(invoiceForm.memos || []).length > 0 && (
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    {invoiceForm.memos.map((memo, memoIndex) => (
+                      <div key={memo.id || memoIndex} style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '0.9rem', background: 'var(--bg-main)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
+                          <div style={{ fontWeight: 800, color: 'var(--text-header)', fontSize: '0.95rem' }}>Memo {memoIndex + 1}</div>
+                          <MotionButton type="button" onClick={() => removeMemoRow(memoIndex)} style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: '6px', padding: '0.35rem 0.65rem', color: 'var(--danger)', cursor: 'pointer', fontWeight: 700 }}>
+                            Delete Memo
+                          </MotionButton>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '0.9rem' }}>
+                          <input
+                            type="text"
+                            value={memo.title || ''}
+                            onChange={(e) => handleMemoChange(memoIndex, 'title', e.target.value)}
+                            placeholder="Memo title"
+                            style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-header)', fontSize: '0.875rem' }}
+                          />
+                          <textarea
+                            value={memo.description || ''}
+                            onChange={(e) => handleMemoChange(memoIndex, 'description', e.target.value)}
+                            placeholder="Add memo details"
+                            rows={3}
+                            style={{ width: '100%', resize: 'vertical', padding: '0.5rem 0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-header)', fontSize: '0.875rem' }}
+                          />
+                        </div>
+
+                        <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h4 style={{ margin: 0, color: 'var(--text-header)', fontSize: '0.95rem' }}>Memo Items</h4>
+                          <MotionButton type="button" onClick={() => addMemoItemRow(memoIndex)} style={{ padding: '0.25rem 0.7rem', background: 'transparent', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>
+                            <Plus size={14} /> Add Row
+                          </MotionButton>
+                        </div>
+
+                        <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.875rem' }}>
+                            <thead style={{ background: 'var(--bg-main)' }}>
+                              <tr>
+                                <th style={{ padding: '0.5rem', textAlign: 'center', width: '8%' }}>Sr No</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'left', width: '25%' }}>Product</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'left', width: '40%' }}>Description</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'left', width: '18%' }}>Amount ($)</th>
+                                <th style={{ padding: '0.5rem', textAlign: 'center', width: '10%' }}>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(Array.isArray(memo.memoItems) ? memo.memoItems : []).map((item, itemIndex) => (
+                                <tr key={`${memo.id || memoIndex}-${itemIndex}`} style={{ borderTop: '1px solid var(--border)' }}>
+                                  <td style={{ padding: '0.5rem', textAlign: 'center' }}>{itemIndex + 1}</td>
+                                  <td style={{ padding: '0.5rem' }}>
+                                    <select
+                                      value={item.product || 'Ring'}
+                                      onChange={(e) => handleMemoItemChange(memoIndex, itemIndex, 'product', e.target.value)}
+                                      style={{ width: '100%', padding: '0.25rem 0.5rem', border: `1px solid ${formSubmitted && errors.memoErrors?.[memoIndex]?.itemErrors?.[itemIndex]?.product ? 'var(--danger)' : 'transparent'}`, borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-header)', fontSize: '0.875rem' }}
+                                    >
+                                      <option value="">Select Product</option>
+                                      {PRODUCT_OPTIONS.map((option) => (
+                                        <option key={option} value={option}>{option}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td style={{ padding: '0.5rem' }}>
+                                    <input
+                                      type="text"
+                                      value={item.description || ''}
+                                      onChange={(e) => handleMemoItemChange(memoIndex, itemIndex, 'description', e.target.value)}
+                                      placeholder="Enter description"
+                                      style={{ width: '100%', padding: '0.25rem 0.5rem', border: '1px solid transparent', borderRadius: '4px', background: 'transparent', color: 'var(--text-header)', fontSize: '0.875rem' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '0.5rem' }}>
+                                    <input
+                                      type="number"
+                                      value={item.amount}
+                                      onChange={(e) => handleMemoItemChange(memoIndex, itemIndex, 'amount', e.target.value)}
+                                      step="0.01"
+                                      style={{ width: '100%', padding: '0.25rem 0.5rem', border: `1px solid ${formSubmitted && errors.memoErrors?.[memoIndex]?.itemErrors?.[itemIndex]?.amount ? 'var(--danger)' : 'transparent'}`, borderRadius: '4px', background: 'transparent', color: 'var(--text-header)', textAlign: 'right', fontSize: '0.875rem' }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                                    <MotionButton type="button" onClick={() => removeMemoItemRow(memoIndex, itemIndex)} disabled={(Array.isArray(memo.memoItems) ? memo.memoItems : []).length === 1} style={{ background: 'transparent', border: 'none', color: (Array.isArray(memo.memoItems) ? memo.memoItems : []).length === 1 ? 'var(--text-muted)' : 'var(--danger)', cursor: (Array.isArray(memo.memoItems) ? memo.memoItems : []).length === 1 ? 'not-allowed' : 'pointer', padding: '0.25rem' }}>
+                                      <Trash2 size={16} />
+                                    </MotionButton>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {formSubmitted && errors.memoErrors?.[memoIndex]?.itemErrors && (
+                          <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.35rem' }}>Memo item values are invalid.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -2881,6 +3083,24 @@ function Invoice() {
                     </table>
                   </div>
                 </div>
+
+                {(infoInvoice?.memos || []).length > 0 && (
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Memo Records</div>
+                    <div style={{ display: 'grid', gap: '0.75rem' }}>
+                      {(infoInvoice?.memos || []).map((memo, idx) => (
+                        <div key={memo?.id || idx} style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '0.75rem', background: 'var(--bg-main)' }}>
+                          <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-header)', marginBottom: '0.35rem' }}>
+                            {memo?.title || 'Memo'}
+                          </div>
+                          <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text-main)', fontSize: '0.875rem', lineHeight: 1.5 }}>
+                            {memo?.description || '—'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

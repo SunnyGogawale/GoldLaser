@@ -128,6 +128,25 @@ const normalizeInvoiceValue = (field, value) => {
     }));
   }
 
+  if (field === 'memos') {
+    const arr = Array.isArray(value) ? value : [];
+    return arr
+      .filter((memo) => memo && (memo.title || memo.description || memo.id || memo.createdAt || Array.isArray(memo.memoItems)))
+      .map((memo) => ({
+        id: String(memo?.id || memo?._id || `memo-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+        title: String(memo?.title || ''),
+        description: String(memo?.description || ''),
+        memoItems: Array.isArray(memo?.memoItems)
+          ? memo.memoItems.map((item) => ({
+              product: String(item?.product || ''),
+              description: String(item?.description || ''),
+              amount: Number(item?.amount) || 0
+            }))
+          : [],
+        createdAt: memo?.createdAt || new Date().toISOString()
+      }));
+  }
+
   return value;
 };
 
@@ -439,6 +458,7 @@ router.post('/', async (req, res) => {
     }
 
     const authUser = await getAuthUserInfo(req);
+    const normalizedMemos = normalizeInvoiceValue('memos', req.body.memos || []);
     if (!req.body.clientId || !isObjectId(req.body.clientId)) {
       return res.status(400).json({ message: 'Valid client is required' });
     }
@@ -473,6 +493,7 @@ router.post('/', async (req, res) => {
       clientType: req.body.clientType || 'Vendor',
       invoiceDate: req.body.invoiceDate,
       items: req.body.items,
+      memos: normalizedMemos,
       attachments: normalizeInvoiceValue('attachments', req.body.attachments),
       totalAmount: req.body.totalAmount,
       createdBy: authUser?.id || null,
@@ -596,3 +617,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.normalizeInvoiceValue = normalizeInvoiceValue;

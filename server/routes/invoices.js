@@ -124,6 +124,25 @@ const normalizeInvoiceValue = (field, value) => {
     }));
   }
 
+  if (field === 'memos') {
+    const arr = Array.isArray(value) ? value : [];
+    return arr
+      .filter((memo) => memo && (memo.title || memo.description || memo.id || memo.createdAt || Array.isArray(memo.memoItems)))
+      .map((memo) => ({
+        id: String(memo?.id || memo?._id || `memo-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+        title: String(memo?.title || ''),
+        description: String(memo?.description || ''),
+        memoItems: Array.isArray(memo?.memoItems)
+          ? memo.memoItems.map((item) => ({
+              product: String(item?.product || ''),
+              description: String(item?.description || ''),
+              amount: Number(item?.amount) || 0
+            }))
+          : [],
+        createdAt: memo?.createdAt || new Date().toISOString()
+      }));
+  }
+
   return value;
 };
 
@@ -402,6 +421,7 @@ router.post('/', async (req, res) => {
 
     const authUser = await getAuthUserInfo(req);
     const normalizedItems = normalizeInvoiceValue('items', req.body.items || []);
+    const normalizedMemos = normalizeInvoiceValue('memos', req.body.memos || []);
     const normalizedAttachments = normalizeInvoiceValue('attachments', req.body.attachments);
     const requestedTotal = Number(req.body.totalAmount || 0);
 
@@ -454,6 +474,7 @@ router.post('/', async (req, res) => {
       clientType: req.body.clientType,
       invoiceDate: req.body.invoiceDate,
       items: normalizedItems,
+      memos: normalizedMemos,
       attachments: normalizedAttachments,
       totalAmount: requestedTotal || normalizedItems.reduce((sum, item) => sum + Number(item?.amount || 0), 0),
       createdBy: authUser?.id || null,
@@ -560,3 +581,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.normalizeInvoiceValue = normalizeInvoiceValue;
