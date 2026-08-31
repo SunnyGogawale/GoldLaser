@@ -497,11 +497,12 @@ function PurchasePayment() {
       return next
     })
 
-    if (formSubmitted && (errors.allocations || errors.amount)) {
+    if (formSubmitted && (errors.allocations || errors.amount || errors.allocationDescription)) {
       setErrors((prev) => {
         const next = { ...prev }
         delete next.allocations
         delete next.amount
+        delete next.allocationDescription
         return next
       })
     }
@@ -516,11 +517,12 @@ function PurchasePayment() {
       : sanitized
     setInvoicePaymentAmounts((prev) => ({ ...prev, [id]: normalized }))
 
-    if (formSubmitted && (errors.allocations || errors.amount)) {
+    if (formSubmitted && (errors.allocations || errors.amount || errors.allocationDescription)) {
       setErrors((prev) => {
         const next = { ...prev }
         delete next.allocations
         delete next.amount
+        delete next.allocationDescription
         return next
       })
     }
@@ -531,10 +533,11 @@ function PurchasePayment() {
     const nextValue = String(value || '').slice(0, 250)
     setInvoiceDescriptions((prev) => ({ ...prev, [id]: nextValue }))
 
-    if (formSubmitted && errors.allocations) {
+    if (formSubmitted && (errors.allocations || errors.allocationDescription)) {
       setErrors((prev) => {
         const next = { ...prev }
         delete next.allocations
+        delete next.allocationDescription
         return next
       })
     }
@@ -685,9 +688,6 @@ function PurchasePayment() {
 
     const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
     const selectedIds = Array.from(selectedInvoiceIdSet)
-    if (roundedAmount <= 0 && selectedIds.length === 0) {
-      newErrors.amount = 'Please enter a payment amount or select at least one invoice to allocate payment'
-    }
     if (selectedIds.length > 0) {
       for (const invoiceId of selectedIds) {
         const inv = pendingById.get(String(invoiceId))
@@ -697,8 +697,13 @@ function PurchasePayment() {
         }
         const enteredAmount = Number(invoicePaymentAmounts[String(invoiceId)])
         const pendingAmount = Math.max(0, Number(inv.pendingAmount) || 0)
+        const rowDescription = String(invoiceDescriptions[String(invoiceId)] || '').trim()
         if (enteredAmount > pendingAmount) {
           newErrors.allocations = `Payment amount cannot exceed balance for invoice ${inv.invoiceNumber}`
+          break
+        }
+        if (!rowDescription) {
+          newErrors.allocationDescription = `Enter description for invoice ${inv.invoiceNumber}`
           break
         }
       }
@@ -2178,6 +2183,9 @@ function PurchasePayment() {
 
                   {formSubmitted && errors.allocations && (
                     <p style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{errors.allocations}</p>
+                  )}
+                  {formSubmitted && errors.allocationDescription && (
+                    <p style={{ color: 'var(--danger)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{errors.allocationDescription}</p>
                   )}
 
                   <div style={{
