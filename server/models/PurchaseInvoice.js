@@ -46,7 +46,8 @@ const invoiceItemSchema = new mongoose.Schema({
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
+    min: 0
   }
 });
 
@@ -62,29 +63,6 @@ const invoiceAttachmentSchema = new mongoose.Schema({
   dataUrl: {
     type: String,
     required: true
-  }
-}, { _id: false });
-
-const invoiceMemoSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    default: ''
-  },
-  title: {
-    type: String,
-    default: ''
-  },
-  description: {
-    type: String,
-    default: ''
-  },
-  memoItems: {
-    type: [invoiceItemSchema],
-    default: []
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
 }, { _id: false });
 
@@ -143,10 +121,6 @@ const invoiceSchema = new mongoose.Schema({
     default: Date.now
   },
   items: [invoiceItemSchema],
-  memos: {
-    type: [invoiceMemoSchema],
-    default: []
-  },
   attachments: {
     type: [invoiceAttachmentSchema],
     default: []
