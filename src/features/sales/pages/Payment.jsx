@@ -141,8 +141,8 @@ function Payment() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortColumn, setSortColumn] = useState('paymentDate')
-  const [sortOrder, setSortOrder] = useState('desc')
+  const [sortColumn, setSortColumn] = useState('')
+  const [sortOrder, setSortOrder] = useState('asc')
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -297,8 +297,10 @@ function Payment() {
     if (autoAllocateOnSelect) return
 
     const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
+    const available = Math.max(0, Number(availableCredit) || 0)
+    const totalAvailable = enteredAmount + available
 
-    if (!(enteredAmount > 0)) {
+    if (!(totalAvailable > 0)) {
       setSelectedInvoiceIds([])
       setInvoicePaymentAmounts({})
       setInvoiceDescriptions({})
@@ -312,7 +314,7 @@ function Payment() {
       return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''))
     })
 
-    let remaining = enteredAmount
+    let remaining = totalAvailable
     const autoIds = []
     for (const inv of sortedInvoices) {
       if (!(remaining > 0)) break
@@ -337,7 +339,7 @@ function Payment() {
       for (const id of autoIds) delete next[id]
       return next
     })
-  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices])
+  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
 
   const parseInvoiceTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim().toLowerCase()).filter(Boolean)
   const parseInvoiceRawTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim()).filter(Boolean)
@@ -417,8 +419,10 @@ function Payment() {
 
   const allocatePaymentAmountFifo = (amount) => {
     const enteredAmount = Math.max(0, Number(amount) || 0)
+    const available = Math.max(0, Number(availableCredit) || 0)
+    const totalAvailable = enteredAmount + available
 
-    if (!(enteredAmount > 0)) {
+    if (!(totalAvailable > 0)) {
       setSelectedInvoiceIds([])
       setInvoicePaymentAmounts({})
       setInvoiceDescriptions({})
@@ -432,7 +436,7 @@ function Payment() {
       return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''))
     })
 
-    let remaining = enteredAmount
+    let remaining = totalAvailable
     const nextAmounts = {}
     const nextIds = []
     const nextDescriptions = {}
@@ -686,7 +690,7 @@ function Payment() {
     if (!autoAllocateOnSelect) return
     if (!paymentForm.amount) return
     allocatePaymentAmountFifo(paymentForm.amount)
-  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices])
+  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
 
   const validateForm = () => {
     const newErrors = {}
