@@ -9,6 +9,12 @@ import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
+import {
+  calculateAdjustedBillPaymentAmount,
+  calculateCashAmountAfterCredit,
+  calculateCreditUsedOnSelections,
+  calculateRemainingAvailableCredit
+} from '../../../utils/creditCalculation'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/purchase-payments`
@@ -296,7 +302,7 @@ function PurchasePayment() {
     if (autoAllocateOnSelect) return
 
     const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
-    const available = Math.max(0, Number(availableCredit) || 0)
+    const available = Math.max(0, Number(remainingAvailableCredit) || 0)
     const totalAvailable = enteredAmount + available
 
     if (!(totalAvailable > 0)) {
@@ -412,15 +418,23 @@ function PurchasePayment() {
     return selectedAllocations.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   }, [selectedAllocations])
 
+  const creditUsedOnSelections = useMemo(() => {
+    return calculateCreditUsedOnSelections(selectedInvoiceIds, invoicePaymentAmounts)
+  }, [selectedInvoiceIds, invoicePaymentAmounts])
+
+  const remainingAvailableCredit = useMemo(() => {
+    return calculateRemainingAvailableCredit(availableCredit, creditUsedOnSelections)
+  }, [availableCredit, creditUsedOnSelections])
+
   const billPaymentAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
-  const netAmountToPay = Math.max(0, Math.round((billPaymentAmount - (Number(availableCredit) || 0) + Number.EPSILON) * 100) / 100)
+  const netAmountToPay = calculateAdjustedBillPaymentAmount(billPaymentAmount, remainingAvailableCredit)
   const adjustedBillPaymentAmount = netAmountToPay
   const enteredPaymentAmount = Math.max(0, Number(paymentForm.amount) || 0)
   const outstandingAmount = Math.round((enteredPaymentAmount - adjustedBillPaymentAmount + Number.EPSILON) * 100) / 100
 
   const allocatePaymentAmountFifo = (amount) => {
     const enteredAmount = Math.max(0, Number(amount) || 0)
-    const available = Math.max(0, Number(availableCredit) || 0)
+    const available = Math.max(0, Number(remainingAvailableCredit) || 0)
     const totalAvailable = enteredAmount + available
 
     if (!(totalAvailable > 0)) {
@@ -674,7 +688,7 @@ function PurchasePayment() {
     if (!autoAllocateOnSelect) return
     if (!paymentForm.amount) return
     allocatePaymentAmountFifo(paymentForm.amount)
-  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
+  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, remainingAvailableCredit])
 
   const validateForm = () => {
     const newErrors = {}
@@ -724,8 +738,8 @@ function PurchasePayment() {
       
       // Calculate amount: if blank/0 and invoices selected, use total of selected allocations
       const userAmount = Number(paymentForm.amount) || 0
-      const finalAmount = userAmount === 0 && selectedAllocations.length > 0 
-        ? selectedAllocationTotal 
+      const finalAmount = selectedAllocations.length > 0
+        ? calculateCashAmountAfterCredit(selectedAllocationTotal, availableCredit)
         : userAmount
       
       const payload = {
@@ -1790,9 +1804,14 @@ function PurchasePayment() {
                       <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.amount}</p>
                     )}
                     <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                      {Number(availableCredit) > 0 && (
+                      {Number(remainingAvailableCredit) > 0 && (
                         <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
-                          Available Credit: ${formatMoney(availableCredit)}
+                          Available Credit: ${formatMoney(remainingAvailableCredit)}
+                          {selectedInvoiceIds.length > 0 && creditUsedOnSelections > 0 && (
+                            <span style={{ fontSize: '0.75rem', color: 'rgb(107, 114, 128)', marginLeft: '0.5rem' }}>
+                              (Used: ${formatMoney(creditUsedOnSelections)} / Remaining: ${formatMoney(remainingAvailableCredit)})
+                            </span>
+                          )}
                         </div>
                       )}
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -2173,13 +2192,18 @@ function PurchasePayment() {
                             ${formatMoney(selectedAllocationTotal)}
                           </td>
                         </tr>
-                        {Number(availableCredit) > 0 && (
+                        {Number(remainingAvailableCredit) > 0 && (
                           <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(34, 197, 94, 0.08)' }}>
                             <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
                               Available Credit:
                             </td>
                             <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
-                              ${formatMoney(availableCredit)}
+                              ${formatMoney(remainingAvailableCredit)}
+                              {selectedInvoiceIds.length > 0 && creditUsedOnSelections > 0 && (
+                                <div style={{ fontSize: '0.75rem', color: 'rgb(107, 114, 128)', marginTop: '0.25rem' }}>
+                                  (Used: ${formatMoney(creditUsedOnSelections)} / Remaining: ${formatMoney(remainingAvailableCredit)})
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )}
