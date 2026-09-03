@@ -1,259 +1,146 @@
 const express = require('express');
-const router = express.Router();
 const mongoose = require('mongoose');
-const Invoice = require('../models/SaleInvoice');
+const SaleInvoice = require('../models/SaleInvoice');
+const PurchaseInvoice = require('../models/PurchaseInvoice');
 const SalePayment = require('../models/SalePayment');
+const PurchasePayment = require('../models/PurchasePayment');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const { sendErrorResponse } = require('../utils/errorHandler');
 
-function parseDateStart(value) {
-  if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+const router = express.Router();
 
-function parseDateEnd(value) {
+const parseDate = (value, endOfDay = false) => {
   if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return date;
+};
 
-function buildInvoiceMatch({ fromDate, toDate, customerId }) {
+const buildMatch = (query, dateField) => {
   const match = {};
-  const from = parseDateStart(fromDate);
-  const to = parseDateEnd(toDate);
-
+  const from = parseDate(query.fromDate);
+  const to = parseDate(query.toDate, true);
   if (from || to) {
-    match.invoiceDate = {};
-    if (from) match.invoiceDate.$gte = from;
-    if (to) match.invoiceDate.$lte = to;
+    match[dateField] = {};
+    if (from) match[dateField].$gte = from;
+    if (to) match[dateField].$lte = to;
   }
-
-  if (customerId) {
-    match.$or = [
-      { customerId: new mongoose.Types.ObjectId(customerId) },
-      { clientId: new mongoose.Types.ObjectId(customerId), clientType: 'Customer' }
-    ];
+  if (query.clientId && mongoose.isValidObjectId(query.clientId)) {
+    match.clientId = new mongoose.Types.ObjectId(query.clientId);
+    if (query.clientType === 'Customer' || query.clientType === 'Vendor') match.clientType = query.clientType;
   }
-
   return match;
-}
+};
 
-async function getPaidAmountMapByInvoiceIds(invoiceIds) {
-  const rows = await SalePayment.aggregate([
-    { $unwind: '$allocations' },
-    { $match: { 'allocations.invoiceId': { $in: invoiceIds } } },
-    {
-      $group: {
-        _id: '$allocations.invoiceId',
-        paidAmount: { $sum: '$allocations.amount' }
-      }
-    }
+const getClients = async (records) => {
+  const customerIds = records.filter((record) => record.clientType === 'Customer').map((record) => record.clientId);
+  const vendorIds = records.filter((record) => record.clientType === 'Vendor').map((record) => record.clientId);
+  const [customers, vendors] = await Promise.all([
+    customerIds.length ? Customer.find({ _id: { $in: customerIds } }).lean() : [],
+    vendorIds.length ? Vendor.find({ _id: { $in: vendorIds } }).lean() : []
   ]);
+  return {
+    customers: new Map(customers.map((client) => [String(client._id), client])),
+    vendors: new Map(vendors.map((client) => [String(client._id), client]))
+  };
+};
 
-  const map = new Map();
-  for (const row of rows) {
-    map.set(String(row._id), row.paidAmount);
-  }
+const getClientName = (record, clients) => {
+  const clientMap = record.clientType === 'Vendor' ? clients.vendors : clients.customers;
+  const client = clientMap.get(String(record.clientId));
+  return record.clientType === 'Vendor'
+    ? client?.vendorName || client?.companyName || `${client?.firstName || ''} ${client?.lastName || ''}`.trim() || 'Unknown'
+    : client?.customerName || client?.companyName || `${client?.firstName || ''} ${client?.lastName || ''}`.trim() || 'Unknown';
+};
 
-  return map;
-}
-
-router.get('/invoice-summary', async (req, res) => {
+const createReportHandler = ({ Invoice, Payment, type }) => async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 25;
-    const skip = (page - 1) * limit;
-
-    const match = buildInvoiceMatch({
-      fromDate: req.query.fromDate,
-      toDate: req.query.toDate,
-      customerId: req.query.customerId
-    });
-
-    const allInvoices = await Invoice.find(match)
-      .sort({ invoiceDate: 1, createdAt: 1 });
-
-    const invoiceIds = allInvoices.map(invoice => invoice._id);
-    const paidMap = await getPaidAmountMapByInvoiceIds(invoiceIds);
-
-    const invoices = allInvoices.slice(skip, skip + limit);
-
-    if (invoices.length === 0) {
-      return res.json({
-        rows: [],
-        totals: {
-          totalInvoiceAmount: 0,
-          totalPaidAmount: 0,
-          totalPendingAmount: 0
-        },
-        total: allInvoices.length,
-        page,
-        totalPages: Math.ceil(allInvoices.length / limit)
-      });
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(10000, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const [allInvoices, allPayments] = await Promise.all([
+      Invoice.find(buildMatch(req.query, 'invoiceDate')).sort({ invoiceDate: 1, createdAt: 1 }).lean(),
+      Payment.find(buildMatch(req.query, 'paymentDate')).sort({ paymentDate: 1, createdAt: 1 }).lean()
+    ]);
+    const clients = await getClients([...allInvoices, ...allPayments]);
+    const paidMap = new Map();
+    for (const payment of allPayments) {
+      for (const allocation of Array.isArray(payment.allocations) ? payment.allocations : []) {
+        const invoiceId = String(allInvoices.some((invoice) => String(invoice._id) === String(allocation.invoiceId)) ? allocation.invoiceId : '');
+        if (invoiceId) paidMap.set(invoiceId, (paidMap.get(invoiceId) || 0) + (Number(allocation.amount) || 0));
+      }
     }
 
-    // Collect all client ids
-    const customerIds = [];
-    const vendorIds = [];
-    invoices.forEach(invoice => {
-      if (invoice.clientType === 'Customer' && invoice.clientId) {
-        customerIds.push(invoice.clientId.toString());
-      } else if (invoice.clientType === 'Vendor' && invoice.clientId) {
-        vendorIds.push(invoice.clientId.toString());
-      } else if (invoice.customerId) {
-        customerIds.push(invoice.customerId.toString());
-      }
-    });
-
-    // Fetch customers and vendors
-    const customers = customerIds.length ? await Customer.find({ _id: { $in: customerIds } }) : [];
-    const vendors = vendorIds.length ? await Vendor.find({ _id: { $in: vendorIds } }) : [];
-    const customerMap = new Map(customers.map(c => [c._id.toString(), c]));
-    const vendorMap = new Map(vendors.map(v => [v._id.toString(), v]));
-
-    const rows = invoices.map(invoice => {
-      let clientName = 'Unknown';
-      let clientIdStr;
-      if (invoice.clientType === 'Customer' && invoice.clientId) {
-        clientIdStr = invoice.clientId.toString();
-        const customer = customerMap.get(clientIdStr);
-        clientName = customer?.customerName || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'Unknown';
-      } else if (invoice.clientType === 'Vendor' && invoice.clientId) {
-        clientIdStr = invoice.clientId.toString();
-        const vendor = vendorMap.get(clientIdStr);
-        clientName = vendor?.vendorName || `${vendor?.firstName || ''} ${vendor?.lastName || ''}`.trim() || 'Unknown';
-      } else if (invoice.customerId) {
-        clientIdStr = invoice.customerId.toString();
-        const customer = customerMap.get(clientIdStr);
-        clientName = customer?.customerName || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || 'Unknown';
-      }
-      const invoiceAmount = Number(invoice.totalAmount || 0);
-      const paidAmount = paidMap.get(String(invoice._id)) || 0;
-      const pendingAmount = Math.max(0, invoiceAmount - paidAmount);
-      const status = paidAmount >= invoiceAmount ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Pending';
-
+    const invoiceRows = allInvoices.map((invoice) => {
+      const invoiceAmount = Number(invoice.totalAmount) || 0;
+      const paymentAmount = Math.min(invoiceAmount, paidMap.get(String(invoice._id)) || 0);
+      const pendingAmount = Math.max(0, invoiceAmount - paymentAmount);
       return {
-        _id: invoice._id,
+        _id: `invoice-${invoice._id}`,
+        date: invoice.invoiceDate,
+        transactionNo: invoice.invoiceNumber,
+        transactionType: `${type} Invoice`,
+        type: `${type} Invoice`,
         invoiceNumber: invoice.invoiceNumber,
-        invoiceDate: invoice.invoiceDate,
-        customerName: clientName,
+        clientType: invoice.clientType,
+        clientName: getClientName(invoice, clients),
+        description: invoice.transactionDescription || '',
+        debit: invoiceAmount,
+        credit: 0,
+        balance: pendingAmount,
+        amount: invoiceAmount,
         invoiceAmount,
-        paidAmount,
-        paymentAmount: paidAmount,
+        paymentAmount: 0,
         pendingAmount,
-        status
+        status: pendingAmount === 0 ? 'Paid' : paymentAmount > 0 ? 'Partial' : 'Pending'
       };
     });
 
-    const totals = allInvoices.reduce((acc, invoice) => {
-      const invoiceAmount = Number(invoice.totalAmount || 0);
-      const paidAmount = paidMap.get(String(invoice._id)) || 0;
-      const pendingAmount = Math.max(0, invoiceAmount - paidAmount);
-
-      acc.totalInvoiceAmount += invoiceAmount;
-      acc.totalPaidAmount += paidAmount;
-      acc.totalPendingAmount += pendingAmount;
-      acc.total += 1;
-
-      return acc;
-    }, {
-      total: 0,
-      totalInvoiceAmount: 0,
-      totalPaidAmount: 0,
-      totalPendingAmount: 0
-    });
-
-    res.json({
-      rows,
-      totals: {
-        totalInvoiceAmount: totals.totalInvoiceAmount,
-        totalPaidAmount: totals.totalPaidAmount,
-        totalPendingAmount: totals.totalPendingAmount
-      },
-      total: totals.total,
-      page,
-      totalPages: Math.ceil(totals.total / limit)
-    });
-  } catch (err) {
-    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'reports.invoiceSummary');
-  }
-});
-
-router.get('/sales', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 25;
-    const skip = (page - 1) * limit;
-
-    const match = buildInvoiceMatch({
-      fromDate: req.query.fromDate,
-      toDate: req.query.toDate,
-      customerId: req.query.customerId
-    });
-
-    const allInvoices = await Invoice.find(match)
-      .sort({ invoiceDate: 1, createdAt: 1 });
-
-    const invoiceIds = allInvoices.map(invoice => invoice._id);
-    const paidMap = await getPaidAmountMapByInvoiceIds(invoiceIds);
-
-    const invoices = allInvoices.slice(skip, skip + limit);
-    const rows = invoices.map(invoice => {
-      const invoiceAmount = Number(invoice.totalAmount || 0);
-      const paidAmount = paidMap.get(String(invoice._id)) || 0;
-      const pendingAmount = Math.max(0, invoiceAmount - paidAmount);
-      const status = paidAmount >= invoiceAmount ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Pending';
-
+    const paymentRows = allPayments.map((payment) => {
+      const allocationAmount = (Array.isArray(payment.allocations) ? payment.allocations : [])
+        .reduce((total, allocation) => total + (Number(allocation.amount) || 0), 0);
+      const creditAmount = Number(payment.amount) || allocationAmount;
       return {
-        _id: invoice._id,
-        invoiceNumber: invoice.invoiceNumber,
-        invoiceDate: invoice.invoiceDate,
-        invoiceAmount,
-        paidAmount,
-        paymentAmount: paidAmount,
-        pendingAmount,
-        status
+        _id: `payment-${payment._id}`,
+        date: payment.paymentDate,
+        transactionNo: payment.paymentNumber,
+        transactionType: `${type} Payment`,
+        type: `${type} Payment`,
+        invoiceNumber: payment.paymentNumber,
+        clientType: payment.clientType,
+        clientName: getClientName(payment, clients),
+        description: payment.description || '',
+        debit: 0,
+        credit: creditAmount,
+        balance: 0,
+        amount: creditAmount,
+        invoiceAmount: 0,
+        paymentAmount: creditAmount,
+        pendingAmount: 0,
+        status: 'Paid'
       };
     });
 
-    const totals = allInvoices.reduce((acc, invoice) => {
-      const invoiceAmount = Number(invoice.totalAmount || 0);
-      const paidAmount = paidMap.get(String(invoice._id)) || 0;
-      const pendingAmount = Math.max(0, invoiceAmount - paidAmount);
-
-      acc.totalInvoiceAmount += invoiceAmount;
-      acc.totalPaidAmount += paidAmount;
-      acc.totalPendingAmount += pendingAmount;
-      acc.total += 1;
-
-      return acc;
-    }, {
-      total: 0,
-      totalInvoiceAmount: 0,
-      totalPaidAmount: 0,
-      totalPendingAmount: 0
+    const rows = [...invoiceRows, ...paymentRows].sort((a, b) => {
+      const dateDifference = new Date(a.date).getTime() - new Date(b.date).getTime();
+      return dateDifference || String(a.transactionNo).localeCompare(String(b.transactionNo));
     });
 
-    res.json({
-      rows,
-      totals: {
-        totalInvoiceAmount: totals.totalInvoiceAmount,
-        totalPaidAmount: totals.totalPaidAmount,
-        totalPendingAmount: totals.totalPendingAmount
-      },
-      total: totals.total,
-      page,
-      totalPages: Math.ceil(totals.total / limit)
-    });
-  } catch (err) {
-    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'reports.sales');
+    const totals = {
+      totalInvoiceAmount: invoiceRows.reduce((total, row) => total + row.debit, 0),
+      totalPaymentAmount: paymentRows.reduce((total, row) => total + row.credit, 0),
+      totalPendingAmount: invoiceRows.reduce((total, row) => total + row.balance, 0)
+    };
+
+    res.json({ rows: rows.slice((page - 1) * limit, page * limit), totals, total: rows.length, page, totalPages: Math.ceil(rows.length / limit) });
+  } catch (error) {
+    sendErrorResponse(res, error, 'Something went wrong. Please try again later.', 500, `reports.${type.toLowerCase()}`);
   }
-});
+};
+
+router.get('/sales', createReportHandler({ Invoice: SaleInvoice, Payment: SalePayment, type: 'Sale' }));
+router.get('/purchases', createReportHandler({ Invoice: PurchaseInvoice, Payment: PurchasePayment, type: 'Purchase' }));
+router.get('/invoice-summary', createReportHandler({ Invoice: SaleInvoice, Payment: SalePayment, type: 'Sale' }));
 
 module.exports = router;
