@@ -168,7 +168,6 @@ function Payment() {
   const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false)
   const [paymentHistory, setPaymentHistory] = useState(null)
   const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false)
-  const [paymentHistoryPage, setPaymentHistoryPage] = useState(1)
   const [openDropdownId, setOpenDropdownId] = useState(null)
   const [dropdownPayment, setDropdownPayment] = useState(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
@@ -868,7 +867,6 @@ function Payment() {
 
   const openPaymentHistory = async (payment) => {
     if (!isAdmin || !payment?._id) return
-    setPaymentHistoryPage(1)
     setPaymentHistoryOpen(true)
     setPaymentHistoryLoading(true)
     setPaymentHistory(null)
@@ -1697,12 +1695,6 @@ function Payment() {
 
   const formatMoney = (value) =>
     Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-  const paymentHistoryRows = (paymentHistory?.activity || []).flatMap((event) => (event.changes || []).map((change) => ({ ...change, userName: event.userName, at: event.at })))
-  const paymentHistoryPageSize = 20
-  const paymentHistoryTotalPages = Math.max(1, Math.ceil(paymentHistoryRows.length / paymentHistoryPageSize))
-  const currentPaymentHistoryPage = Math.min(paymentHistoryPage, paymentHistoryTotalPages)
-  const paginatedPaymentHistoryRows = paymentHistoryRows.slice((currentPaymentHistoryPage - 1) * paymentHistoryPageSize, currentPaymentHistoryPage * paymentHistoryPageSize)
 
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
@@ -3432,42 +3424,33 @@ function Payment() {
                 <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading payment history...</div>
               ) : paymentHistory ? (
                 <div style={{ marginTop: '1rem' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem', fontSize: '0.72rem' }}>
-                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>Created By</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.createdBy || '-'}</div></div>
-                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>Created Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.createdAt ? new Date(paymentHistory.createdAt).toLocaleString('en-US') : '-'}</div></div>
-                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>Updated By</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.updatedBy || '-'}</div></div>
-                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700 }}>Updated Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.updatedAt ? new Date(paymentHistory.updatedAt).toLocaleString('en-US') : '-'}</div></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Created By</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.createdBy || '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Created Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.createdAt ? new Date(paymentHistory.createdAt).toLocaleString('en-US') : '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Updated By</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.updatedBy || '-'}</div></div>
+                    <div><div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700 }}>Updated Date &amp; Time</div><div style={{ color: 'var(--text-main)' }}>{paymentHistory.updatedAt ? new Date(paymentHistory.updatedAt).toLocaleString('en-US') : '-'}</div></div>
                   </div>
                   <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                       <thead>
                         <tr style={{ background: 'var(--bg-main)' }}>
-                          {['Field Name', 'Old Value', 'New Value', 'Changed By', 'Changed Date & Time'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-header)', fontSize: '0.7rem' }}>{label}</th>)}
+                          {['Field Name', 'Old Value', 'New Value', 'Changed By', 'Changed Date & Time'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-header)' }}>{label}</th>)}
                         </tr>
                       </thead>
                       <tbody>
-                        {paginatedPaymentHistoryRows.length > 0 ? paginatedPaymentHistoryRows.map((change, index) => (
+                        {(paymentHistory.activity || []).flatMap((event) => (event.changes || []).map((change) => ({ ...change, userName: event.userName, at: event.at }))).map((change, index) => (
                           <tr key={`${change.field}-${change.at}-${index}`}>
-                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-header)', fontWeight: 700, fontSize: '0.7rem' }}>{change.field}</td>
-                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.7rem' }}>{change.from || '-'}</td>
-                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.7rem' }}>{change.to || '-'}</td>
-                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-main)', fontSize: '0.7rem' }}>{change.userName || '-'}</td>
-                            <td style={{ padding: '0.45rem', border: '1px solid var(--border)', color: 'var(--text-main)', fontSize: '0.7rem' }}>{change.at ? new Date(change.at).toLocaleString('en-US') : '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-header)', fontWeight: 700 }}>{change.field}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{change.from || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{change.to || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)' }}>{change.userName || '-'}</td>
+                            <td style={{ padding: '0.55rem', border: '1px solid var(--border)', color: 'var(--text-main)' }}>{change.at ? new Date(change.at).toLocaleString('en-US') : '-'}</td>
                           </tr>
-                        )) : <tr><td colSpan={5} style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No field changes recorded.</td></tr>}
+                        ))}
+                        {(!paymentHistory.activity || paymentHistory.activity.every((event) => !(event.changes || []).length)) && <tr><td colSpan={5} style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>No field changes recorded.</td></tr>}
                       </tbody>
                     </table>
                   </div>
-                  {paymentHistoryRows.length > paymentHistoryPageSize && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginTop: '0.85rem', flexWrap: 'wrap', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      <div>Showing {Math.min((currentPaymentHistoryPage - 1) * paymentHistoryPageSize + 1, paymentHistoryRows.length)}-{Math.min(currentPaymentHistoryPage * paymentHistoryPageSize, paymentHistoryRows.length)} of {paymentHistoryRows.length}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <button type="button" onClick={() => setPaymentHistoryPage((prev) => Math.max(1, prev - 1))} disabled={currentPaymentHistoryPage === 1} style={{ padding: '0.35rem 0.7rem', borderRadius: '6px', border: '1px solid var(--border)', background: currentPaymentHistoryPage === 1 ? 'var(--bg-main)' : 'var(--bg-card)', color: 'var(--text-header)', cursor: currentPaymentHistoryPage === 1 ? 'not-allowed' : 'pointer', opacity: currentPaymentHistoryPage === 1 ? 0.6 : 1 }}>Previous</button>
-                        <span>Page {currentPaymentHistoryPage} / {paymentHistoryTotalPages}</span>
-                        <button type="button" onClick={() => setPaymentHistoryPage((prev) => Math.min(paymentHistoryTotalPages, prev + 1))} disabled={currentPaymentHistoryPage >= paymentHistoryTotalPages} style={{ padding: '0.35rem 0.7rem', borderRadius: '6px', border: '1px solid var(--border)', background: currentPaymentHistoryPage >= paymentHistoryTotalPages ? 'var(--bg-main)' : 'var(--bg-card)', color: 'var(--text-header)', cursor: currentPaymentHistoryPage >= paymentHistoryTotalPages ? 'not-allowed' : 'pointer', opacity: currentPaymentHistoryPage >= paymentHistoryTotalPages ? 0.6 : 1 }}>Next</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : null}
             </div>
