@@ -225,6 +225,10 @@ function Dashboard() {
   const [monthlyPurchasePayments, setMonthlyPurchasePayments] = useState(0)
   const [purchaseOutstanding, setPurchaseOutstanding] = useState(0)
   const [totalPendingAmount, setTotalPendingAmount] = useState(0)
+  const [totalSaleInvoiceRows, setTotalSaleInvoiceRows] = useState(0)
+  const [totalSalePaymentRows, setTotalSalePaymentRows] = useState(0)
+  const [totalPurchaseInvoiceRows, setTotalPurchaseInvoiceRows] = useState(0)
+  const [totalPurchasePaymentRows, setTotalPurchasePaymentRows] = useState(0)
   const [customerOverviewSearch, setCustomerOverviewSearch] = useState('')
   const [vendorOverviewSearch, setVendorOverviewSearch] = useState('')
   const [customerOverview, setCustomerOverview] = useState([])
@@ -258,6 +262,10 @@ function Dashboard() {
       setMonthlyPurchasePayments(Number(data.monthlyPurchasePayments) || 0)
       setPurchaseOutstanding(Number(data.purchaseOutstanding) || 0)
       setTotalPendingAmount(Number(data.totalPendingAmount) || 0)
+      setTotalSaleInvoiceRows(Number(data.totalSaleInvoiceRows) || 0)
+      setTotalSalePaymentRows(Number(data.totalSalePaymentRows) || 0)
+      setTotalPurchaseInvoiceRows(Number(data.totalPurchaseInvoiceRows) || 0)
+      setTotalPurchasePaymentRows(Number(data.totalPurchasePaymentRows) || 0)
     } catch (err) {
       handleApiError(err, 'Error fetching dashboard summary')
       setTotalCustomers(0)
@@ -269,6 +277,10 @@ function Dashboard() {
       setMonthlyPurchasePayments(0)
       setPurchaseOutstanding(0)
       setTotalPendingAmount(0)
+      setTotalSaleInvoiceRows(0)
+      setTotalSalePaymentRows(0)
+      setTotalPurchaseInvoiceRows(0)
+      setTotalPurchasePaymentRows(0)
     } finally {
       setSummaryLoading(false)
     }
@@ -724,6 +736,26 @@ function Dashboard() {
             <AlertCircle size={18} color="rgb(239, 68, 68)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
+
+        {isAdmin && [
+          ['Total Sale Invoice Rows', totalSaleInvoiceRows],
+          ['Total Sale Payment Rows', totalSalePaymentRows],
+          ['Total Purchase Invoice Rows', totalPurchaseInvoiceRows],
+          ['Total Purchase Payment Rows', totalPurchasePaymentRows]
+        ].map(([label, value]) => (
+          <div key={label} className="card" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>{label}</div>
+                <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+                  {summaryLoading ? '...' : value}
+                </div>
+                <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>All records</div>
+              </div>
+              <FileText size={18} color="rgb(59, 130, 246)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
@@ -782,7 +814,7 @@ function Dashboard() {
                 <th style={{ textAlign: 'center', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{overviewViewType === 'customers' ? 'Customer Name' : 'Vendor Name'}</th>
                 <th style={{ textAlign: 'center', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mobile</th>
                 <th style={{ textAlign: 'center', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>Email</th>
-                <th style={{ textAlign: 'right', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{overviewViewType === 'customers' ? 'Outstanding' : 'Payable'}</th>
+                <th style={{ textAlign: 'right', padding: '1rem 0.75rem', color: 'var(--text-header)', fontWeight: 800, lineHeight: '1.5', width: '20%', overflow: 'hidden', textOverflow: 'ellipsis' }}>Outstanding</th>
               </tr>
             </thead>
             <tbody>
@@ -790,11 +822,11 @@ function Dashboard() {
                 <>
                   {customerOverviewLoading ? (
                     <tr>
-                      <td colSpan={7} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</td>
+                      <td colSpan={5} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</td>
                     </tr>
                   ) : customerOverview.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ padding: '1.5rem' }}>
+                      <td colSpan={5} style={{ padding: '1.5rem' }}>
                         <EmptyDataCard />
                       </td>
                     </tr>
@@ -824,11 +856,11 @@ function Dashboard() {
                 <>
                   {vendorOverviewLoading ? (
                     <tr>
-                      <td colSpan={7} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</td>
+                      <td colSpan={5} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</td>
                     </tr>
                   ) : vendorOverview.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ padding: '1.5rem' }}>
+                      <td colSpan={5} style={{ padding: '1.5rem' }}>
                         <EmptyDataCard />
                       </td>
                     </tr>

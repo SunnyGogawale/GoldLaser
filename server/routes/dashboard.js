@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const SaleInvoice = require('../models/SaleInvoice');
@@ -67,6 +66,12 @@ router.get('/summary', async (req, res) => {
 
     const totalCustomers = await Customer.countDocuments();
     const totalVendors = await Vendor.countDocuments();
+    const [totalSaleInvoiceRows, totalSalePaymentRows, totalPurchaseInvoiceRows, totalPurchasePaymentRows] = await Promise.all([
+      SaleInvoice.countDocuments(),
+      SalePayment.countDocuments(),
+      PurchaseInvoice.countDocuments(),
+      PurchasePayment.countDocuments()
+    ]);
 
     // Sales Invoice stats
     const salesInvoiceAgg = await SaleInvoice.aggregate([
@@ -84,6 +89,7 @@ router.get('/summary', async (req, res) => {
 
     // Sales Outstanding
     const salesOutstandingAgg = await SaleInvoice.aggregate([
+      { $match: { invoiceDate: { $gte: thirtyDaysAgo } } },
       saleInvoicePaidLookupStage(),
       invoiceComputedFieldsStage(),
       { $group: { _id: null, totalOutstanding: { $sum: '$pendingAmount' } } }
@@ -106,6 +112,7 @@ router.get('/summary', async (req, res) => {
 
     // Purchase Outstanding
     const purchaseOutstandingAgg = await PurchaseInvoice.aggregate([
+      { $match: { invoiceDate: { $gte: thirtyDaysAgo } } },
       purchaseInvoicePaidLookupStage(),
       invoiceComputedFieldsStage(),
       { $group: { _id: null, totalOutstanding: { $sum: '$pendingAmount' } } }
@@ -123,7 +130,11 @@ router.get('/summary', async (req, res) => {
       monthlyPurchaseInvoices,
       monthlyPurchasePayments,
       purchaseOutstanding,
-      totalPendingAmount
+      totalPendingAmount,
+      totalSaleInvoiceRows,
+      totalSalePaymentRows,
+      totalPurchaseInvoiceRows,
+      totalPurchasePaymentRows
     });
   } catch (err) {
     sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'dashboard.summary');
@@ -143,7 +154,9 @@ router.get('/customer-overview', async (req, res) => {
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
         { customerName: { $regex: search, $options: 'i' } },
-        { companyName: { $regex: search, $options: 'i' } }
+        { companyName: { $regex: search, $options: 'i' } },
+        { contactNumber: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
       ])
     }
     const customers = await customersQuery.sort({ createdAt: -1 }).limit(limit).lean()
@@ -157,58 +170,36 @@ router.get('/customer-overview', async (req, res) => {
           { customerId: customer._id }
         ]
       }
-      const purchaseInvoiceMatch = {
-        clientId: customer._id,
-        clientType: 'Customer'
-      }
       const salePaymentMatch = {
         $or: [
           { clientId: customer._id, clientType: 'Customer' },
           { customerId: customer._id }
         ]
       }
-      const purchasePaymentMatch = {
-        clientId: customer._id,
-        clientType: 'Customer'
-      }
 
-      const [saleInvoiceAgg, purchaseInvoiceAgg, salePaymentAgg, purchasePaymentAgg] = await Promise.all([
+      const [saleInvoiceAgg, salePaymentAgg] = await Promise.all([
         SaleInvoice.aggregate([
           { $match: saleInvoiceMatch },
-          { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
-        ]),
-        PurchaseInvoice.aggregate([
-          { $match: purchaseInvoiceMatch },
           { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
         ]),
         SalePayment.aggregate([
           { $match: salePaymentMatch },
           { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
-        ]),
-        PurchasePayment.aggregate([
-          { $match: purchasePaymentMatch },
-          { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
         ])
       ])
 
       const totalSaleInvoiceAmount = Number(saleInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
-      const totalPurchaseInvoiceAmount = Number(purchaseInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
       const totalReceivedAmount = Number(salePaymentAgg?.[0]?.totalPaymentAmount || 0)
-      const totalPaidAmount = Number(purchasePaymentAgg?.[0]?.totalPaymentAmount || 0)
 
       const receivableAmount = totalSaleInvoiceAmount - totalReceivedAmount
-      const payableAmount = totalPurchaseInvoiceAmount - totalPaidAmount
-      const pendingAmount = receivableAmount - payableAmount
+      const pendingAmount = Math.max(0, receivableAmount)
 
       rows.push({
         customerId: customer._id,
         pendingAmount,
         totalSaleInvoiceAmount,
-        totalPurchaseInvoiceAmount,
         totalReceivedAmount,
-        totalPaidAmount,
         receivableAmount,
-        payableAmount,
         id: customer.id,
         firstName: customer.firstName,
         lastName: customer.lastName,
@@ -245,7 +236,9 @@ router.get('/vendor-overview', async (req, res) => {
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
         { vendorName: { $regex: search, $options: 'i' } },
-        { companyName: { $regex: search, $options: 'i' } }
+        { companyName: { $regex: search, $options: 'i' } },
+        { contactNumber: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
       ])
     }
     const vendors = await vendorsQuery.sort({ createdAt: -1 }).limit(limit).lean()
@@ -259,58 +252,36 @@ router.get('/vendor-overview', async (req, res) => {
           { vendorId: vendor._id }
         ]
       }
-      const saleInvoiceMatch = {
-        clientId: vendor._id,
-        clientType: 'Vendor'
-      }
       const purchasePaymentMatch = {
         $or: [
           { clientId: vendor._id, clientType: 'Vendor' },
           { vendorId: vendor._id }
         ]
       }
-      const salePaymentMatch = {
-        clientId: vendor._id,
-        clientType: 'Vendor'
-      }
 
-      const [purchaseInvoiceAgg, saleInvoiceAgg, purchasePaymentAgg, salePaymentAgg] = await Promise.all([
+      const [purchaseInvoiceAgg, purchasePaymentAgg] = await Promise.all([
         PurchaseInvoice.aggregate([
           { $match: purchaseInvoiceMatch },
-          { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
-        ]),
-        SaleInvoice.aggregate([
-          { $match: saleInvoiceMatch },
           { $group: { _id: null, totalInvoiceAmount: { $sum: { $ifNull: ['$totalAmount', 0] } } } }
         ]),
         PurchasePayment.aggregate([
           { $match: purchasePaymentMatch },
           { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
-        ]),
-        SalePayment.aggregate([
-          { $match: salePaymentMatch },
-          { $group: { _id: null, totalPaymentAmount: { $sum: { $ifNull: ['$amount', 0] } } } }
         ])
       ])
 
       const totalPurchaseInvoiceAmount = Number(purchaseInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
-      const totalSaleInvoiceAmount = Number(saleInvoiceAgg?.[0]?.totalInvoiceAmount || 0)
       const totalPaidAmount = Number(purchasePaymentAgg?.[0]?.totalPaymentAmount || 0)
-      const totalReceivedAmount = Number(salePaymentAgg?.[0]?.totalPaymentAmount || 0)
 
       const purchasePayableAmount = totalPurchaseInvoiceAmount - totalPaidAmount
-      const saleReceivableAmount = totalSaleInvoiceAmount - totalReceivedAmount
-      const payableAmount = purchasePayableAmount - saleReceivableAmount
+      const payableAmount = Math.max(0, purchasePayableAmount)
 
       rows.push({
         vendorId: vendor._id,
         payableAmount,
         totalPurchaseInvoiceAmount,
-        totalSaleInvoiceAmount,
         totalPaidAmount,
-        totalReceivedAmount,
         purchasePayableAmount,
-        saleReceivableAmount,
         id: vendor.id,
         firstName: vendor.firstName,
         lastName: vendor.lastName,
