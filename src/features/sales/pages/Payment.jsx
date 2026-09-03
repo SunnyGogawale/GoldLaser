@@ -15,7 +15,8 @@ import {
   calculateAdjustedBillPaymentAmount,
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,
-  calculateRemainingAvailableCredit
+  calculateRemainingAvailableCredit,
+  calculatePaymentListAmount
 } from '../../../utils/creditCalculation'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -2953,7 +2954,7 @@ function Payment() {
                   const companyName = payment.vendorId?.companyName || ''
                   const customerLabel = companyName ? `${name} - ${companyName}` : name
                   const dateLabel = formatDateDDMMMYYYY(payment.paymentDate)
-                  const amountLabel = `$${formatMoney(payment.amount)}`
+                  const amountLabel = `$${formatMoney(calculatePaymentListAmount(payment.amount, payment.allocations, payment.paymentListAvailableCredit))}`
                   const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                   return (
@@ -3090,7 +3091,7 @@ function Payment() {
                       const companyName = payment.vendorId?.companyName || ''
                       const customerLabel = companyName ? `${name} - ${companyName}` : name
                       const dateLabel = formatDateDDMMMYYYY(payment.paymentDate)
-                      const amountLabel = `$${formatMoney(payment.amount)}`
+                      const amountLabel = `$${formatMoney(calculatePaymentListAmount(payment.amount, payment.allocations, payment.paymentListAvailableCredit))}`
                       const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                       return (

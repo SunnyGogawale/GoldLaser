@@ -8,6 +8,7 @@ const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const { buildPaymentMergeUpdateOps } = require('../utils/paymentDuplicateHandling');
+const { sendErrorResponse } = require('../utils/errorHandler');
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -85,6 +86,18 @@ const truncate = (s, max = 140) => {
   const str = String(s || '');
   if (str.length <= max) return str;
   return str.slice(0, max) + '…';
+};
+
+const calculatePaymentListAmount = (paymentAmount = 0, allocations = [], availableCredit = 0) => {
+  const enteredAmount = Math.max(0, Number(paymentAmount) || 0);
+  if (enteredAmount > 0) return Math.round((enteredAmount + Number.EPSILON) * 100) / 100;
+
+  const selectedTotal = (Array.isArray(allocations) ? allocations : [])
+    .reduce((total, allocation) => total + Math.max(0, Number(allocation?.amount) || 0), 0);
+  const credit = Math.max(0, Number(availableCredit) || 0);
+  const debitedAmount = selectedTotal - Math.min(selectedTotal, credit);
+  const displayAmount = debitedAmount > 0 ? debitedAmount : selectedTotal;
+  return Math.round((displayAmount + Number.EPSILON) * 100) / 100;
 };
 
 const normalizePaymentValue = (field, value) => {
@@ -387,15 +400,20 @@ router.get('/', async (req, res) => {
     const vendorMap = new Map(vendors.map(v => [v._id.toString(), v]));
 
     // Attach client data as vendorId (same as sale/purchase invoices)
-    const paymentsWithClients = payments.map(p => {
+    const paymentsWithClients = await Promise.all(payments.map(async (p) => {
       const pObj = p.toObject();
       if (pObj.clientType === 'Customer') {
         pObj.vendorId = customerMap.get(pObj.clientId?.toString()) || null;
       } else {
         pObj.vendorId = vendorMap.get(pObj.clientId?.toString()) || null;
       }
+      const availableCredit = Number(pObj.amount) > 0
+        ? 0
+        : await getClientCreditBalance(pObj.clientId, pObj.clientType, pObj._id);
+      pObj.paymentListAvailableCredit = Math.max(0, Number(availableCredit) || 0);
+      pObj.paymentListAmount = calculatePaymentListAmount(pObj.amount, pObj.allocations, availableCredit);
       return pObj;
-    });
+    }));
 
     // Filter by search
     let filteredPayments = paymentsWithClients;
@@ -408,7 +426,7 @@ router.get('/', async (req, res) => {
         const searchableParts = [
           p.paymentNumber,
           p.paymentDate,
-          p.amount,
+          p.paymentListAmount,
           p.description,
           p.clientType,
           p.vendorId?.id,
@@ -454,8 +472,8 @@ router.get('/', async (req, res) => {
           bVal = new Date(b.paymentDate).getTime();
           break;
         case 'amount':
-          aVal = a.amount || 0;
-          bVal = b.amount || 0;
+          aVal = a.paymentListAmount || 0;
+          bVal = b.paymentListAmount || 0;
           break;
         case 'description':
           aVal = (a.description || '').toLowerCase();

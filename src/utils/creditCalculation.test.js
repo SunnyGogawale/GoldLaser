@@ -5,7 +5,8 @@ import {
   calculateCreditUsedOnSelections,
   calculateRemainingAvailableCredit,
   calculateAdjustedBillPaymentAmount,
-  calculateCashAmountAfterCredit
+  calculateCashAmountAfterCredit,
+  calculatePaymentListAmount
 } from './creditCalculation.js'
 
 test('calculateUpdatedAvailableCreditAfterDebit subtracts the debited amount once', () => {
@@ -40,4 +41,12 @@ test('calculateCashAmountAfterCredit records only the cash portion when credit i
   assert.equal(calculateCashAmountAfterCredit(5000, 11000), 0)
   assert.equal(calculateCashAmountAfterCredit(8000, 6000), 2000)
   assert.equal(calculateCashAmountAfterCredit(3000, 500), 2500)
+})
+
+test('calculatePaymentListAmount keeps valid amounts and debits credit for blank amounts', () => {
+  const allocations = [{ amount: 11000 }]
+  assert.equal(calculatePaymentListAmount(5000, allocations, 11000), 5000)
+  assert.equal(calculatePaymentListAmount(0, allocations, 1000), 10000)
+  assert.equal(calculatePaymentListAmount(null, allocations, 11000), 11000)
+  assert.equal(calculatePaymentListAmount('', allocations, 12000), 11000)
 })
