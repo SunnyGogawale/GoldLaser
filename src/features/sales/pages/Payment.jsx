@@ -428,7 +428,7 @@ function Payment() {
 
   const allocatePaymentAmountFifo = (amount) => {
     const enteredAmount = Math.max(0, Number(amount) || 0)
-    const available = Math.max(0, Number(remainingAvailableCredit) || 0)
+    const available = Math.max(0, Number(availableCredit) || 0)
     const totalAvailable = enteredAmount + available
 
     if (!(totalAvailable > 0)) {
@@ -491,15 +491,12 @@ function Payment() {
       const next = { ...prev }
       if (checked) {
         if (!(Number(next[id]) > 0)) {
-          if (!autoAllocateOnSelect) {
-            const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
-            const available = Math.max(0, Number(availableCredit) || 0)
-            const selectedAmount = Math.round((enteredAmount + available + Number.EPSILON) * 100) / 100
-            next[id] = selectedAmount > 0 ? String(selectedAmount) : ''
-          } else {
-            const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
-            next[id] = normalizedPending ? String(normalizedPending) : ''
-          }
+          const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
+          const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
+          const available = Math.max(0, Number(availableCredit) || 0)
+          const selectedAmount = Math.min(normalizedPending, enteredAmount + available)
+          const roundedSelectedAmount = Math.round((selectedAmount + Number.EPSILON) * 100) / 100
+          next[id] = roundedSelectedAmount > 0 ? String(roundedSelectedAmount) : ''
         }
       } else {
         delete next[id]
