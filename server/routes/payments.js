@@ -8,6 +8,7 @@ const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const { buildPaymentMergeUpdateOps } = require('../utils/paymentDuplicateHandling');
+const { buildPaymentSummary } = require('../utils/paymentSummary');
 const { sendErrorResponse } = require('../utils/errorHandler');
 
 const getBearerToken = (req) => {
@@ -236,7 +237,12 @@ async function buildPendingInvoices(clientId, clientType, excludePaymentId) {
     });
   }
 
-  return { invoices: result, totalPending, availableCredit };
+  return {
+    invoices: result,
+    totalPending,
+    availableCredit,
+    paymentSummary: buildPaymentSummary({ availableCredit, totalPending })
+  };
 }
 
 async function allocatePaymentToInvoices({ clientId, clientType, amount, excludePaymentId, invoiceOrder }) {

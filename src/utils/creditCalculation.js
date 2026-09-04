@@ -33,6 +33,30 @@ export const calculateCashAmountAfterCredit = (billPaymentAmount = 0, availableC
   return Math.max(0, Math.round((bill - creditApplied + Number.EPSILON) * 100) / 100)
 }
 
+export const calculatePaymentSummary = ({
+  paymentAmount = 0,
+  availableCredit = 0,
+  totalPending = 0,
+  selectedPaymentTotal = 0,
+  selectedInvoiceIds = [],
+  invoicePaymentAmounts = {}
+} = {}) => {
+  const credit = Math.max(0, Number(availableCredit) || 0)
+  const selectedTotal = Math.round((Math.max(0, Number(selectedPaymentTotal) || 0) + Number.EPSILON) * 100) / 100
+  const usedAmount = Math.min(selectedTotal, credit)
+  const remainingAmount = calculateRemainingAvailableCredit(credit, usedAmount)
+
+  return {
+    paymentAmount: Math.max(0, Number(paymentAmount) || 0),
+    availableCredit: credit,
+    usedAmount,
+    remainingAmount,
+    adjustedBillAmount: calculateAdjustedBillPaymentAmount(selectedTotal, remainingAmount),
+    selectedPaymentTotal: selectedTotal,
+    billPaymentAmount: Math.max(0, Number(totalPending) || 0)
+  }
+}
+
 export const calculatePaymentListAmount = (paymentAmount = 0, allocations = [], availableCredit = 0) => {
   const enteredAmount = Math.max(0, Number(paymentAmount) || 0)
   if (enteredAmount > 0) return Math.round((enteredAmount + Number.EPSILON) * 100) / 100

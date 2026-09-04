@@ -10,10 +10,8 @@ import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import {
-  calculateAdjustedBillPaymentAmount,
   calculateCashAmountAfterCredit,
-  calculateCreditUsedOnSelections,
-  calculateRemainingAvailableCredit
+  calculatePaymentSummary
 } from '../../../utils/creditCalculation'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -127,8 +125,9 @@ function PurchasePayment() {
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
 
   const [pendingInvoices, setPendingInvoices] = useState([])
-  const [totalPending, setTotalPending] = useState(0)
-  const [availableCredit, setAvailableCredit] = useState(0)
+  const [pendingSummary, setPendingSummary] = useState({ totalPending: 0, availableCredit: 0 })
+  const totalPending = pendingSummary.billPaymentAmount ?? pendingSummary.totalPending ?? 0
+  const { availableCredit } = pendingSummary
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
   const [invoiceSearchText, setInvoiceSearchText] = useState('')
   const [isInvoiceDropdownOpen, setIsInvoiceDropdownOpen] = useState(false)
@@ -417,17 +416,18 @@ function PurchasePayment() {
     return selectedAllocations.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   }, [selectedAllocations])
 
-  const creditUsedOnSelections = useMemo(() => {
-    return calculateCreditUsedOnSelections(selectedInvoiceIds, invoicePaymentAmounts)
-  }, [selectedInvoiceIds, invoicePaymentAmounts])
-
-  const remainingAvailableCredit = useMemo(() => {
-    return calculateRemainingAvailableCredit(availableCredit, creditUsedOnSelections)
-  }, [availableCredit, creditUsedOnSelections])
-
   const billPaymentAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
-  const netAmountToPay = calculateAdjustedBillPaymentAmount(billPaymentAmount, remainingAvailableCredit)
-  const adjustedBillPaymentAmount = netAmountToPay
+  const paymentSummary = useMemo(() => calculatePaymentSummary({
+    paymentAmount: paymentForm.amount,
+    availableCredit,
+    totalPending,
+    selectedPaymentTotal: billPaymentAmount,
+    selectedInvoiceIds,
+    invoicePaymentAmounts
+  }), [paymentForm.amount, availableCredit, totalPending, billPaymentAmount, selectedInvoiceIds, invoicePaymentAmounts])
+  const { usedAmount: creditUsedOnSelections, remainingAmount: remainingAvailableCredit } = paymentSummary
+  const netAmountToPay = paymentSummary.adjustedBillAmount
+  const adjustedBillPaymentAmount = paymentSummary.adjustedBillAmount
   const enteredPaymentAmount = Math.max(0, Number(paymentForm.amount) || 0)
   const outstandingAmount = Math.round((enteredPaymentAmount - adjustedBillPaymentAmount + Number.EPSILON) * 100) / 100
 
@@ -470,13 +470,26 @@ function PurchasePayment() {
       remaining -= allocated
     }
 
-    setSelectedInvoiceIds(nextIds)
-    setInvoicePaymentAmounts(nextAmounts)
+    setSelectedInvoiceIds((prev) => {
+      if (prev.length === nextIds.length && prev.every((id, index) => String(id) === nextIds[index])) return prev
+      return nextIds
+    })
+    setInvoicePaymentAmounts((prev) => {
+      const previous = prev || {}
+      const previousKeys = Object.keys(previous)
+      const nextKeys = Object.keys(nextAmounts)
+      if (previousKeys.length === nextKeys.length && nextKeys.every((id) => String(previous[id]) === String(nextAmounts[id]))) return prev
+      return nextAmounts
+    })
     setInvoiceDescriptions((prev) => {
       const next = {}
       for (const id of nextIds) {
         next[id] = nextDescriptions[id]
       }
+      const previous = prev || {}
+      const previousKeys = Object.keys(previous)
+      const nextKeys = Object.keys(next)
+      if (previousKeys.length === nextKeys.length && nextKeys.every((id) => String(previous[id]) === String(next[id]))) return prev
       return next
     })
   }
@@ -610,8 +623,7 @@ function PurchasePayment() {
   const fetchPendingInvoices = async (clientId, clientType, excludePaymentId) => {
     if (!clientId) {
       setPendingInvoices([])
-      setTotalPending(0)
-      setAvailableCredit(0)
+      setPendingSummary({ totalPending: 0, availableCredit: 0 })
       return
     }
 
@@ -623,13 +635,17 @@ function PurchasePayment() {
       const response = await fetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching pending invoices')
       setPendingInvoices(data.invoices || [])
-      setTotalPending(Number(data.totalPending) || 0)
-      setAvailableCredit(Math.max(0, Number(data.availableCredit) || 0))
+      setPendingSummary(data.paymentSummary ? {
+        ...data.paymentSummary,
+        totalPending: data.paymentSummary.billPaymentAmount
+      } : {
+        totalPending: Number(data.totalPending) || 0,
+        availableCredit: Math.max(0, Number(data.availableCredit) || 0)
+      })
     } catch (err) {
       handleApiError(err, 'Error fetching pending invoices')
       setPendingInvoices([])
-      setTotalPending(0)
-      setAvailableCredit(0)
+      setPendingSummary({ totalPending: 0, availableCredit: 0 })
     }
   }
 
@@ -646,8 +662,7 @@ function PurchasePayment() {
   useEffect(() => {
     if (!paymentForm.clientId) {
       setPendingInvoices([])
-      setTotalPending(0)
-      setAvailableCredit(0)
+      setPendingSummary({ totalPending: 0, availableCredit: 0 })
       setSelectedInvoiceIds([])
       setInvoicePaymentAmounts({})
       setInvoiceDescriptions({})
@@ -687,7 +702,7 @@ function PurchasePayment() {
     if (!autoAllocateOnSelect) return
     if (!paymentForm.amount) return
     allocatePaymentAmountFifo(paymentForm.amount)
-  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, remainingAvailableCredit])
+  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
 
   const validateForm = () => {
     const newErrors = {}
@@ -1763,10 +1778,9 @@ function PurchasePayment() {
                       Payment Amount ($) <span style={{ color: 'var(--danger)' }}>*</span>
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={paymentForm.amount}
-                      min="0"
-                      step="0.01"
                       onChange={(e) => {
                         const sanitized = String(e.target.value || '').replace(/[^0-9.]/g, '')
                         const parts = sanitized.split('.')
@@ -1798,19 +1812,19 @@ function PurchasePayment() {
                     <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                       {Number(remainingAvailableCredit) > 0 && (
                         <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
-                          Available Credit: ${formatMoney(remainingAvailableCredit)}
+                          Available Credit: ${formatMoney(paymentSummary.availableCredit)}
                           {selectedInvoiceIds.length > 0 && creditUsedOnSelections > 0 && (
                             <span style={{ fontSize: '0.75rem', color: 'rgb(107, 114, 128)', marginLeft: '0.5rem' }}>
-                              (Used: ${formatMoney(creditUsedOnSelections)} / Remaining: ${formatMoney(remainingAvailableCredit)})
+                              (Used: ${formatMoney(paymentSummary.usedAmount)} / Remaining: ${formatMoney(paymentSummary.remainingAmount)})
                             </span>
                           )}
                         </div>
                       )}
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Bill Payment Amount: ${formatMoney(billPaymentAmount)}
+                        Bill Payment Amount: ${formatMoney(paymentSummary.billPaymentAmount)}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Adjusted Bill Amount: ${formatMoney(adjustedBillPaymentAmount)}
+                        Adjusted Bill Amount: ${formatMoney(paymentSummary.adjustedBillAmount)}
                       </div>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.875rem', color: 'var(--text-header)' }}>
                         <input
@@ -2173,7 +2187,7 @@ function PurchasePayment() {
                             Total Balance:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
-                            ${formatMoney(totalPending)}
+                            ${formatMoney(paymentSummary.billPaymentAmount)}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(16,185,129,0.10)' }}>
@@ -2181,7 +2195,7 @@ function PurchasePayment() {
                             Selected Payment Total:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(16,185,129)' }}>
-                            ${formatMoney(selectedAllocationTotal)}
+                            ${formatMoney(paymentSummary.selectedPaymentTotal)}
                           </td>
                         </tr>
                         {Number(remainingAvailableCredit) > 0 && (
@@ -2190,10 +2204,10 @@ function PurchasePayment() {
                               Available Credit:
                             </td>
                             <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
-                              ${formatMoney(remainingAvailableCredit)}
+                              ${formatMoney(paymentSummary.remainingAmount)}
                               {selectedInvoiceIds.length > 0 && creditUsedOnSelections > 0 && (
                                 <div style={{ fontSize: '0.75rem', color: 'rgb(107, 114, 128)', marginTop: '0.25rem' }}>
-                                  (Used: ${formatMoney(creditUsedOnSelections)} / Remaining: ${formatMoney(remainingAvailableCredit)})
+                                  (Used: ${formatMoney(paymentSummary.usedAmount)} / Remaining: ${formatMoney(paymentSummary.remainingAmount)})
                                 </div>
                               )}
                             </td>
@@ -2204,7 +2218,7 @@ function PurchasePayment() {
                             Adjusted Bill Amount:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--text-header)' }}>
-                            ${formatMoney(adjustedBillPaymentAmount)}
+                            ${formatMoney(paymentSummary.adjustedBillAmount)}
                           </td>
                         </tr>
                       </tfoot>
