@@ -12,7 +12,8 @@ import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import {
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,
-  calculateRemainingAvailableCredit
+  calculateRemainingAvailableCredit,
+  calculatePaymentListAmount
 } from '../../../utils/creditCalculation'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -268,7 +269,7 @@ function PurchasePayment() {
 
   useEffect(() => {
     if (!paymentForm.clientId) {
-      setPendingInvoiceOrder([])
+      setPendingInvoiceOrder((prev) => prev.length === 0 ? prev : [])
       return
     }
     setPendingInvoiceOrder((prev) => {
@@ -428,7 +429,7 @@ function PurchasePayment() {
 
   const allocatePaymentAmountFifo = (amount) => {
     const enteredAmount = Math.max(0, Number(amount) || 0)
-    const available = Math.max(0, Number(remainingAvailableCredit) || 0)
+    const available = Math.max(0, Number(availableCredit) || 0)
     const totalAvailable = enteredAmount + available
 
     if (!(totalAvailable > 0)) {
@@ -491,15 +492,12 @@ function PurchasePayment() {
       const next = { ...prev }
       if (checked) {
         if (!(Number(next[id]) > 0)) {
-          if (!autoAllocateOnSelect) {
-            const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
-            const available = Math.max(0, Number(availableCredit) || 0)
-            const selectedAmount = Math.round((enteredAmount + available + Number.EPSILON) * 100) / 100
-            next[id] = selectedAmount > 0 ? String(selectedAmount) : ''
-          } else {
-            const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
-            next[id] = normalizedPending ? String(normalizedPending) : ''
-          }
+          const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
+          const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
+          const available = Math.max(0, Number(availableCredit) || 0)
+          const selectedAmount = Math.min(normalizedPending, enteredAmount + available)
+          const roundedSelectedAmount = Math.round((selectedAmount + Number.EPSILON) * 100) / 100
+          next[id] = roundedSelectedAmount > 0 ? String(roundedSelectedAmount) : ''
         }
       } else {
         delete next[id]
@@ -739,6 +737,7 @@ function PurchasePayment() {
         amount: Math.round((finalAmount + Number.EPSILON) * 100) / 100,
         description: paymentForm.description || '',
         attachments: Array.isArray(paymentForm.attachments) ? paymentForm.attachments : [],
+        autoAllocateOnSubmit: autoAllocateOnSelect,
         invoiceOrder: orderedPendingInvoices.map((inv) => String(inv._id)),
         allocations: selectedAllocations
       }
@@ -1786,11 +1785,12 @@ function PurchasePayment() {
                       <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.amount}</p>
                     )}
                     <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                      {Number(remainingAvailableCredit) > 0 && (
-                        <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
-                          Available Credit: ${formatMoney(remainingAvailableCredit)}
-                        </div>
-                      )}
+                      <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
+                        Available Credit: ${formatMoney(remainingAvailableCredit)}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                        Bill Payment Amount: ${formatMoney(billPaymentAmount)}
+                      </div>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.875rem', color: 'var(--text-header)' }}>
                         <input
                           type="checkbox"
@@ -2163,16 +2163,22 @@ function PurchasePayment() {
                             ${formatMoney(selectedAllocationTotal)}
                           </td>
                         </tr>
-                        {Number(remainingAvailableCredit) > 0 && (
-                          <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(34, 197, 94, 0.08)' }}>
-                            <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
-                              Available Credit:
-                            </td>
-                            <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
-                              ${formatMoney(remainingAvailableCredit)}
-                            </td>
-                          </tr>
-                        )}
+                        <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(22,163,74,0.08)' }}>
+                          <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                            Available Credit:
+                          </td>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
+                            <div>${formatMoney(remainingAvailableCredit)}</div>
+                          </td>
+                        </tr>
+                        <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.06)' }}>
+                          <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
+                            Net Amount to Pay:
+                          </td>
+                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
+                            ${formatMoney(billPaymentAmount)}
+                          </td>
+                        </tr>
                       </tfoot>
                     </table>
                   </div>
@@ -2460,7 +2466,7 @@ function PurchasePayment() {
                   const companyName = payment.vendorId?.companyName || ''
                   const vendorLabel = vendorName ? (companyName ? `${vendorName} - ${companyName}` : vendorName) : (companyName ? companyName : '-')
                   const dateLabel = formatDate(payment.paymentDate)
-                  const amountLabel = `$${formatMoney(payment.amount)}`
+                  const amountLabel = `$${formatMoney(calculatePaymentListAmount(payment.amount, payment.allocations, payment.paymentListAvailableCredit))}`
                   const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                   return (
@@ -2592,7 +2598,7 @@ function PurchasePayment() {
                       const companyName = payment.vendorId?.companyName || ''
                       const vendorLabel = vendorName ? (companyName ? `${vendorName} - ${companyName}` : vendorName) : (companyName ? companyName : '-')
                       const dateLabel = formatDate(payment.paymentDate)
-                      const amountLabel = `$${formatMoney(payment.amount)}`
+                      const amountLabel = `$${formatMoney(calculatePaymentListAmount(payment.amount, payment.allocations, payment.paymentListAvailableCredit))}`
                       const descriptionLabel = payment.description ? String(payment.description) : '-'
 
                       return (

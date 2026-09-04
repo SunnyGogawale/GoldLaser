@@ -107,6 +107,18 @@ const truncate = (s, max = 140) => {
   return str.slice(0, max) + '…';
 };
 
+const calculatePaymentListAmount = (paymentAmount = 0, allocations = [], availableCredit = 0) => {
+  const enteredAmount = Math.max(0, Number(paymentAmount) || 0);
+  if (enteredAmount > 0) return Math.round((enteredAmount + Number.EPSILON) * 100) / 100;
+
+  const selectedTotal = (Array.isArray(allocations) ? allocations : [])
+    .reduce((total, allocation) => total + Math.max(0, Number(allocation?.amount) || 0), 0);
+  const credit = Math.max(0, Number(availableCredit) || 0);
+  const debitedAmount = selectedTotal - Math.min(selectedTotal, credit);
+  const displayAmount = debitedAmount > 0 ? debitedAmount : selectedTotal;
+  return Math.round((displayAmount + Number.EPSILON) * 100) / 100;
+};
+
 const normalizePaymentValue = (field, value) => {
   if (value === null || value === undefined) return value;
 
@@ -415,15 +427,20 @@ router.get('/', async (req, res) => {
     const vendorMap = new Map(vendors.map(v => [v._id.toString(), v]));
 
     // Attach client data as vendorId
-    const paymentsWithClients = payments.map(p => {
+    const paymentsWithClients = await Promise.all(payments.map(async (p) => {
       const pObj = p.toObject();
       if (pObj.clientType === 'Customer') {
         pObj.vendorId = customerMap.get(pObj.clientId?.toString()) || null;
       } else {
         pObj.vendorId = vendorMap.get(pObj.clientId?.toString()) || null;
       }
+      const availableCredit = Number(pObj.amount) > 0
+        ? 0
+        : await getClientCreditBalance(pObj.clientId, pObj.clientType, pObj._id);
+      pObj.paymentListAvailableCredit = Math.max(0, Number(availableCredit) || 0);
+      pObj.paymentListAmount = calculatePaymentListAmount(pObj.amount, pObj.allocations, availableCredit);
       return pObj;
-    });
+    }));
 
     // Filter by search
     let filteredPayments = paymentsWithClients;
@@ -711,6 +728,8 @@ router.post('/', async (req, res) => {
     const paymentDate = req.body.paymentDate;
     const amount = Number(req.body.amount) || 0;
     const description = req.body.description || '';
+    const autoAllocateOnSubmit = req.body.autoAllocateOnSubmit !== false;
+    const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
     const requestedAllocations = normalizeRequestedAllocations(req.body.allocations);
     const attachments = normalizePaymentValue('attachments', req.body.attachments);
 
@@ -723,16 +742,22 @@ router.post('/', async (req, res) => {
           clientType,
           requestedAllocations
         })
-      : { allocations: [], appliedAmount: 0 };
+      : autoAllocateOnSubmit && amount > 0
+        ? await allocatePaymentToInvoices({ clientId, clientType, amount, invoiceOrder })
+        : { allocations: [], appliedAmount: 0 };
     const { allocations, appliedAmount } = allocationResult;
-    if (requestedAllocations.length > 0 && !(appliedAmount > 0)) {
+    if ((requestedAllocations.length > 0 || (autoAllocateOnSubmit && amount > 0)) && !(appliedAmount > 0)) {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }
 
     const creditBalance = await getClientCreditBalance(clientId, clientType);
     const availableCredit = Math.max(0, creditBalance);
     const roundedEnteredAmount = Math.round((amount + Number.EPSILON) * 100) / 100;
-    const finalAmount = roundedEnteredAmount;
+    const finalAmount = requestedAllocations.length > 0
+      ? roundedEnteredAmount
+      : autoAllocateOnSubmit
+        ? appliedAmount
+        : roundedEnteredAmount;
     if (requestedAllocations.length > 0) {
       const minRequiredAmount = Math.max(0, Math.round((appliedAmount - availableCredit + Number.EPSILON) * 100) / 100);
       if (finalAmount < minRequiredAmount) {
@@ -788,6 +813,8 @@ router.put('/:id', async (req, res) => {
     const paymentDate = req.body.paymentDate || existing.paymentDate;
     const amount = Number(req.body.amount ?? existing.amount) || 0;
     const description = req.body.description ?? existing.description;
+    const autoAllocateOnSubmit = req.body.autoAllocateOnSubmit !== false;
+    const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
     const requestedAllocations = normalizeRequestedAllocations(req.body.allocations);
     const attachments = normalizePaymentValue('attachments', req.body.attachments ?? existing.attachments);
 
@@ -801,16 +828,28 @@ router.put('/:id', async (req, res) => {
           requestedAllocations,
           excludePaymentId: existing._id
         })
-      : { allocations: [], appliedAmount: 0 };
+      : autoAllocateOnSubmit && amount > 0
+        ? await allocatePaymentToInvoices({
+            clientId,
+            clientType,
+            amount,
+            excludePaymentId: existing._id,
+            invoiceOrder
+          })
+        : { allocations: [], appliedAmount: 0 };
     const { allocations, appliedAmount } = allocationResult;
-    if (requestedAllocations.length > 0 && !(appliedAmount > 0)) {
+    if ((requestedAllocations.length > 0 || (autoAllocateOnSubmit && amount > 0)) && !(appliedAmount > 0)) {
       return res.status(400).json({ message: 'No pending invoices available to apply this payment.' });
     }
 
     const creditBalance = await getClientCreditBalance(clientId, clientType, existing._id);
     const availableCredit = Math.max(0, creditBalance);
     const roundedEnteredAmount = Math.round((amount + Number.EPSILON) * 100) / 100;
-    const finalAmount = roundedEnteredAmount;
+    const finalAmount = requestedAllocations.length > 0
+      ? roundedEnteredAmount
+      : autoAllocateOnSubmit
+        ? appliedAmount
+        : roundedEnteredAmount;
     if (requestedAllocations.length > 0) {
       const minRequiredAmount = Math.max(0, Math.round((appliedAmount - availableCredit + Number.EPSILON) * 100) / 100);
       if (finalAmount < minRequiredAmount) {

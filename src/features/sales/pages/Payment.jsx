@@ -270,7 +270,7 @@ function Payment() {
 
   useEffect(() => {
     if (!paymentForm.clientId) {
-      setPendingInvoiceOrder([])
+      setPendingInvoiceOrder((prev) => prev.length === 0 ? prev : [])
       return
     }
     setPendingInvoiceOrder((prev) => {
