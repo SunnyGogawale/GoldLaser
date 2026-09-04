@@ -12,9 +12,11 @@ import autoTable from 'jspdf-autotable'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import {
+  calculateAdjustedBillPaymentAmount,
   calculateCashAmountAfterCredit,
-  calculatePaymentListAmount,
-  calculatePaymentSummary
+  calculateCreditUsedOnSelections,
+  calculateRemainingAvailableCredit,
+  calculatePaymentListAmount
 } from '../../../utils/creditCalculation'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -127,9 +129,8 @@ function Payment() {
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
 
   const [pendingInvoices, setPendingInvoices] = useState([])
-  const [pendingSummary, setPendingSummary] = useState({ totalPending: 0, availableCredit: 0 })
-  const totalPending = pendingSummary.billPaymentAmount ?? pendingSummary.totalPending ?? 0
-  const { availableCredit } = pendingSummary
+  const [totalPending, setTotalPending] = useState(0)
+  const [availableCredit, setAvailableCredit] = useState(0)
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
   const [invoiceSearchText, setInvoiceSearchText] = useState('')
   const [invoiceInput, setInvoiceInput] = useState('')
@@ -159,7 +160,7 @@ function Payment() {
     }
   }
 
-
+  
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
   const [infoOpen, setInfoOpen] = useState(false)
   const [infoPayment, setInfoPayment] = useState(null)
@@ -416,18 +417,17 @@ function Payment() {
     return selectedAllocations.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   }, [selectedAllocations])
 
+  const creditUsedOnSelections = useMemo(() => {
+    return calculateCreditUsedOnSelections(selectedInvoiceIds, invoicePaymentAmounts)
+  }, [selectedInvoiceIds, invoicePaymentAmounts])
+
+  const remainingAvailableCredit = useMemo(() => {
+    return calculateRemainingAvailableCredit(availableCredit, creditUsedOnSelections)
+  }, [availableCredit, creditUsedOnSelections])
+
   const billPaymentAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
-  const paymentSummary = useMemo(() => calculatePaymentSummary({
-    paymentAmount: paymentForm.amount,
-    availableCredit,
-    totalPending,
-    selectedPaymentTotal: billPaymentAmount,
-    selectedInvoiceIds,
-    invoicePaymentAmounts
-  }), [paymentForm.amount, availableCredit, totalPending, billPaymentAmount, selectedInvoiceIds, invoicePaymentAmounts])
-  const { usedAmount: creditUsedOnSelections, remainingAmount: remainingAvailableCredit } = paymentSummary
-  const netAmountToPay = paymentSummary.adjustedBillAmount
-  const adjustedBillPaymentAmount = paymentSummary.adjustedBillAmount
+  const netAmountToPay = calculateAdjustedBillPaymentAmount(billPaymentAmount, remainingAvailableCredit)
+  const adjustedBillPaymentAmount = netAmountToPay
   const enteredPaymentAmount = Math.max(0, Number(paymentForm.amount) || 0)
   const outstandingAmount = Math.round((enteredPaymentAmount - adjustedBillPaymentAmount + Number.EPSILON) * 100) / 100
 
@@ -470,26 +470,13 @@ function Payment() {
       remaining -= allocated
     }
 
-    setSelectedInvoiceIds((prev) => {
-      if (prev.length === nextIds.length && prev.every((id, index) => String(id) === nextIds[index])) return prev
-      return nextIds
-    })
-    setInvoicePaymentAmounts((prev) => {
-      const previous = prev || {}
-      const previousKeys = Object.keys(previous)
-      const nextKeys = Object.keys(nextAmounts)
-      if (previousKeys.length === nextKeys.length && nextKeys.every((id) => String(previous[id]) === String(nextAmounts[id]))) return prev
-      return nextAmounts
-    })
+    setSelectedInvoiceIds(nextIds)
+    setInvoicePaymentAmounts(nextAmounts)
     setInvoiceDescriptions((prev) => {
       const next = {}
       for (const id of nextIds) {
         next[id] = nextDescriptions[id]
       }
-      const previous = prev || {}
-      const previousKeys = Object.keys(previous)
-      const nextKeys = Object.keys(next)
-      if (previousKeys.length === nextKeys.length && nextKeys.every((id) => String(previous[id]) === String(next[id]))) return prev
       return next
     })
   }
@@ -627,7 +614,7 @@ function Payment() {
   const fetchPendingInvoices = async (clientId, clientType, excludePaymentId) => {
     if (!clientId) {
       setPendingInvoices([])
-      setPendingSummary({ totalPending: 0, availableCredit: 0 })
+      setTotalPending(0)
       return
     }
 
@@ -639,17 +626,13 @@ function Payment() {
       const response = await fetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching pending invoices')
       setPendingInvoices(data.invoices || [])
-      setPendingSummary(data.paymentSummary ? {
-        ...data.paymentSummary,
-        totalPending: data.paymentSummary.billPaymentAmount
-      } : {
-        totalPending: Number(data.totalPending) || 0,
-        availableCredit: Math.max(0, Number(data.availableCredit) || 0)
-      })
+      setTotalPending(Number(data.totalPending) || 0)
+      setAvailableCredit(Math.max(0, Number(data.availableCredit) || 0))
     } catch (err) {
       console.error('Error fetching pending invoices:', err)
       setPendingInvoices([])
-      setPendingSummary({ totalPending: 0, availableCredit: 0 })
+      setTotalPending(0)
+      setAvailableCredit(0)
     }
   }
 
@@ -681,7 +664,8 @@ function Payment() {
   useEffect(() => {
     if (!paymentForm.clientId) {
       setPendingInvoices([])
-      setPendingSummary({ totalPending: 0, availableCredit: 0 })
+      setTotalPending(0)
+      setAvailableCredit(0)
       setSelectedInvoiceIds([])
       setInvoicePaymentAmounts({})
       setInvoiceDescriptions({})
@@ -720,7 +704,7 @@ function Payment() {
     if (!autoAllocateOnSelect) return
     if (!paymentForm.amount) return
     allocatePaymentAmountFifo(paymentForm.amount)
-  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
+  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, remainingAvailableCredit])
 
   const validateForm = () => {
     const newErrors = {}
@@ -767,13 +751,13 @@ function Payment() {
     setLoading(true)
     try {
       const token = getAuthToken()
-
+      
       // Calculate amount: if blank/0 and invoices selected, use total of selected allocations
       const userAmount = Number(paymentForm.amount) || 0
       const finalAmount = selectedAllocations.length > 0
         ? calculateCashAmountAfterCredit(selectedAllocationTotal, availableCredit)
         : userAmount
-
+      
       const payload = {
         paymentNumber: paymentForm.paymentNumber,
         clientId: paymentForm.clientId,
@@ -2235,9 +2219,10 @@ function Payment() {
                       Payment Amount ($) <span style={{ color: 'var(--danger)' }}>*</span>
                     </label>
                     <input
-                      type="text"
-                      inputMode="decimal"
+                      type="number"
                       value={paymentForm.amount}
+                      min="0"
+                      step="0.01"
                       onChange={(e) => {
                         const sanitized = String(e.target.value || '').replace(/[^0-9.]/g, '')
                         const parts = sanitized.split('.')
@@ -2268,13 +2253,18 @@ function Payment() {
                     )}
                     <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                       <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
-                        Available Credit: ${formatMoney(paymentSummary.availableCredit)}
+                        Available Credit: ${formatMoney(remainingAvailableCredit)}
+                        {selectedInvoiceIds.length > 0 && creditUsedOnSelections > 0 && (
+                          <span style={{ fontSize: '0.75rem', color: 'rgb(107, 114, 128)', marginLeft: '0.5rem' }}>
+                            (Used: ${formatMoney(creditUsedOnSelections)} / Remaining: ${formatMoney(remainingAvailableCredit)})
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Bill Payment Amount: ${formatMoney(paymentSummary.billPaymentAmount)}
+                        Bill Payment Amount: ${formatMoney(billPaymentAmount)}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-                        Adjusted Bill Amount: ${formatMoney(paymentSummary.adjustedBillAmount)}
+                        Adjusted Bill Amount: ${formatMoney(adjustedBillPaymentAmount)}
                       </div>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.875rem', color: 'var(--text-header)' }}>
                         <input
@@ -2556,73 +2546,73 @@ function Payment() {
                             const enteredDescription = invoiceDescriptions[invoiceId] ?? String(inv.description || '')
                             const isChecked = selectedInvoiceIdSet.has(invoiceId)
                             return (
-                              <tr
-                                key={inv._id}
-                                style={{
-                                  borderTop: '1px solid var(--border)',
-                                  background: selectedInvoiceSet.has(String(inv.invoiceNumber || '').toLowerCase()) ? 'rgba(99,102,241,0.06)' : 'transparent'
-                                }}
-                              >
-                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(e) => handleInvoiceSelectionToggle(inv._id, e.target.checked, inv.pendingAmount, inv.description)}
-                                    disabled={loading}
-                                    aria-label={`Select invoice ${inv.invoiceNumber}`}
-                                    style={{ width: 16, height: 16, cursor: loading ? 'not-allowed' : 'pointer' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '0.75rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inv.invoiceNumber}>
-                                  {inv.invoiceNumber}
-                                </td>
-                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>${formatMoney(inv.invoiceAmount)}</td>
-                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>${formatMoney(inv.paidAmount)}</td>
-                                <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: 'rgb(249, 115, 22)', fontWeight: 700 }}>
-                                  ${formatMoney(inv.pendingAmount)}
-                                </td>
-                                <td style={{ padding: '0.5rem' }}>
-                                  <input
-                                    type="text"
-                                    value={enteredDescription}
-                                    onChange={(e) => handleInvoiceDescriptionChange(inv._id, e.target.value)}
-                                    disabled={!isChecked || loading}
-                                    placeholder="Enter description"
-                                    maxLength={250}
-                                    style={{
-                                      width: '100%',
-                                      padding: '0.4rem 0.5rem',
-                                      border: '1px solid var(--border)',
-                                      borderRadius: '6px',
-                                      background: !isChecked ? 'var(--bg-main)' : 'var(--bg-card)',
-                                      color: 'var(--text-header)',
-                                      fontSize: '0.85rem'
-                                    }}
-                                  />
-                                </td>
-                                <td style={{ padding: '0.5rem', textAlign: 'left' }}>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    max={Math.max(0, Number(inv.pendingAmount) || 0)}
-                                    value={enteredAmount}
-                                    onChange={(e) => handleInvoicePaymentAmountChange(inv._id, e.target.value)}
-                                    disabled={!isChecked || loading}
-                                    placeholder="0.00"
-                                    style={{
-                                      width: '100%',
-                                      padding: '0.4rem 0.5rem',
-                                      border: '1px solid var(--border)',
-                                      borderRadius: '6px',
-                                      background: !isChecked ? 'var(--bg-main)' : 'var(--bg-card)',
-                                      color: 'var(--text-header)',
-                                      textAlign: 'right',
-                                      fontSize: '0.85rem'
-                                    }}
-                                  />
-                                </td>
-                              </tr>
+                            <tr
+                              key={inv._id}
+                              style={{
+                                borderTop: '1px solid var(--border)',
+                                background: selectedInvoiceSet.has(String(inv.invoiceNumber || '').toLowerCase()) ? 'rgba(99,102,241,0.06)' : 'transparent'
+                              }}
+                            >
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => handleInvoiceSelectionToggle(inv._id, e.target.checked, inv.pendingAmount, inv.description)}
+                                  disabled={loading}
+                                  aria-label={`Select invoice ${inv.invoiceNumber}`}
+                                  style={{ width: 16, height: 16, cursor: loading ? 'not-allowed' : 'pointer' }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.75rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inv.invoiceNumber}>
+                                {inv.invoiceNumber}
+                              </td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>${formatMoney(inv.invoiceAmount)}</td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left' }}>${formatMoney(inv.paidAmount)}</td>
+                              <td style={{ padding: '0.75rem 0.5rem', textAlign: 'left', color: 'rgb(249, 115, 22)', fontWeight: 700 }}>
+                                ${formatMoney(inv.pendingAmount)}
+                              </td>
+                              <td style={{ padding: '0.5rem' }}>
+                                <input
+                                  type="text"
+                                  value={enteredDescription}
+                                  onChange={(e) => handleInvoiceDescriptionChange(inv._id, e.target.value)}
+                                  disabled={!isChecked || loading}
+                                  placeholder="Enter description"
+                                  maxLength={250}
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.4rem 0.5rem',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    background: !isChecked ? 'var(--bg-main)' : 'var(--bg-card)',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.85rem'
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: '0.5rem', textAlign: 'left' }}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  max={Math.max(0, Number(inv.pendingAmount) || 0)}
+                                  value={enteredAmount}
+                                  onChange={(e) => handleInvoicePaymentAmountChange(inv._id, e.target.value)}
+                                  disabled={!isChecked || loading}
+                                  placeholder="0.00"
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.4rem 0.5rem',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '6px',
+                                    background: !isChecked ? 'var(--bg-main)' : 'var(--bg-card)',
+                                    color: 'var(--text-header)',
+                                    textAlign: 'right',
+                                    fontSize: '0.85rem'
+                                  }}
+                                />
+                              </td>
+                            </tr>
                             )
                           })
                         )}
@@ -2633,7 +2623,7 @@ function Payment() {
                             Total Balance:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
-                            ${formatMoney(paymentSummary.billPaymentAmount)}
+                            ${formatMoney(totalPending)}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(16,185,129,0.10)' }}>
@@ -2641,7 +2631,7 @@ function Payment() {
                             Selected Payment Total:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(16,185,129)' }}>
-                            ${formatMoney(paymentSummary.selectedPaymentTotal)}
+                            ${formatMoney(selectedAllocationTotal)}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(22,163,74,0.08)' }}>
@@ -2649,7 +2639,12 @@ function Payment() {
                             Available Credit:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
-                            <div>${formatMoney(paymentSummary.remainingAmount)}</div>
+                            <div>${formatMoney(remainingAvailableCredit)}</div>
+                            {selectedInvoiceIds.length > 0 && creditUsedOnSelections > 0 && (
+                              <div style={{ fontSize: '0.75rem', color: 'rgb(107, 114, 128)', marginTop: '0.25rem' }}>
+                                (Used: ${formatMoney(creditUsedOnSelections)} / Remaining: ${formatMoney(remainingAvailableCredit)})
+                              </div>
+                            )}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(22,163,74,0.08)' }}>
@@ -2657,7 +2652,7 @@ function Payment() {
                             Adjusted Bill Amount:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
-                            ${formatMoney(paymentSummary.adjustedBillAmount)}
+                            ${formatMoney(adjustedBillPaymentAmount)}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.06)' }}>
@@ -2665,7 +2660,7 @@ function Payment() {
                             Net Amount to Pay:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
-                            ${formatMoney(paymentSummary.adjustedBillAmount)}
+                            ${formatMoney(adjustedBillPaymentAmount)}
                           </td>
                         </tr>
                       </tfoot>
@@ -3471,216 +3466,216 @@ function Payment() {
             const attachmentMenuItems = getAttachmentMenuItems(dropdownPayment.attachments || [])
 
             return (
-              <div
-                ref={dropdownRef}
-                style={{
-                  position: 'fixed',
-                  top: dropdownPosition.top,
-                  left: dropdownPosition.left,
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  zIndex: 99999,
-                  minWidth: '220px',
-                  maxWidth: '260px',
-                  maxHeight: 'min(320px, 70vh)',
-                  overflowY: 'auto'
+          <div
+            ref={dropdownRef}
+            style={{
+              position: 'fixed',
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              zIndex: 99999,
+              minWidth: '220px',
+              maxWidth: '260px',
+              maxHeight: 'min(320px, 70vh)',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                setInfoPayment(dropdownPayment);
+                setInfoOpen(true);
+                closeActionDropdown()
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Info size={14} />
+              View
+            </MotionButton>
+            {isAdmin && (
+              <MotionButton
+                onClick={(e) => {
+                  e.stopPropagation()
+                  openPaymentHistory(dropdownPayment)
+                  closeActionDropdown()
                 }}
-                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '0.375rem 0.75rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-header)',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
               >
-                <MotionButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setInfoPayment(dropdownPayment);
-                    setInfoOpen(true);
-                    closeActionDropdown()
-                  }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '0.375rem 0.75rem',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-header)',
-                    fontSize: '0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Info size={14} />
-                  View
-                </MotionButton>
-                {isAdmin && (
+                <Clock3 size={14} />
+                Payment History
+              </MotionButton>
+            )}
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation()
+                if (attachmentMenuItems.length > 0) {
+                  setAttachmentsMenuOpen(prev => !prev)
+                }
+              }}
+              disabled={attachmentMenuItems.length === 0}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: attachmentsMenuOpen ? 'var(--bg-main)' : 'transparent',
+                border: 'none',
+                cursor: attachmentMenuItems.length === 0 ? 'not-allowed' : 'pointer',
+                color: attachmentMenuItems.length === 0 ? 'var(--text-muted)' : 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+                transition: 'all 0.2s',
+                opacity: attachmentMenuItems.length === 0 ? 0.7 : 1
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ImageIcon size={14} />
+                View Attachments
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
+                {attachmentMenuItems.length}
+              </span>
+            </MotionButton>
+            {attachmentsMenuOpen && attachmentMenuItems.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '0.35rem 0' }}>
+                {attachmentMenuItems.map(({ attachment, label }, index) => (
                   <MotionButton
+                    key={`${attachment.name || 'attachment'}-${index}`}
                     onClick={(e) => {
                       e.stopPropagation()
-                      openPaymentHistory(dropdownPayment)
-                      closeActionDropdown()
+                      openAttachmentPreview(attachment)
                     }}
                     style={{
                       width: '100%',
                       textAlign: 'left',
-                      padding: '0.375rem 0.75rem',
+                      padding: '0.45rem 0.75rem',
                       background: 'transparent',
                       border: 'none',
                       cursor: 'pointer',
                       color: 'var(--text-header)',
-                      fontSize: '0.875rem',
+                      fontSize: '0.84rem',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.5rem'
+                      gap: '0.5rem',
+                      transition: 'all 0.2s'
                     }}
+                    title={attachment.name || label}
                   >
-                    <Clock3 size={14} />
-                    Payment History
+                    {isImageAttachment(attachment) ? <ImageIcon size={13} /> : <FileText size={13} />}
+                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
+                      <span>{label}</span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
+                        {attachment.name || 'Unnamed file'}
+                      </span>
+                    </span>
                   </MotionButton>
-                )}
-                <MotionButton
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (attachmentMenuItems.length > 0) {
-                      setAttachmentsMenuOpen(prev => !prev)
-                    }
-                  }}
-                  disabled={attachmentMenuItems.length === 0}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '0.375rem 0.75rem',
-                    background: attachmentsMenuOpen ? 'var(--bg-main)' : 'transparent',
-                    border: 'none',
-                    cursor: attachmentMenuItems.length === 0 ? 'not-allowed' : 'pointer',
-                    color: attachmentMenuItems.length === 0 ? 'var(--text-muted)' : 'var(--text-header)',
-                    fontSize: '0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s',
-                    opacity: attachmentMenuItems.length === 0 ? 0.7 : 1
-                  }}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <ImageIcon size={14} />
-                    View Attachments
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-                    {attachmentMenuItems.length}
-                  </span>
-                </MotionButton>
-                {attachmentsMenuOpen && attachmentMenuItems.length > 0 && (
-                  <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '0.35rem 0' }}>
-                    {attachmentMenuItems.map(({ attachment, label }, index) => (
-                      <MotionButton
-                        key={`${attachment.name || 'attachment'}-${index}`}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openAttachmentPreview(attachment)
-                        }}
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '0.45rem 0.75rem',
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: 'var(--text-header)',
-                          fontSize: '0.84rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          transition: 'all 0.2s'
-                        }}
-                        title={attachment.name || label}
-                      >
-                        {isImageAttachment(attachment) ? <ImageIcon size={13} /> : <FileText size={13} />}
-                        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
-                          <span>{label}</span>
-                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
-                            {attachment.name || 'Unnamed file'}
-                          </span>
-                        </span>
-                      </MotionButton>
-                    ))}
-                  </div>
-                )}
-                <MotionButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    generatePaymentPDF(dropdownPayment);
-                    closeActionDropdown()
-                  }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '0.375rem 0.75rem',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-header)',
-                    fontSize: '0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Eye size={14} />
-                  View PDF
-                </MotionButton>
-                <MotionButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditPayment(dropdownPayment);
-                    closeActionDropdown()
-                  }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '0.375rem 0.75rem',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-header)',
-                    fontSize: '0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Edit2 size={14} />
-                  Edit
-                </MotionButton>
-                <MotionButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeletePayment(dropdownPayment._id);
-                    closeActionDropdown()
-                  }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '0.375rem 0.75rem',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--danger)',
-                    fontSize: '0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </MotionButton>
+                ))}
               </div>
+            )}
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                generatePaymentPDF(dropdownPayment);
+                closeActionDropdown()
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Eye size={14} />
+              View PDF
+            </MotionButton>
+            <MotionButton
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditPayment(dropdownPayment);
+                closeActionDropdown()
+              }}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '0.375rem 0.75rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-header)',
+                fontSize: '0.875rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Edit2 size={14} />
+              Edit
+            </MotionButton>
+            <MotionButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeletePayment(dropdownPayment._id);
+                  closeActionDropdown()
+                }}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '0.375rem 0.75rem',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--danger)',
+                  fontSize: '0.875rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Trash2 size={14} />
+                Delete
+              </MotionButton>
+          </div>
             )
           })()}
         </ActionMenuPortal>

@@ -7,7 +7,6 @@ const Invoice = require('../models/PurchaseInvoice');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
-const { buildPaymentSummary } = require('../utils/paymentSummary');
 const { sendErrorResponse } = require('../utils/errorHandler');
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
@@ -246,12 +245,7 @@ async function buildPendingInvoices(clientId, clientType, excludePaymentId) {
     });
   }
 
-  return {
-    invoices: result,
-    totalPending,
-    availableCredit,
-    paymentSummary: buildPaymentSummary({ availableCredit, totalPending })
-  };
+  return { invoices: result, totalPending, availableCredit };
 }
 
 async function allocatePaymentToInvoices({ clientId, clientType, amount, excludePaymentId, invoiceOrder }) {
