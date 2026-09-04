@@ -12,7 +12,6 @@ import autoTable from 'jspdf-autotable'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import {
-  calculateAdjustedBillPaymentAmount,
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,
   calculateRemainingAvailableCredit,
@@ -426,10 +425,6 @@ function Payment() {
   }, [availableCredit, creditUsedOnSelections])
 
   const billPaymentAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
-  const netAmountToPay = calculateAdjustedBillPaymentAmount(billPaymentAmount, remainingAvailableCredit)
-  const adjustedBillPaymentAmount = netAmountToPay
-  const enteredPaymentAmount = Math.max(0, Number(paymentForm.amount) || 0)
-  const outstandingAmount = Math.round((enteredPaymentAmount - adjustedBillPaymentAmount + Number.EPSILON) * 100) / 100
 
   const allocatePaymentAmountFifo = (amount) => {
     const enteredAmount = Math.max(0, Number(amount) || 0)
@@ -496,8 +491,15 @@ function Payment() {
       const next = { ...prev }
       if (checked) {
         if (!(Number(next[id]) > 0)) {
-          const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
-          next[id] = normalizedPending ? String(normalizedPending) : ''
+          if (!autoAllocateOnSelect) {
+            const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
+            const available = Math.max(0, Number(availableCredit) || 0)
+            const selectedAmount = Math.round((enteredAmount + available + Number.EPSILON) * 100) / 100
+            next[id] = selectedAmount > 0 ? String(selectedAmount) : ''
+          } else {
+            const normalizedPending = Math.max(0, Number(pendingAmount) || 0)
+            next[id] = normalizedPending ? String(normalizedPending) : ''
+          }
         }
       } else {
         delete next[id]
@@ -694,13 +696,6 @@ function Payment() {
   }, [pendingInvoices])
 
   useEffect(() => {
-    if (isPaymentAmountManuallyEdited) return
-    const nextAmount = netAmountToPay
-    if ((Number(paymentForm.amount) || 0) === nextAmount) return
-    setPaymentForm((prev) => ({ ...prev, amount: nextAmount }))
-  }, [netAmountToPay, isPaymentAmountManuallyEdited, paymentForm.amount])
-
-  useEffect(() => {
     if (!autoAllocateOnSelect) return
     if (!paymentForm.amount) return
     allocatePaymentAmountFifo(paymentForm.amount)
@@ -713,11 +708,6 @@ function Payment() {
     if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
     const amount = Number(paymentForm.amount) || 0
     const roundedAmount = Math.round((amount + Number.EPSILON) * 100) / 100
-    const minimumRequiredAmount = netAmountToPay
-    if (roundedAmount < minimumRequiredAmount) {
-      newErrors.amount = 'Payment amount cannot be less than adjusted bill amount after available credit'
-    }
-
     const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
     const selectedIds = Array.from(selectedInvoiceIdSet)
     if (roundedAmount <= 0 && selectedIds.length === 0) {
@@ -2258,9 +2248,6 @@ function Payment() {
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                         Bill Payment Amount: ${formatMoney(billPaymentAmount)}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700 }}>
-                        Adjusted Bill Amount: ${formatMoney(adjustedBillPaymentAmount)}
-                      </div>
                       <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.875rem', color: 'var(--text-header)' }}>
                         <input
                           type="checkbox"
@@ -2637,20 +2624,12 @@ function Payment() {
                             <div>${formatMoney(remainingAvailableCredit)}</div>
                           </td>
                         </tr>
-                        <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(22,163,74,0.08)' }}>
-                          <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
-                            Adjusted Bill Amount:
-                          </td>
-                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
-                            ${formatMoney(adjustedBillPaymentAmount)}
-                          </td>
-                        </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(59,130,246,0.06)' }}>
                           <td colSpan={6} style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-header)' }}>
                             Net Amount to Pay:
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
-                            ${formatMoney(adjustedBillPaymentAmount)}
+                            ${formatMoney(billPaymentAmount)}
                           </td>
                         </tr>
                       </tfoot>
