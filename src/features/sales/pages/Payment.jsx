@@ -2254,11 +2254,6 @@ function Payment() {
                     <div style={{ marginTop: '0.45rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                       <div style={{ fontSize: '0.75rem', color: 'rgb(22, 163, 74)', fontWeight: 600 }}>
                         Available Credit: ${formatMoney(remainingAvailableCredit)}
-                        {selectedInvoiceIds.length > 0 && creditUsedOnSelections > 0 && (
-                          <span style={{ fontSize: '0.75rem', color: 'rgb(107, 114, 128)', marginLeft: '0.5rem' }}>
-                            (Used: ${formatMoney(creditUsedOnSelections)} / Remaining: ${formatMoney(remainingAvailableCredit)})
-                          </span>
-                        )}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
                         Bill Payment Amount: ${formatMoney(billPaymentAmount)}
@@ -2640,11 +2635,6 @@ function Payment() {
                           </td>
                           <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'rgb(22, 163, 74)' }}>
                             <div>${formatMoney(remainingAvailableCredit)}</div>
-                            {selectedInvoiceIds.length > 0 && creditUsedOnSelections > 0 && (
-                              <div style={{ fontSize: '0.75rem', color: 'rgb(107, 114, 128)', marginTop: '0.25rem' }}>
-                                (Used: ${formatMoney(creditUsedOnSelections)} / Remaining: ${formatMoney(remainingAvailableCredit)})
-                              </div>
-                            )}
                           </td>
                         </tr>
                         <tr style={{ borderTop: '1px solid var(--border)', background: 'rgba(22,163,74,0.08)' }}>
