@@ -7,7 +7,6 @@ const Invoice = require('../models/PurchaseInvoice');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
-const { buildPaymentMergeUpdateOps } = require('../utils/paymentDuplicateHandling');
 const { sendErrorResponse } = require('../utils/errorHandler');
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
@@ -454,7 +453,7 @@ router.get('/', async (req, res) => {
         const searchableParts = [
           p.paymentNumber,
           p.paymentDate,
-          p.paymentListAmount,
+          p.amount,
           p.description,
           p.clientType,
           p.vendorId?.id,
@@ -500,8 +499,8 @@ router.get('/', async (req, res) => {
           bVal = new Date(b.paymentDate).getTime();
           break;
         case 'amount':
-          aVal = a.paymentListAmount || 0;
-          bVal = b.paymentListAmount || 0;
+          aVal = a.amount || 0;
+          bVal = b.amount || 0;
           break;
         case 'description':
           aVal = (a.description || '').toLowerCase();
@@ -767,25 +766,6 @@ router.post('/', async (req, res) => {
     }
 
     const authUser = await getAuthUserInfo(req);
-
-    const existingPayment = paymentNumber
-      ? await Payment.findOne({ paymentNumber })
-      : null;
-
-    if (existingPayment) {
-      const { updateOps } = buildPaymentMergeUpdateOps({
-        existingPayment,
-        allocations,
-        description,
-        authUser,
-        amount: finalAmount,
-        paymentDate,
-        attachments
-      });
-
-      const updatedPayment = await Payment.findByIdAndUpdate(existingPayment._id, updateOps, { new: true });
-      return res.status(200).json(updatedPayment);
-    }
 
     const payment = new Payment({
       paymentNumber,
