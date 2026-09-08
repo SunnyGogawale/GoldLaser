@@ -711,6 +711,9 @@ function PurchasePayment() {
     const roundedAmount = Math.round((amount + Number.EPSILON) * 100) / 100
     const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
     const selectedIds = Array.from(selectedInvoiceIdSet)
+    if (roundedAmount === 0 && selectedIds.length > 0 && selectedAllocationTotal > Math.max(0, Number(availableCredit) || 0)) {
+      newErrors.amount = 'Selected invoice amount cannot exceed the available credit.'
+    }
     if (roundedAmount <= 0 && selectedIds.length === 0) {
       newErrors.amount = 'Please enter a payment amount or select at least one invoice to allocate payment'
     }
