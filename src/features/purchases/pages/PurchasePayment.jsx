@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../../../utils/authStorage'
+import { parseCsvText, parseCsvData, getSuggestedCsvHeader, normalizeCsvDateValue, toIsoDateString } from '../../../utils/csvParser'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import MotionButton from '../../../components/MotionButton'
@@ -31,6 +32,7 @@ const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
   'application/pdf'
 ])
 const ALLOWED_ATTACHMENT_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf'])
+const CSV_IMPORT_MAX_SIZE_BYTES = 5 * 1024 * 1024
 
 const isAllowedAttachmentFile = (file) => {
   const fileType = String(file?.type || '').toLowerCase()
@@ -120,6 +122,17 @@ function PurchasePayment() {
   const [isAttachmentDragging, setIsAttachmentDragging] = useState(false)
   const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
+  const [csvImportOpen, setCsvImportOpen] = useState(false)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvImportError, setCsvImportError] = useState('')
+  const [csvImportFileName, setCsvImportFileName] = useState('')
+  const [csvHeaders, setCsvHeaders] = useState([])
+  const [csvDataRows, setCsvDataRows] = useState([])
+  const [csvFieldMapping, setCsvFieldMapping] = useState({ paymentNumber: '', paymentDate: '', amount: '', description: '' })
+  const [csvClientSearchText, setCsvClientSearchText] = useState('')
+  const [csvSelectedClientId, setCsvSelectedClientId] = useState('')
+  const [csvSelectedClientName, setCsvSelectedClientName] = useState('')
+  const [isCsvClientDropdownOpen, setIsCsvClientDropdownOpen] = useState(false)
 
   const [customers, setCustomers] = useState([])
   const [vendors, setVendors] = useState([])
@@ -175,6 +188,7 @@ function PurchasePayment() {
   const [attachmentsMenuOpen, setAttachmentsMenuOpen] = useState(false)
   const dropdownRef = useRef(null)
   const attachmentInputRef = useRef(null)
+  const csvImportInputRef = useRef(null)
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
   const [pdfFileName, setPdfFileName] = useState('purchase_payment.pdf')
@@ -266,6 +280,12 @@ function PurchasePayment() {
       c.displayName?.toLowerCase().includes(q)
     )
   }, [allClients, clientSearchText])
+
+  const filteredCsvClients = useMemo(() => {
+    const query = csvClientSearchText.trim().toLowerCase()
+    if (!query) return allClients.slice(0, 20)
+    return allClients.filter((client) => (client.displayName || '').toLowerCase().includes(query))
+  }, [allClients, csvClientSearchText])
 
   useEffect(() => {
     if (!paymentForm.clientId) {
@@ -1533,9 +1553,93 @@ function PurchasePayment() {
     attachmentInputRef.current?.click()
   }
 
+  const resetCsvImport = () => {
+    setCsvImportOpen(false)
+    setCsvImportError('')
+    setCsvImportFileName('')
+    setCsvHeaders([])
+    setCsvDataRows([])
+    setCsvFieldMapping({ paymentNumber: '', paymentDate: '', amount: '', description: '' })
+    setCsvClientSearchText('')
+    setCsvSelectedClientId('')
+    setCsvSelectedClientName('')
+    setIsCsvClientDropdownOpen(false)
+    if (csvImportInputRef.current) csvImportInputRef.current.value = ''
+  }
+
+  const handleCsvFileSelection = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!csvSelectedClientId) return setCsvImportError('Please select a vendor before uploading a CSV file.')
+    if (!file.name.toLowerCase().endsWith('.csv')) return setCsvImportError('Only .csv files are allowed.')
+    if (file.size > CSV_IMPORT_MAX_SIZE_BYTES) return setCsvImportError('CSV file must be 5 MB or smaller.')
+
+    try {
+      setCsvImporting(true)
+      setCsvImportError('')
+      const text = await file.text()
+      const parsedRows = parseCsvText(text).filter((row) => row.some((value) => String(value).trim() !== ''))
+      if (parsedRows.length === 0) throw new Error('The selected file does not contain any usable rows.')
+      const parsedData = parseCsvData(text)
+      setCsvImportFileName(file.name)
+      setCsvHeaders(parsedData.headers)
+      setCsvDataRows(parsedData.dataRows)
+      setCsvFieldMapping({
+        paymentNumber: getSuggestedCsvHeader(parsedData.headers, ['payment number', 'payment no', 'payment']) || '',
+        paymentDate: getSuggestedCsvHeader(parsedData.headers, ['payment date', 'date']) || '',
+        amount: getSuggestedCsvHeader(parsedData.headers, ['amount', 'amount due', 'total']) || '',
+        description: getSuggestedCsvHeader(parsedData.headers, ['description', 'narration', 'remarks', 'note']) || ''
+      })
+      showSuccessToast(`Loaded ${parsedData.dataRows.length} row(s) from ${file.name}`)
+    } catch (error) {
+      setCsvImportError(error.message || 'Unable to read the selected CSV file.')
+    } finally {
+      setCsvImporting(false)
+    }
+  }
+
+  const handleCsvImportSubmit = async () => {
+    if (!csvSelectedClientId) return setCsvImportError('Please select a vendor before importing the CSV file.')
+    if (!csvImportFileName) return setCsvImportError('Please choose a CSV file first.')
+
+    try {
+      setCsvImporting(true)
+      setCsvImportError('')
+      const token = getAuthToken()
+      const indexOf = (field) => csvHeaders.indexOf(csvFieldMapping[field])
+      for (const row of csvDataRows) {
+        const dateValue = String(row[indexOf('paymentDate')] ?? '').trim()
+        const amount = Number.parseFloat(String(row[indexOf('amount')] ?? '').replace(/[^0-9.-]/g, ''))
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            paymentNumber: String(row[indexOf('paymentNumber')] ?? '').trim() || undefined,
+            clientId: csvSelectedClientId,
+            clientType: 'Vendor',
+            paymentDate: dateValue ? toIsoDateString(normalizeCsvDateValue(dateValue)).split('T')[0] : new Date().toISOString().split('T')[0],
+            amount: Number.isFinite(amount) ? amount : 0,
+            description: String(row[indexOf('description')] ?? '').trim() || 'Imported from CSV',
+            allocations: [],
+            attachments: []
+          })
+        })
+        await readJsonResponse(response, 'Error importing CSV payment')
+      }
+      showSuccessToast(`Imported ${csvDataRows.length} payment(s) from CSV.`)
+      resetCsvImport()
+      await fetchPayments(1, searchQuery, sortColumn, sortOrder)
+    } catch (error) {
+      setCsvImportError(error.message || 'Unable to import the CSV file.')
+    } finally {
+      setCsvImporting(false)
+    }
+  }
+
   return (
     <div className="dashboard-content" style={{ padding: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0, gap: '0.75rem' }}>
+        {isAdmin && <MotionButton type="button" onClick={() => { resetCsvImport(); setCsvImportOpen(true) }} disabled={loading} style={{ padding: '0.5rem 1rem', background: 'var(--bg-main)', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}><UploadCloud size={16} />Upload CSV</MotionButton>}
         <MotionButton
           type="button"
           onClick={openCreatePayment}
@@ -1556,6 +1660,25 @@ function PurchasePayment() {
           Add Payment
         </MotionButton>
       </div>
+
+      {csvImportOpen && (
+        <ActionMenuPortal>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onMouseDown={(event) => { if (event.target === event.currentTarget) resetCsvImport() }}>
+            <div className="card" style={{ width: 'min(720px, 96vw)', maxHeight: '88vh', overflow: 'auto', padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><h2 style={{ margin: 0, color: 'var(--text-header)' }}>Upload CSV</h2><MotionButton type="button" onClick={resetCsvImport} style={{ padding: '0.4rem', border: '1px solid var(--border)', background: 'var(--bg-main)', borderRadius: 8 }}><X size={16} /></MotionButton></div>
+              <div style={{ display: 'grid', gap: '0.8rem', marginTop: '1rem' }}>
+                <input type="text" placeholder="Search vendor..." value={csvClientSearchText} onChange={(event) => { setCsvClientSearchText(event.target.value); setCsvSelectedClientId(''); setCsvSelectedClientName(''); setIsCsvClientDropdownOpen(true) }} onFocus={() => setIsCsvClientDropdownOpen(true)} style={{ padding: '0.65rem', border: '1px solid var(--border)', borderRadius: 8 }} />
+                {isCsvClientDropdownOpen && filteredCsvClients.length > 0 && <div style={{ border: '1px solid var(--border)', maxHeight: 160, overflowY: 'auto' }}>{filteredCsvClients.map((client) => <button key={client._id} type="button" onClick={() => { setCsvSelectedClientId(String(client._id)); setCsvSelectedClientName(client.displayName); setCsvClientSearchText(client.displayName); setIsCsvClientDropdownOpen(false) }} style={{ display: 'block', width: '100%', padding: '0.6rem', textAlign: 'left', border: 0, borderBottom: '1px solid var(--border)', background: 'var(--bg-card)' }}>{client.displayName}</button>)}</div>}
+                <input ref={csvImportInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvFileSelection} disabled={csvImporting || !csvSelectedClientId} />
+                {csvSelectedClientName && <div style={{ color: 'var(--primary)', fontWeight: 700 }}>Selected vendor: {csvSelectedClientName}</div>}
+                {csvHeaders.length > 0 && ['paymentNumber', 'paymentDate', 'amount', 'description'].map((field) => <label key={field} style={{ display: 'grid', gap: '0.25rem', fontWeight: 700 }}>{field}<select value={csvFieldMapping[field]} onChange={(event) => setCsvFieldMapping((prev) => ({ ...prev, [field]: event.target.value }))}><option value="">Select CSV column</option>{csvHeaders.map((header) => <option key={header} value={header}>{header}</option>)}</select></label>)}
+                {csvImportError && <div style={{ color: 'var(--danger)' }}>{csvImportError}</div>}
+                <MotionButton type="button" onClick={handleCsvImportSubmit} disabled={csvImporting || !csvDataRows.length} style={{ padding: '0.65rem 1rem', background: 'var(--primary)', color: '#fff', border: 0, borderRadius: 8 }}>{csvImporting ? 'Importing...' : `Import ${csvDataRows.length || ''} payment(s)`}</MotionButton>
+              </div>
+            </div>
+          </div>
+        </ActionMenuPortal>
+      )}
 
       {formOpen && (
         <ActionMenuPortal>
