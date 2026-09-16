@@ -145,7 +145,7 @@ function PurchasePayment() {
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
   const [invoiceSearchText, setInvoiceSearchText] = useState('')
   const [isInvoiceDropdownOpen, setIsInvoiceDropdownOpen] = useState(false)
-  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(true)
+  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(false)
   const [invoiceInput, setInvoiceInput] = useState('')
   const [invoiceInputFocused, setInvoiceInputFocused] = useState(false)
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([])

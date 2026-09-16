@@ -135,7 +135,7 @@ function Payment() {
   const [invoiceInput, setInvoiceInput] = useState('')
   const [invoiceInputFocused, setInvoiceInputFocused] = useState(false)
   const [isInvoiceDropdownOpen, setIsInvoiceDropdownOpen] = useState(false)
-  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(true)
+  const [autoAllocateOnSelect, setAutoAllocateOnSelect] = useState(false)
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([])
   const [invoicePaymentAmounts, setInvoicePaymentAmounts] = useState({})
   const [invoiceDescriptions, setInvoiceDescriptions] = useState({})
