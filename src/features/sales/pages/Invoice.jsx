@@ -241,7 +241,7 @@ function Invoice() {
     fetchSettings()
   }, [])
 
-  const PRODUCT_OPTIONS = ['Ring', 'Gold', 'Chain', 'Necklace'];
+  const PRODUCT_OPTIONS = ['Ring', 'Gold', 'Chain', 'Necklace', 'Bracelet', 'Earrings', 'Pendant', 'Bangle', 'Anklet', 'Brooch', 'Cufflinks', 'Tie Pin', 'Hairpin', 'Watch', 'Memo', 'Other'];
 
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
@@ -251,7 +251,7 @@ function Invoice() {
     invoiceDate: new Date().toISOString().split('T')[0],
     transactionDescription: '',
     items: [
-      { product: 'Ring', description: '', amount: 0 }
+      { product: '', description: '', amount: 0 }
     ],
     memos: [],
     attachments: [],
@@ -592,7 +592,7 @@ function Invoice() {
   const addItemRow = () => {
     setInvoiceForm(prev => ({
       ...prev,
-      items: [...prev.items, { product: 'Ring', description: '', amount: 0 }]
+      items: [...prev.items, { product: '', description: '', amount: 0 }]
     }));
   };
 
@@ -600,7 +600,7 @@ function Invoice() {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `memo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     title: '',
     description: '',
-    memoItems: [{ product: 'Ring', description: '', amount: 0 }]
+    memoItems: [{ product: '', description: '', amount: 0 }]
   });
 
   const addMemoRow = () => {
@@ -641,7 +641,7 @@ function Invoice() {
         if (index !== memoIndex) return memo;
         return {
           ...memo,
-          memoItems: [...(Array.isArray(memo.memoItems) ? memo.memoItems : []), { product: 'Ring', description: '', amount: 0 }]
+          memoItems: [...(Array.isArray(memo.memoItems) ? memo.memoItems : []), { product: '', description: '', amount: 0 }]
         };
       })
     }));
@@ -656,7 +656,7 @@ function Invoice() {
         const filtered = items.filter((_, rowIndex) => rowIndex !== itemIndex);
         return {
           ...memo,
-          memoItems: filtered.length > 0 ? filtered : [{ product: 'Ring', description: '', amount: 0 }]
+          memoItems: filtered.length > 0 ? filtered : [{ product: '', description: '', amount: 0 }]
         };
       })
     }));
@@ -880,7 +880,7 @@ function Invoice() {
         clientType: 'Customer',
         invoiceDate: new Date().toISOString().split('T')[0],
         transactionDescription: '',
-        items: [{ product: 'Ring', description: '', amount: 0 }],
+        items: [{ product: '', description: '', amount: 0 }],
         memos: [],
         attachments: [],
         totalAmount: 0
@@ -1007,7 +1007,7 @@ function Invoice() {
       clientType: 'Customer',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
-      items: [{ product: 'Ring', description: '', amount: 0 }],
+      items: [{ product: '', description: '', amount: 0 }],
       attachments: [],
       totalAmount: 0
     });
@@ -1028,7 +1028,7 @@ function Invoice() {
       clientType: 'Customer',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
-      items: [{ product: 'Ring', description: '', amount: 0 }],
+      items: [{ product: '', description: '', amount: 0 }],
       attachments: [],
       totalAmount: 0
     });
@@ -2166,7 +2166,7 @@ function Invoice() {
                             <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
                             <td style={{ padding: '0.5rem' }}>
                               <select
-                                value={item.product || 'Ring'}
+                                value={item.product ?? ''}
                                 onChange={(e) => handleItemChange(index, 'product', e.target.value)}
                                 style={{
                                   width: '100%',
@@ -2297,7 +2297,7 @@ function Invoice() {
                                   <td style={{ padding: '0.5rem', textAlign: 'center' }}>{itemIndex + 1}</td>
                                   <td style={{ padding: '0.5rem' }}>
                                     <select
-                                      value={item.product || 'Ring'}
+                                      value={item.product ?? ''}
                                       onChange={(e) => handleMemoItemChange(memoIndex, itemIndex, 'product', e.target.value)}
                                       style={{ width: '100%', padding: '0.25rem 0.5rem', border: `1px solid ${formSubmitted && errors.memoErrors?.[memoIndex]?.itemErrors?.[itemIndex]?.product ? 'var(--danger)' : 'transparent'}`, borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-header)', fontSize: '0.875rem' }}
                                     >

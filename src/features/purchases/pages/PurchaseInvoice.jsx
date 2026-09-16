@@ -98,7 +98,7 @@ function PurchaseInvoice() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const PRODUCT_OPTIONS = ['Ring', 'Gold', 'Chain', 'Necklace'];
+  const PRODUCT_OPTIONS = ['Ring', 'Gold', 'Chain', 'Necklace', 'Bracelet', 'Earrings', 'Pendant', 'Bangle', 'Anklet', 'Brooch', 'Cufflinks', 'Tie Pin', 'Hairpin', 'Watch', 'Memo', 'Other'];
 
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
@@ -108,7 +108,7 @@ function PurchaseInvoice() {
     invoiceDate: new Date().toISOString().split('T')[0],
     transactionDescription: '',
     items: [
-      { product: 'Ring', description: '', amount: 0 }
+      { product: '', description: '', amount: 0 }
     ],
     memos: [],
     attachments: [],
@@ -433,7 +433,7 @@ function PurchaseInvoice() {
   const addItemRow = () => {
     setInvoiceForm(prev => ({
       ...prev,
-      items: [...prev.items, { product: 'Ring', description: '', amount: 0 }]
+      items: [...prev.items, { product: '', description: '', amount: 0 }]
     }));
   };
 
@@ -441,7 +441,7 @@ function PurchaseInvoice() {
     id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `memo-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     title: '',
     description: '',
-    memoItems: [{ product: 'Ring', description: '', amount: 0 }]
+    memoItems: [{ product: '', description: '', amount: 0 }]
   });
 
   const addMemoRow = () => {
@@ -482,7 +482,7 @@ function PurchaseInvoice() {
         if (index !== memoIndex) return memo;
         return {
           ...memo,
-          memoItems: [...(Array.isArray(memo.memoItems) ? memo.memoItems : []), { product: 'Ring', description: '', amount: 0 }]
+          memoItems: [...(Array.isArray(memo.memoItems) ? memo.memoItems : []), { product: '', description: '', amount: 0 }]
         };
       })
     }));
@@ -497,7 +497,7 @@ function PurchaseInvoice() {
         const filtered = items.filter((_, rowIndex) => rowIndex !== itemIndex);
         return {
           ...memo,
-          memoItems: filtered.length > 0 ? filtered : [{ product: 'Ring', description: '', amount: 0 }]
+          memoItems: filtered.length > 0 ? filtered : [{ product: '', description: '', amount: 0 }]
         };
       })
     }));
@@ -721,7 +721,7 @@ function PurchaseInvoice() {
         clientType: 'Vendor',
         invoiceDate: new Date().toISOString().split('T')[0],
         transactionDescription: '',
-        items: [{ product: 'Ring', description: '', amount: 0 }],
+        items: [{ product: '', description: '', amount: 0 }],
         memos: [],
         attachments: [],
         totalAmount: 0
@@ -857,7 +857,7 @@ function PurchaseInvoice() {
       clientType: 'Vendor',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
-      items: [{ product: 'Ring', description: '', amount: 0 }],
+      items: [{ product: '', description: '', amount: 0 }],
       attachments: [],
       totalAmount: 0
     });
@@ -878,7 +878,7 @@ function PurchaseInvoice() {
       clientType: 'Vendor',
       invoiceDate: new Date().toISOString().split('T')[0],
       transactionDescription: '',
-      items: [{ product: 'Ring', description: '', amount: 0 }],
+      items: [{ product: '', description: '', amount: 0 }],
       attachments: [],
       totalAmount: 0
     });
@@ -1567,7 +1567,7 @@ function PurchaseInvoice() {
                               <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
                               <td style={{ padding: '0.5rem' }}>
                                 <select
-                                  value={item.product || 'Ring'}
+                                  value={item.product ?? ''}
                                   onChange={(e) => handleItemChange(index, 'product', e.target.value)}
                                   style={{
                                     width: '100%',
@@ -1643,113 +1643,6 @@ function PurchaseInvoice() {
                     </div>
                     {formSubmitted && errors.items && (
                       <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem' }}>{errors.items}</p>
-                    )}
-                  </div>
-
-                  <div style={{ marginTop: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                      <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-header)' }}>Memo Details</h3>
-                    </div>
-                    {(!Array.isArray(invoiceForm.memos) || invoiceForm.memos.length === 0) ? (
-                      <div style={{ border: '1px dashed var(--border)', borderRadius: '8px', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                        No memo added yet.
-                      </div>
-                    ) : (
-                      <div style={{ display: 'grid', gap: '0.75rem' }}>
-                        {invoiceForm.memos.map((memo, memoIndex) => (
-                          <div key={memo.id || memoIndex} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '0.75rem', background: 'var(--bg-main)' }}>
-                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.5rem' }}>
-                              <input
-                                type="text"
-                                value={memo.title || ''}
-                                onChange={(e) => handleMemoChange(memoIndex, 'title', e.target.value)}
-                                placeholder="Memo title"
-                                style={{ flex: 1, padding: '0.5rem 0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-header)', fontSize: '0.875rem' }}
-                              />
-                              <MotionButton
-                                type="button"
-                                onClick={() => removeMemoRow(memoIndex)}
-                                style={{ border: '1px solid var(--border)', background: 'transparent', borderRadius: '6px', padding: '0.45rem 0.75rem', color: 'var(--text-danger, var(--danger))', cursor: 'pointer', fontWeight: 700 }}
-                              >
-                                Delete
-                              </MotionButton>
-                            </div>
-                            <textarea
-                              value={memo.description || ''}
-                              onChange={(e) => handleMemoChange(memoIndex, 'description', e.target.value)}
-                              placeholder="Add memo details"
-                              rows={4}
-                              style={{ width: '100%', resize: 'vertical', padding: '0.5rem 0.75rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-header)', fontSize: '0.875rem' }}
-                            />
-
-                            <div style={{ marginTop: '0.9rem', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <h4 style={{ margin: 0, color: 'var(--text-header)', fontSize: '0.95rem' }}>Memo Items</h4>
-                              <MotionButton type="button" onClick={() => addMemoItemRow(memoIndex)} style={{ padding: '0.25rem 0.7rem', background: 'transparent', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}>
-                                <Plus size={14} /> Add Row
-                              </MotionButton>
-                            </div>
-
-                            <div style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
-                              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.875rem' }}>
-                                <thead style={{ background: 'var(--bg-main)' }}>
-                                  <tr>
-                                    <th style={{ padding: '0.5rem', textAlign: 'center', width: '8%' }}>Sr No</th>
-                                    <th style={{ padding: '0.5rem', textAlign: 'left', width: '25%' }}>Product</th>
-                                    <th style={{ padding: '0.5rem', textAlign: 'left', width: '40%' }}>Description</th>
-                                    <th style={{ padding: '0.5rem', textAlign: 'left', width: '18%' }}>Amount ($)</th>
-                                    <th style={{ padding: '0.5rem', textAlign: 'center', width: '10%' }}>Action</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {(Array.isArray(memo.memoItems) ? memo.memoItems : []).map((item, itemIndex) => (
-                                    <tr key={`${memo.id || memoIndex}-${itemIndex}`} style={{ borderTop: '1px solid var(--border)' }}>
-                                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>{itemIndex + 1}</td>
-                                      <td style={{ padding: '0.5rem' }}>
-                                        <select
-                                          value={item.product || 'Ring'}
-                                          onChange={(e) => handleMemoItemChange(memoIndex, itemIndex, 'product', e.target.value)}
-                                          style={{ width: '100%', padding: '0.25rem 0.5rem', border: `1px solid ${formSubmitted && errors.memoErrors?.[memoIndex]?.itemErrors?.[itemIndex]?.product ? 'var(--danger)' : 'transparent'}`, borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-header)', fontSize: '0.875rem' }}
-                                        >
-                                          <option value="">Select Product</option>
-                                          {PRODUCT_OPTIONS.map((option) => (
-                                            <option key={option} value={option}>{option}</option>
-                                          ))}
-                                        </select>
-                                      </td>
-                                      <td style={{ padding: '0.5rem' }}>
-                                        <input
-                                          type="text"
-                                          value={item.description || ''}
-                                          onChange={(e) => handleMemoItemChange(memoIndex, itemIndex, 'description', e.target.value)}
-                                          placeholder="Enter description"
-                                          style={{ width: '100%', padding: '0.25rem 0.5rem', border: '1px solid transparent', borderRadius: '4px', background: 'transparent', color: 'var(--text-header)', fontSize: '0.875rem' }}
-                                        />
-                                      </td>
-                                      <td style={{ padding: '0.5rem' }}>
-                                        <input
-                                          type="number"
-                                          value={item.amount}
-                                          onChange={(e) => handleMemoItemChange(memoIndex, itemIndex, 'amount', e.target.value)}
-                                          step="0.01"
-                                          style={{ width: '100%', padding: '0.25rem 0.5rem', border: `1px solid ${formSubmitted && errors.memoErrors?.[memoIndex]?.itemErrors?.[itemIndex]?.amount ? 'var(--danger)' : 'transparent'}`, borderRadius: '4px', background: 'transparent', color: 'var(--text-header)', textAlign: 'right', fontSize: '0.875rem' }}
-                                        />
-                                      </td>
-                                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                                        <MotionButton type="button" onClick={() => removeMemoItemRow(memoIndex, itemIndex)} disabled={(Array.isArray(memo.memoItems) ? memo.memoItems : []).length === 1} style={{ background: 'transparent', border: 'none', color: (Array.isArray(memo.memoItems) ? memo.memoItems : []).length === 1 ? 'var(--text-muted)' : 'var(--danger)', cursor: (Array.isArray(memo.memoItems) ? memo.memoItems : []).length === 1 ? 'not-allowed' : 'pointer', padding: '0.25rem' }}>
-                                          <Trash2 size={16} />
-                                        </MotionButton>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            {formSubmitted && errors.memoErrors?.[memoIndex]?.itemErrors && (
-                              <p style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.35rem' }}>Memo item values are invalid.</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
                     )}
                   </div>
 
