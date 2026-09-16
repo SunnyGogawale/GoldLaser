@@ -2126,7 +2126,7 @@ function Invoice() {
                       >
                         <Plus size={14} /> Add Row
                       </MotionButton>
-                      <MotionButton
+                      {/* <MotionButton
                         type="button"
                         onClick={addMemoRow}
                         disabled={loading}
@@ -2145,7 +2145,7 @@ function Invoice() {
                         }}
                       >
                         <Plus size={14} /> Add Memo
-                      </MotionButton>
+                      </MotionButton> */}
                     </div>
                   </div>
 
