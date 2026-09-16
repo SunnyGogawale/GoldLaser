@@ -1616,7 +1616,8 @@ function PurchaseInvoice() {
                                     background: 'transparent',
                                     color: 'var(--text-header)',
                                     textAlign: 'right',
-                                    fontSize: '0.875rem'
+                                    fontSize: '0.875rem',
+                                    MozAppearance: 'textfield',
                                   }}
                                 />
                               </td>

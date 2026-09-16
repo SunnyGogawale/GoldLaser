@@ -69,3 +69,11 @@ input, select, textarea {
   font-family: 'Inter', system-ui, sans-serif;
   color: var(--text-main);
 }
+
+
+/* Remove number input spinner arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
