@@ -216,6 +216,33 @@ function User() {
     }
   }
 
+  const toggleUserStatus = async (u) => {
+    const id = String(u?._id || '')
+    if (!id) return
+    setSaving(true)
+    setError('')
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ isActive: u.isActive !== false ? false : true })
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(data?.message || 'Failed to update user status')
+      setOpenDropdownId(null)
+      setDropdownUser(null)
+      await fetchUsers()
+      showSuccessToast(u.isActive !== false ? 'User deactivated successfully!' : 'User activated successfully!')
+    } catch (err) {
+      setError(handleApiError(err, 'Failed to update user status'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!isAdmin) {
     return (
       <div className="dashboard-content" style={{ padding: '1rem' }}>
@@ -343,6 +370,10 @@ function User() {
                           <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{u.roll || u.role || 'user'}</div>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Status:</div>
+                          <div style={{ fontSize: '0.875rem', color: u.isActive === false ? 'var(--text-muted)' : 'var(--success, #16a34a)', fontWeight: 700 }}>{u.isActive === false ? 'Inactive' : 'Active'}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Created:</div>
                           <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{formatDateTimeMMDDYYYY(u.createdAt)}</div>
                         </div>
@@ -356,23 +387,25 @@ function User() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', tableLayout: 'fixed' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                        <th style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Name</th>
-                        <th style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Email</th>
+                        <th style={{ width: '28%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Name</th>
+                        <th style={{ width: '28%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Email</th>
                         <th style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Role</th>
-                        <th style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Created</th>
+                        <th style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Status</th>
+                        <th style={{ width: '14%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Created</th>
                         <th style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredUsers.map((u) => (
                         <tr key={String(u._id)} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.fullName || '-'}</td>
-                          <td style={{ width: '35%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{u.email || '-'}</td>
+                          <td style={{ width: '28%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.fullName || '-'}</td>
+                          <td style={{ width: '28%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{u.email || '-'}</td>
                           <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.roll || u.role || 'user'}</td>
-                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: u.isActive === false ? 'var(--text-muted)' : 'var(--success, #16a34a)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.isActive === false ? 'Inactive' : 'Active'}</td>
+                          <td style={{ width: '14%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                             {formatDateTimeMMDDYYYY(u.createdAt)}
                           </td>
-                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem' }}>
+                            <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem' }}>
                             <div style={{ position: 'relative' }}>
                               <MotionButton
                                 onClick={(e) => {
@@ -778,6 +811,30 @@ function User() {
           >
             <Clock3 size={14} />
             Last Login
+          </MotionButton>
+          <MotionButton
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleUserStatus(dropdownUser);
+            }}
+            disabled={saving}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.375rem 0.75rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              color: dropdownUser.isActive === false ? 'var(--success, #16a34a)' : 'var(--danger)',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            {dropdownUser.isActive === false ? 'Activate' : 'Deactivate'}
           </MotionButton>
           <MotionButton
             type="button"

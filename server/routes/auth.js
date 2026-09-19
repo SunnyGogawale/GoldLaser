@@ -108,6 +108,10 @@ router.post('/signin', async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    if (user.isActive === false) {
+      return res.status(403).json({ message: 'Your account is inactive. Please contact the administrator.' });
+    }
+
     // FLAG CHECK: Ensure user has the correct roll for this login type
     const userRoll = String(user.roll || user.role || 'user').toLowerCase();
     const requested = requiredRole ? String(requiredRole).toLowerCase() : '';

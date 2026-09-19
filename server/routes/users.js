@@ -181,6 +181,27 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 })
 
+router.put('/:id/status', requireAdmin, async (req, res) => {
+  try {
+    const targetId = String(req.params.id || '')
+    if (!targetId) return res.status(400).json({ message: 'Invalid user id' })
+    if (typeof req.body.isActive !== 'boolean') {
+      return res.status(400).json({ message: 'isActive must be a boolean' })
+    }
+
+    const target = await User.findById(targetId)
+    if (!target) return res.status(404).json({ message: 'User not found' })
+
+    target.isActive = req.body.isActive
+    await target.save()
+
+    const safe = await User.findById(target._id, { password: 0 })
+    return res.json({ user: safe })
+  } catch (err) {
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'users.status')
+  }
+})
+
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const targetId = String(req.params.id || '')
