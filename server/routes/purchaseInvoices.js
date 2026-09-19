@@ -7,6 +7,7 @@ const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const { sendErrorResponse } = require('../utils/errorHandler');
+const { ensureInvoiceProducts } = require('../utils/productCatalog');
 const { buildInvoiceMergeUpdateOps } = require('../utils/invoiceDuplicateHandling');
 
 const isObjectId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
@@ -458,6 +459,7 @@ router.post('/', async (req, res) => {
     }
 
     const authUser = await getAuthUserInfo(req);
+    await ensureInvoiceProducts(req.body.items, authUser?.id);
     const normalizedMemos = normalizeInvoiceValue('memos', req.body.memos || []);
     if (!req.body.clientId || !isObjectId(req.body.clientId)) {
       return res.status(400).json({ message: 'Valid client is required' });
@@ -537,6 +539,7 @@ router.put('/:id', async (req, res) => {
     delete update.activity;
 
     const authUser = await getAuthUserInfo(req);
+    await ensureInvoiceProducts(update.items, authUser?.id);
     update.updatedBy = authUser?.id || null;
     update.updatedByName = authUser?.fullName || '';
     update.updatedByEmail = authUser?.email || '';

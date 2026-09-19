@@ -39,6 +39,7 @@ app.use('/api/company-settings', require('./routes/companySettings'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/customer-custom-fields', require('./routes/customerCustomFields'));
 app.use('/api/vendors', require('./routes/vendors'));
+app.use('/api/products', require('./routes/products'));
 app.use('/api/vendor-custom-fields', require('./routes/vendorCustomFields'));
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/payments', require('./routes/payments'));

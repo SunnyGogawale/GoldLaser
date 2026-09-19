@@ -98,7 +98,7 @@ function PurchaseInvoice() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const PRODUCT_OPTIONS = ['Ring', 'Gold', 'Chain', 'Necklace', 'Bracelet', 'Earrings', 'Pendant', 'Bangle', 'Anklet', 'Brooch', 'Cufflinks', 'Tie Pin', 'Hairpin', 'Watch', 'Memo', 'Other'];
+  const [productOptions, setProductOptions] = useState([]);
 
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
@@ -195,6 +195,24 @@ function PurchaseInvoice() {
     };
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    const fetchActiveProducts = async () => {
+      try {
+        const token = getAuthToken();
+        const response = await fetch(`${API_BASE_URL}/api/products?activeOnly=true&limit=1000`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        });
+        const data = await readJsonResponse(response, 'Error fetching products');
+        setProductOptions((data.products || []).map((product) => product.productName).filter(Boolean));
+      } catch (err) {
+        handleApiError(err, 'Error fetching products');
+        setProductOptions([]);
+      }
+    };
+
+    fetchActiveProducts();
+  }, []);
   const overlayMotion = {
     initial: { opacity: 0 },
     animate: { opacity: 1 },
@@ -275,6 +293,7 @@ function PurchaseInvoice() {
   // Vendor dropdown autocomplete state
   const [vendorSearchText, setVendorSearchText] = useState('');
   const [isVendorDropdownOpen, setIsVendorDropdownOpen] = useState(false);
+  const [openProductDropdownIndex, setOpenProductDropdownIndex] = useState(null);
 
   // Only vendors for purchase invoices
   const allVendors = useMemo(() => [
@@ -1550,7 +1569,7 @@ function PurchaseInvoice() {
                       </div>
                     </div>
 
-                    <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'visible' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.875rem' }}>
                         <thead style={{ background: 'var(--bg-main)' }}>
                           <tr>
@@ -1566,24 +1585,73 @@ function PurchaseInvoice() {
                             <tr key={index} style={{ borderTop: '1px solid var(--border)' }}>
                               <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
                               <td style={{ padding: '0.5rem' }}>
-                                <select
-                                  value={item.product ?? ''}
-                                  onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                                  style={{
-                                    width: '100%',
-                                    padding: '0.25rem 0.5rem',
-                                    border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
-                                    borderRadius: '4px',
-                                    background: 'var(--bg-card)',
-                                    color: 'var(--text-header)',
-                                    fontSize: '0.875rem'
-                                  }}
-                                >
-                                  <option value="">Select Product</option>
-                                  {PRODUCT_OPTIONS.map((option) => (
-                                    <option key={option} value={option}>{option}</option>
-                                  ))}
-                                </select>
+                                <div style={{ position: 'relative' }}>
+                                  <input
+                                    type="text"
+                                    value={item.product ?? ''}
+                                    onChange={(e) => {
+                                      handleItemChange(index, 'product', e.target.value);
+                                      setOpenProductDropdownIndex(e.target.value.length > 0 ? index : null);
+                                    }}
+                                    onFocus={(e) => {
+                                      if (e.target.value.length > 0) setOpenProductDropdownIndex(index);
+                                    }}
+                                    onBlur={() => setTimeout(() => setOpenProductDropdownIndex(null), 200)}
+                                    placeholder="Search or enter product"
+                                    disabled={loading}
+                                    style={{
+                                      width: '100%',
+                                      padding: '0.25rem 0.5rem',
+                                      border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
+                                      borderRadius: '4px',
+                                      background: 'var(--bg-card)',
+                                      color: 'var(--text-header)',
+                                      fontSize: '0.875rem',
+                                      outline: 'none'
+                                    }}
+                                  />
+                                  {openProductDropdownIndex === index && item.product && (
+                                    <ul style={{
+                                      position: 'absolute',
+                                      top: '100%',
+                                      left: 0,
+                                      right: 0,
+                                      maxHeight: '180px',
+                                      overflowY: 'auto',
+                                      background: 'var(--bg-card)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: '4px',
+                                      marginTop: '4px',
+                                      padding: 0,
+                                      listStyle: 'none',
+                                      zIndex: 20,
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}>
+                                      {productOptions
+                                        .filter((option) => option.toLowerCase().includes(item.product.trim().toLowerCase()))
+                                        .map((option) => (
+                                          <li
+                                            key={option}
+                                            onClick={() => {
+                                              handleItemChange(index, 'product', option);
+                                              setOpenProductDropdownIndex(null);
+                                            }}
+                                            style={{
+                                              padding: '0.5rem 0.75rem',
+                                              cursor: 'pointer',
+                                              fontSize: '0.875rem',
+                                              color: 'var(--text-header)',
+                                              borderBottom: '1px solid var(--border)'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-main)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                          >
+                                            {option}
+                                          </li>
+                                        ))}
+                                    </ul>
+                                  )}
+                                </div>
                               </td>
                               <td style={{ padding: '0.5rem' }}>
                                 <input

@@ -6,6 +6,7 @@ const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const { sendErrorResponse } = require('../utils/errorHandler');
+const { ensureInvoiceProducts } = require('../utils/productCatalog');
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -421,6 +422,7 @@ router.post('/', async (req, res) => {
 
     const authUser = await getAuthUserInfo(req);
     const normalizedItems = normalizeInvoiceValue('items', req.body.items || []);
+    await ensureInvoiceProducts(normalizedItems, authUser?.id);
     const normalizedMemos = normalizeInvoiceValue('memos', req.body.memos || []);
     const normalizedAttachments = normalizeInvoiceValue('attachments', req.body.attachments);
     const requestedTotal = Number(req.body.totalAmount || 0);
@@ -517,6 +519,7 @@ router.put('/:id', async (req, res) => {
     delete update.activity;
 
     const authUser = await getAuthUserInfo(req);
+    await ensureInvoiceProducts(update.items, authUser?.id);
     update.updatedBy = authUser?.id || null;
     update.updatedByName = authUser?.fullName || '';
     update.updatedByEmail = authUser?.email || '';

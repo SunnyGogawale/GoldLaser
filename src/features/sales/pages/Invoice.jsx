@@ -225,6 +225,8 @@ function Invoice() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  const [productOptions, setProductOptions] = useState([]);
+
   // Fetch company settings
   useEffect(() => {
     const fetchSettings = async () => {
@@ -241,7 +243,23 @@ function Invoice() {
     fetchSettings()
   }, [])
 
-  const PRODUCT_OPTIONS = ['Ring', 'Gold', 'Chain', 'Necklace', 'Bracelet', 'Earrings', 'Pendant', 'Bangle', 'Anklet', 'Brooch', 'Cufflinks', 'Tie Pin', 'Hairpin', 'Watch', 'Memo', 'Other'];
+  useEffect(() => {
+    const fetchActiveProducts = async () => {
+      try {
+        const token = getAuthToken()
+        const response = await fetch(`${API_BASE_URL}/api/products?activeOnly=true&limit=1000`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        })
+        const data = await readJsonResponse(response, 'Error fetching products')
+        setProductOptions((data.products || []).map((product) => product.productName).filter(Boolean))
+      } catch (err) {
+        handleApiError(err, 'Error fetching products')
+        setProductOptions([])
+      }
+    }
+
+    fetchActiveProducts()
+  }, [])
 
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
@@ -375,7 +393,6 @@ function Invoice() {
   const formatTimeAgo = (dateValue) => {
     const d = dateValue ? new Date(dateValue) : null
     if (!d || Number.isNaN(d.getTime())) return ''
-    if (!infoNowMs) return ''
     const diffMs = infoNowMs - d.getTime()
     const diffSec = Math.floor(diffMs / 1000)
     if (diffSec < 10) return 'just now'
@@ -416,6 +433,7 @@ function Invoice() {
   // Customer dropdown autocomplete state
   const [customerSearchText, setCustomerSearchText] = useState('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [openProductDropdownIndex, setOpenProductDropdownIndex] = useState(null);
 
   // Only use customers
   const allCustomers = customers.map(c => ({
@@ -2149,7 +2167,7 @@ function Invoice() {
                     </div>
                   </div>
 
-                  <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <div style={{ border: '1px solid var(--border)', borderRadius: '6px', overflow: 'visible' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.875rem' }}>
                       <thead style={{ background: 'var(--bg-main)' }}>
                         <tr>
@@ -2165,24 +2183,73 @@ function Invoice() {
                           <tr key={index} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ padding: '0.5rem', textAlign: 'center' }}>{index + 1}</td>
                             <td style={{ padding: '0.5rem' }}>
-                              <select
-                                value={item.product ?? ''}
-                                onChange={(e) => handleItemChange(index, 'product', e.target.value)}
-                                style={{
-                                  width: '100%',
-                                  padding: '0.25rem 0.5rem',
-                                  border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
-                                  borderRadius: '4px',
-                                  background: 'var(--bg-card)',
-                                  color: 'var(--text-header)',
-                                  fontSize: '0.875rem'
-                                }}
-                              >
-                                <option value="">Select Product</option>
-                                {PRODUCT_OPTIONS.map((option) => (
-                                  <option key={option} value={option}>{option}</option>
-                                ))}
-                              </select>
+                              <div style={{ position: 'relative' }}>
+                                <input
+                                  type="text"
+                                  value={item.product ?? ''}
+                                  onChange={(e) => {
+                                    handleItemChange(index, 'product', e.target.value);
+                                    setOpenProductDropdownIndex(e.target.value.length > 0 ? index : null);
+                                  }}
+                                  onFocus={(e) => {
+                                    if (e.target.value.length > 0) setOpenProductDropdownIndex(index);
+                                  }}
+                                  onBlur={() => setTimeout(() => setOpenProductDropdownIndex(null), 200)}
+                                  placeholder="Search or enter product"
+                                  disabled={loading}
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.25rem 0.5rem',
+                                    border: `1px solid ${formSubmitted && errors.itemErrors?.[index]?.product ? 'var(--danger)' : 'transparent'}`,
+                                    borderRadius: '4px',
+                                    background: 'var(--bg-card)',
+                                    color: 'var(--text-header)',
+                                    fontSize: '0.875rem',
+                                    outline: 'none'
+                                  }}
+                                />
+                                {openProductDropdownIndex === index && item.product && (
+                                  <ul style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    right: 0,
+                                    maxHeight: '180px',
+                                    overflowY: 'auto',
+                                    background: 'var(--bg-card)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '4px',
+                                    marginTop: '4px',
+                                    padding: 0,
+                                    listStyle: 'none',
+                                    zIndex: 20,
+                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                  }}>
+                                    {productOptions
+                                      .filter((option) => option.toLowerCase().includes(item.product.trim().toLowerCase()))
+                                      .map((option) => (
+                                        <li
+                                          key={option}
+                                          onClick={() => {
+                                            handleItemChange(index, 'product', option);
+                                            setOpenProductDropdownIndex(null);
+                                          }}
+                                          style={{
+                                            padding: '0.5rem 0.75rem',
+                                            cursor: 'pointer',
+                                            fontSize: '0.875rem',
+                                            color: 'var(--text-header)',
+                                            borderBottom: '1px solid var(--border)'
+                                          }}
+                                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-main)'}
+                                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                          {option}
+                                        </li>
+                                      ))}
+                                  </ul>
+                                )}
+                              </div>
                             </td>
                             <td style={{ padding: '0.5rem' }}>
                               <input
@@ -2303,7 +2370,7 @@ function Invoice() {
                                       style={{ width: '100%', padding: '0.25rem 0.5rem', border: `1px solid ${formSubmitted && errors.memoErrors?.[memoIndex]?.itemErrors?.[itemIndex]?.product ? 'var(--danger)' : 'transparent'}`, borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-header)', fontSize: '0.875rem' }}
                                     >
                                       <option value="">Select Product</option>
-                                      {PRODUCT_OPTIONS.map((option) => (
+                                      {productOptions.map((option) => (
                                         <option key={option} value={option}>{option}</option>
                                       ))}
                                     </select>

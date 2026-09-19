@@ -12,6 +12,7 @@ import Payment from './features/sales/pages/Payment'
 import Reports from './features/reports/pages/Reports'
 import User from './features/admin/pages/User'
 import Backup from './features/admin/pages/Backup'
+import Product from './features/admin/pages/Product'
 import Vendor from './features/vendors/pages/Vendor'
 import PurchaseInvoice from './features/purchases/pages/PurchaseInvoice'
 import PurchasePayment from './features/purchases/pages/PurchasePayment'
@@ -141,6 +142,7 @@ function App() {
           <Route path="/reports" element={isLoggedIn ? <Reports /> : <Navigate to="/login" replace />} />
           <Route path="/user" element={isLoggedIn ? <User /> : <Navigate to="/login" replace />} />
           <Route path="/backup" element={isLoggedIn ? <Backup /> : <Navigate to="/login" replace />} />
+          <Route path="/product" element={isLoggedIn ? <Product /> : <Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
