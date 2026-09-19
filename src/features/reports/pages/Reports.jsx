@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Download, FileText } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import * as XLSX from 'xlsx'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
@@ -119,7 +120,7 @@ function Reports() {
 
   const sanitizeFileNamePart = (value) => String(value || '').trim().replace(/[^a-z0-9_-]/gi, '') || 'Report'
 
-  const getReportFileName = (totalRows) => {
+  const getReportFileName = (totalRows, extension = 'pdf') => {
     const reportType = activeTab === 'sales' ? 'SaleReport' : 'PurchaseReport'
     const defaultClientName = activeTab === 'sales' ? 'AllCustomers' : 'AllVendors'
     const selectedClient = clients.find((client) => `${client.type}:${client.id}` === clientId)
@@ -132,7 +133,7 @@ function Reports() {
       String(now.getHours()).padStart(2, '0'),
       String(now.getMinutes()).padStart(2, '0')
     ].join('-')
-    return `${clientName}-${Number(totalRows) || 0}-${dateTime}-${reportType}.pdf`
+    return `${clientName}-${Number(totalRows) || 0}-${dateTime}-${reportType}.${extension}`
   }
 
   const downloadPdf = async () => {
@@ -144,17 +145,84 @@ function Reports() {
       document.text(title, 14, 16)
       document.setFontSize(9)
       document.text(`From: ${fromDate || 'All'}    To: ${toDate || 'All'}`, 14, 23)
-      document.text(`Total Invoice: $${formatMoney(data.totals?.totalInvoiceAmount)}   Total Payment: $${formatMoney(data.totals?.totalPaymentAmount)}   Total Pending: $${formatMoney(data.totals?.totalPendingAmount)}`, 14, 29)
-      autoTable(document, {
-        startY: 35,
-        head: [['Date', 'Transaction No', 'Transaction Type', 'Description', 'Debit (Invoice)', 'Credit (Payment)', 'Balance']],
-        body: (data.rows || []).map((row) => [formatDateMMDDYYYY(row.date), row.transactionNo, row.transactionType, row.description || '-', `$${formatMoney(row.debit)}`, `$${formatMoney(row.credit)}`, `$${formatMoney(row.balance)}`]),
-        styles: { fontSize: 8 },
-        columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 25 }, 2: { cellWidth: 45 }, 3: { cellWidth: 55 }, 4: { cellWidth: 25 }, 5: { cellWidth: 25 }, 6: { cellWidth: 25 } }
+      const summaryCards = [
+        ['Total Invoice Amount', data.totals?.totalInvoiceAmount],
+        ['Total Payment Amount', data.totals?.totalPaymentAmount],
+        ['Total Pending Amount', data.totals?.totalPendingAmount]
+      ]
+      const cardWidth = 88
+      const cardHeight = 18
+      const cardGap = 7
+      summaryCards.forEach(([label, value], index) => {
+        const cardX = 14 + index * (cardWidth + cardGap)
+        document.setFillColor(248, 250, 252)
+        document.setDrawColor(203, 213, 225)
+        document.roundedRect(cardX, 28, cardWidth, cardHeight, 2, 2, 'FD')
+        document.setTextColor(100, 116, 139)
+        document.setFontSize(8)
+        document.text(label, cardX + 4, 34)
+        document.setTextColor(15, 23, 42)
+        document.setFontSize(11)
+        document.setFont('helvetica', 'bold')
+        document.text(`$${formatMoney(value)}`, cardX + 4, 42)
+        document.setFont('helvetica', 'normal')
       })
-      document.save(getReportFileName(data.total))
+      document.setTextColor(0, 0, 0)
+      autoTable(document, {
+        startY: 52,
+        head: [['Date', 'Transaction No', activeTab === 'sales' ? 'Company Name' : 'Vendor Name', 'Transaction Type', 'Description', 'Debit (Invoice)', 'Credit (Payment)', 'Balance', 'Status']],
+        body: (data.rows || []).map((row) => [formatDateMMDDYYYY(row.date), row.transactionNo, row.clientName || '-', row.transactionType, row.description || '-', `$${formatMoney(row.debit)}`, `$${formatMoney(row.credit)}`, `$${formatMoney(row.balance)}`, row.status || '-']),
+        styles: { fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 25 }, 1: { cellWidth: 25 }, 2: { cellWidth: 38 }, 3: { cellWidth: 38 }, 4: { cellWidth: 48 }, 5: { cellWidth: 25 }, 6: { cellWidth: 25 }, 7: { cellWidth: 25 }, 8: { cellWidth: 20 } }
+      })
+      document.save(getReportFileName(data.total, 'pdf'))
     } catch (error) {
       handleApiError(error, 'Error downloading report')
+    }
+  }
+
+  const downloadExcel = async () => {
+    try {
+      const data = await fetchReport(1, { limit: 10000, download: true })
+      const headers = [
+        'Date',
+        'Transaction No',
+        activeTab === 'sales' ? 'Company Name' : 'Vendor Name',
+        'Transaction Type',
+        'Description',
+        'Debit (Invoice)',
+        'Credit (Payment)',
+        'Balance',
+        'Status'
+      ]
+      const exportRows = (data.rows || []).map((row) => ({
+        Date: formatDateMMDDYYYY(row.date),
+        'Transaction No': row.transactionNo || '',
+        [activeTab === 'sales' ? 'Company Name' : 'Vendor Name']: row.clientName || '',
+        'Transaction Type': row.transactionType || '',
+        Description: row.description || '',
+        'Debit (Invoice)': Number(row.debit) || 0,
+        'Credit (Payment)': Number(row.credit) || 0,
+        Balance: Number(row.balance) || 0,
+        Status: row.status || ''
+      }))
+      const worksheet = XLSX.utils.json_to_sheet(exportRows, { header: headers })
+      worksheet['!cols'] = [
+        { wch: 14 },
+        { wch: 20 },
+        { wch: 28 },
+        { wch: 20 },
+        { wch: 40 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 14 }
+      ]
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, activeTab === 'sales' ? 'Sale Report' : 'Purchase Report')
+      XLSX.writeFile(workbook, getReportFileName(data.total, 'xlsx'))
+    } catch (error) {
+      handleApiError(error, 'Error downloading Excel report')
     }
   }
 
@@ -172,7 +240,7 @@ function Reports() {
           <label style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.85rem' }}>To Date<input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.3rem', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-header)' }} /></label>
           <div style={{ position: 'relative' }}><label style={{ color: 'var(--text-header)', fontWeight: 700, fontSize: '0.85rem' }}>{activeTab === 'sales' ? 'Customer Name' : 'Vendor Name'}<input type="text" value={clientSearchText} placeholder={`Search ${activeTab === 'sales' ? 'customer' : 'vendor'} name`} onChange={(event) => { setClientSearchText(event.target.value); setClientId(''); setClientDropdownOpen(event.target.value.trim().length > 0) }} onFocus={() => { if (clientSearchText.trim()) setClientDropdownOpen(true) }} onBlur={() => setTimeout(() => setClientDropdownOpen(false), 200)} style={{ display: 'block', width: '100%', marginTop: '0.3rem', padding: '0.55rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-card)', color: 'var(--text-header)' }} /></label>{clientDropdownOpen && filteredClients.length > 0 && <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, maxHeight: '220px', overflowY: 'auto', marginTop: '0.25rem', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--bg-card)', boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>{filteredClients.map((client) => <button key={`${client.type}:${client.id}`} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setClientId(`${client.type}:${client.id}`); setClientSearchText(client.name); setClientDropdownOpen(false) }} style={{ display: 'block', width: '100%', padding: '0.55rem 0.7rem', border: 0, borderBottom: '1px solid var(--border)', background: 'transparent', color: 'var(--text-header)', textAlign: 'left', cursor: 'pointer' }}>{client.name}</button>)}</div>}</div>
         </div>
-        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '1rem' }}><MotionButton type="button" onClick={applyFilters} disabled={loading} style={{ padding: '0.55rem 0.9rem', background: 'var(--primary)', color: '#fff', border: 0, borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Apply Filter</MotionButton><MotionButton type="button" onClick={clearFilters} disabled={loading} style={{ padding: '0.55rem 0.9rem', background: 'var(--bg-main)', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Clear Filter</MotionButton><MotionButton type="button" onClick={downloadPdf} disabled={loading} style={{ padding: '0.55rem 0.9rem', background: 'var(--bg-main)', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><Download size={15} /> Download PDF</MotionButton></div>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginTop: '1rem' }}><MotionButton type="button" onClick={applyFilters} disabled={loading} style={{ padding: '0.55rem 0.9rem', background: 'var(--primary)', color: '#fff', border: 0, borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Apply Filter</MotionButton><MotionButton type="button" onClick={clearFilters} disabled={loading} style={{ padding: '0.55rem 0.9rem', background: 'var(--bg-main)', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}>Clear Filter</MotionButton><MotionButton type="button" onClick={downloadPdf} disabled={loading} style={{ padding: '0.55rem 0.9rem', background: 'var(--bg-main)', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><Download size={15} /> Download PDF</MotionButton><MotionButton type="button" onClick={downloadExcel} disabled={loading} style={{ padding: '0.55rem 0.9rem', background: 'var(--bg-main)', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><Download size={15} /> Download Excel</MotionButton></div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem', marginTop: '1.25rem' }}>{[['Total Invoice Amount', totals.totalInvoiceAmount], ['Total Payment Amount', totals.totalPaymentAmount], ['Total Pending Amount', totals.totalPendingAmount]].map(([label, value]) => <div key={label} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '0.9rem', background: 'var(--bg-main)' }}><div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700 }}>{label}</div><div style={{ marginTop: '0.35rem', color: 'var(--text-header)', fontSize: '1.2rem', fontWeight: 900 }}>${formatMoney(value)}</div></div>)}</div>
       </div>
       <div className="card" style={{ width: '100%', padding: '1.5rem', marginTop: '1.25rem' }}>
