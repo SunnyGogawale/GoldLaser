@@ -14,6 +14,7 @@ import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import {
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,
+  distributeAmountAcrossSelectedInvoices,
   calculateRemainingAvailableCredit,
   calculatePaymentListAmount
 } from '../../../utils/creditCalculation'
@@ -301,50 +302,22 @@ function Payment() {
   useEffect(() => {
     if (editingPaymentId || autoAllocateOnSelect) return
 
-    const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
-    const available = Math.max(0, Number(remainingAvailableCredit) || 0)
-    const totalAvailable = enteredAmount + available
+    const totalToDistribute = Math.max(0, Number(paymentForm.amount) || 0) + Math.max(0, Number(availableCredit) || 0)
+    const distributedAmounts = distributeAmountAcrossSelectedInvoices(
+      selectedInvoiceIds,
+      orderedPendingInvoices,
+      totalToDistribute
+    )
 
-    if (!(totalAvailable > 0)) {
-      setSelectedInvoiceIds([])
-      setInvoicePaymentAmounts({})
-      setInvoiceDescriptions({})
-      return
-    }
-
-    const sortedInvoices = [...orderedPendingInvoices].sort((a, b) => {
-      const dateA = new Date(a.invoiceDate).getTime()
-      const dateB = new Date(b.invoiceDate).getTime()
-      if (dateA !== dateB) return dateA - dateB
-      return String(a.invoiceNumber || '').localeCompare(String(b.invoiceNumber || ''))
-    })
-
-    let remaining = totalAvailable
-    const autoIds = []
-    for (const inv of sortedInvoices) {
-      if (!(remaining > 0)) break
-      const pendingAmount = Math.max(0, Number(inv.pendingAmount) || 0)
-      if (!(pendingAmount > 0)) continue
-      const allocated = Math.min(pendingAmount, remaining)
-      if (!(allocated > 0)) continue
-      autoIds.push(String(inv._id))
-      remaining -= allocated
-    }
-
-    if (autoIds.length === 0) return
-
-    setSelectedInvoiceIds((prev) => Array.isArray(prev) ? prev.filter((id) => !autoIds.includes(String(id))) : [])
-    setInvoicePaymentAmounts((prev) => {
-      const next = { ...(prev || {}) }
-      for (const id of autoIds) delete next[id]
+    setInvoicePaymentAmounts((previous) => {
+      const next = { ...(previous || {}) }
+      for (const invoiceId of selectedInvoiceIds) delete next[String(invoiceId)]
+      for (const [invoiceId, amount] of Object.entries(distributedAmounts)) {
+        next[invoiceId] = String(amount)
+      }
       return next
     })
-    setInvoiceDescriptions((prev) => {
-      const next = { ...(prev || {}) }
-      for (const id of autoIds) delete next[id]
-      return next
-    })
-  }, [editingPaymentId, autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
+  }, [editingPaymentId, autoAllocateOnSelect, paymentForm.amount, availableCredit, selectedInvoiceIds, orderedPendingInvoices])
 
   const parseInvoiceTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim().toLowerCase()).filter(Boolean)
   const parseInvoiceRawTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim()).filter(Boolean)

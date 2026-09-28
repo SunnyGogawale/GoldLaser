@@ -16,6 +16,27 @@ export const calculateCreditUsedOnSelections = (selectedInvoiceIds = [], invoice
   return Math.max(0, Math.round((selectedTotal - (Number(cashAmount) || 0) + Number.EPSILON) * 100) / 100)
 }
 
+export const distributeAmountAcrossSelectedInvoices = (selectedInvoiceIds = [], invoices = [], totalAmount = 0) => {
+  const pendingById = new Map((Array.isArray(invoices) ? invoices : []).map((invoice) => [
+    String(invoice?._id),
+    Math.max(0, Math.round((Number(invoice?.pendingAmount || 0) + Number.EPSILON) * 100))
+  ]))
+  let remainingCents = Math.max(0, Math.round((Number(totalAmount) + Number.EPSILON) * 100))
+  const amounts = {}
+
+  for (const invoiceId of Array.isArray(selectedInvoiceIds) ? selectedInvoiceIds : []) {
+    if (remainingCents <= 0) break
+    const id = String(invoiceId)
+    const pendingCents = pendingById.get(id) || 0
+    const allocationCents = Math.min(pendingCents, remainingCents)
+    if (allocationCents <= 0) continue
+    amounts[id] = allocationCents / 100
+    remainingCents -= allocationCents
+  }
+
+  return amounts
+}
+
 export const calculateRemainingAvailableCredit = (availableCredit = 0, creditUsedOnSelections = 0) => {
   const currentAvailableCredit = Math.max(0, Number(availableCredit) || 0)
   const used = Math.max(0, Number(creditUsedOnSelections) || 0)

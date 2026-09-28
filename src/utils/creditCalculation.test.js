@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   calculateUpdatedAvailableCreditAfterDebit,
   calculateCreditUsedOnSelections,
+  distributeAmountAcrossSelectedInvoices,
   calculateRemainingAvailableCredit,
   calculateAdjustedBillPaymentAmount,
   calculateCashAmountAfterCredit,
@@ -30,6 +31,23 @@ test('calculateCreditUsedOnSelections sums each selected invoice allocation only
   assert.equal(
     calculateCreditUsedOnSelections(['a', 'b'], { a: '600', b: '400' }, 1200),
     0
+  )
+})
+
+test('distributeAmountAcrossSelectedInvoices applies payment plus credit in selected order', () => {
+  const invoices = [
+    { _id: 'first', pendingAmount: 250 },
+    { _id: 'second', pendingAmount: 500 },
+    { _id: 'third', pendingAmount: 300 }
+  ]
+
+  assert.deepEqual(
+    distributeAmountAcrossSelectedInvoices(['second', 'first', 'third'], invoices, 700),
+    { second: 500, first: 200 }
+  )
+  assert.deepEqual(
+    distributeAmountAcrossSelectedInvoices(['first', 'second'], invoices, 1000),
+    { first: 250, second: 500 }
   )
 })
 
