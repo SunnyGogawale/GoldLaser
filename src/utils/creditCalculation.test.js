@@ -23,6 +23,14 @@ test('calculateCreditUsedOnSelections sums each selected invoice allocation only
     calculateCreditUsedOnSelections(['a', 'b'], { a: '300', b: '0' }),
     300
   )
+  assert.equal(
+    calculateCreditUsedOnSelections(['a', 'b'], { a: '600', b: '400' }, 500),
+    500
+  )
+  assert.equal(
+    calculateCreditUsedOnSelections(['a', 'b'], { a: '600', b: '400' }, 1200),
+    0
+  )
 })
 
 test('calculateRemainingAvailableCredit uses previous balance minus total used', () => {

@@ -299,7 +299,7 @@ function Payment() {
   }, [pendingInvoices, pendingInvoiceOrder])
 
   useEffect(() => {
-    if (autoAllocateOnSelect) return
+    if (editingPaymentId || autoAllocateOnSelect) return
 
     const enteredAmount = Math.max(0, Number(paymentForm.amount) || 0)
     const available = Math.max(0, Number(remainingAvailableCredit) || 0)
@@ -344,7 +344,7 @@ function Payment() {
       for (const id of autoIds) delete next[id]
       return next
     })
-  }, [autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
+  }, [editingPaymentId, autoAllocateOnSelect, paymentForm.amount, orderedPendingInvoices, availableCredit])
 
   const parseInvoiceTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim().toLowerCase()).filter(Boolean)
   const parseInvoiceRawTokens = (text) => String(text || '').split(/[;,\s]+/).map(t => t.trim()).filter(Boolean)
@@ -417,8 +417,8 @@ function Payment() {
   }, [selectedAllocations])
 
   const creditUsedOnSelections = useMemo(() => {
-    return calculateCreditUsedOnSelections(selectedInvoiceIds, invoicePaymentAmounts)
-  }, [selectedInvoiceIds, invoicePaymentAmounts])
+    return calculateCreditUsedOnSelections(selectedInvoiceIds, invoicePaymentAmounts, paymentForm.amount)
+  }, [selectedInvoiceIds, invoicePaymentAmounts, paymentForm.amount])
 
   const remainingAvailableCredit = useMemo(() => {
     return calculateRemainingAvailableCredit(availableCredit, creditUsedOnSelections)

@@ -4,14 +4,16 @@ export const calculateUpdatedAvailableCreditAfterDebit = (previousAvailableCredi
   return Math.max(0, Math.round((previousBalance - debited + Number.EPSILON) * 100) / 100)
 }
 
-export const calculateCreditUsedOnSelections = (selectedInvoiceIds = [], invoicePaymentAmounts = {}) => {
+export const calculateCreditUsedOnSelections = (selectedInvoiceIds = [], invoicePaymentAmounts = {}, cashAmount = 0) => {
   if (!Array.isArray(selectedInvoiceIds) || selectedInvoiceIds.length === 0) return 0
 
-  return selectedInvoiceIds.reduce((total, invoiceId) => {
+  const selectedTotal = selectedInvoiceIds.reduce((total, invoiceId) => {
     const paymentAmount = Number(invoicePaymentAmounts[String(invoiceId)] || 0)
     if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) return total
     return total + paymentAmount
   }, 0)
+
+  return Math.max(0, Math.round((selectedTotal - (Number(cashAmount) || 0) + Number.EPSILON) * 100) / 100)
 }
 
 export const calculateRemainingAvailableCredit = (availableCredit = 0, creditUsedOnSelections = 0) => {
