@@ -283,8 +283,16 @@ router.get('/', async (req, res) => {
           bVal = b.totalAmount || 0;
           break;
         case 'transactionDescription':
-          aVal = (a.transactionDescription || '').toLowerCase();
-          bVal = (b.transactionDescription || '').toLowerCase();
+          aVal = (Array.isArray(a.items) ? a.items : [])
+            .map((item) => String(item?.description || '').trim())
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          bVal = (Array.isArray(b.items) ? b.items : [])
+            .map((item) => String(item?.description || '').trim())
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
           break;
         default:
           aVal = new Date(a.invoiceDate);

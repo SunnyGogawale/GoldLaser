@@ -418,6 +418,14 @@ function Invoice() {
     return `${s.slice(0, maxChars)}...`
   }
 
+  const getInvoiceItemDescription = (invoice) => {
+    const descriptions = (Array.isArray(invoice?.items) ? invoice.items : [])
+      .map((item) => String(item?.description || '').trim())
+      .filter(Boolean)
+
+    return descriptions.map((description, index) => `${index + 1}. ${description}`).join('\n')
+  }
+
   const formatDateDDMMMYYYY = (dateValue) => {
     return formatDateMMDDYYYY(dateValue)
   }
@@ -2777,11 +2785,11 @@ function Invoice() {
                               ${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           </div>
-                          {invoice.transactionDescription && (
+                          {getInvoiceItemDescription(invoice) && (
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
                               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '64px' }}>Note:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                                {truncateTextByChars(invoice.transactionDescription, 30)}
+                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'pre-line', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                                {getInvoiceItemDescription(invoice)}
                               </div>
                             </div>
                           )}
@@ -2864,15 +2872,15 @@ function Invoice() {
                                 padding: '0.35rem 0.35rem',
                                 color: 'var(--text-main)',
                                 borderRight: isAdmin ? '1px solid var(--border)' : 'none',
-                                whiteSpace: 'normal',
+                                whiteSpace: 'pre-line',
                                 overflowWrap: 'anywhere',
                                 wordBreak: 'break-word',
                                 minWidth: '260px',
                                 maxWidth: '420px'
                               }}
-                              title={String(invoice.transactionDescription || '')}
+                              title={getInvoiceItemDescription(invoice)}
                             >
-                              {invoice.transactionDescription || '-'}
+                              {getInvoiceItemDescription(invoice) || '-'}
                             </td>
                             <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={`$${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
                               ${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
