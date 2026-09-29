@@ -207,6 +207,14 @@ function Reports() {
         Status: row.status || ''
       }))
       const worksheet = XLSX.utils.json_to_sheet(exportRows, { header: headers })
+      const amountColumns = ['F', 'G', 'H']
+      const worksheetRange = XLSX.utils.decode_range(worksheet['!ref'])
+      amountColumns.forEach((column) => {
+        for (let rowNumber = worksheetRange.s.r + 1; rowNumber <= worksheetRange.e.r; rowNumber += 1) {
+          const cell = worksheet[`${column}${rowNumber + 1}`]
+          if (cell) cell.z = '$#,##0.00'
+        }
+      })
       worksheet['!cols'] = [
         { wch: 14 },
         { wch: 20 },
