@@ -2646,7 +2646,7 @@ function Invoice() {
 
       {/* Invoice List */}
       {(
-        <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
+        <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 700px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Invoice List</h2>
 
