@@ -7,6 +7,7 @@ const PurchasePayment = require('../models/PurchasePayment');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const { sendErrorResponse } = require('../utils/errorHandler');
+const { REPORT_COLUMNS, buildInvoiceReportRow, buildPaymentReportRow, calculateReportTotals, sortReportRows } = require('../utils/reportColumns');
 
 const router = express.Router();
 
@@ -27,9 +28,11 @@ const buildMatch = (query, dateField) => {
     if (from) match[dateField].$gte = from;
     if (to) match[dateField].$lte = to;
   }
-  if (query.clientId && mongoose.isValidObjectId(query.clientId)) {
-    match.clientId = new mongoose.Types.ObjectId(query.clientId);
-    if (query.clientType === 'Customer' || query.clientType === 'Vendor') match.clientType = query.clientType;
+  const clientId = query.clientId || query.customerId;
+  if (clientId && mongoose.isValidObjectId(clientId)) {
+    match.clientId = new mongoose.Types.ObjectId(clientId);
+    if (query.customerId && !query.clientType) match.clientType = 'Customer';
+    else if (query.clientType === 'Customer' || query.clientType === 'Vendor') match.clientType = query.clientType;
   }
   return match;
 };
@@ -51,14 +54,16 @@ const getClientName = (record, clients) => {
   const clientMap = record.clientType === 'Vendor' ? clients.vendors : clients.customers;
   const client = clientMap.get(String(record.clientId));
   return record.clientType === 'Vendor'
-    ? client?.vendorName || client?.companyName || `${client?.firstName || ''} ${client?.lastName || ''}`.trim() || 'Unknown'
-    : client?.customerName || client?.companyName || `${client?.firstName || ''} ${client?.lastName || ''}`.trim() || 'Unknown';
+    ? client?.companyName || client?.vendorName || `${client?.firstName || ''} ${client?.lastName || ''}`.trim() || 'Unknown'
+    : client?.companyName || client?.customerName || `${client?.firstName || ''} ${client?.lastName || ''}`.trim() || 'Unknown';
 };
 
 const createReportHandler = ({ Invoice, Payment, type }) => async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(10000, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const sortBy = REPORT_COLUMNS.some(({ key }) => key === req.query.sortBy) ? req.query.sortBy : 'date';
+    const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
     const [allInvoices, allPayments] = await Promise.all([
       Invoice.find(buildMatch(req.query, 'invoiceDate')).sort({ invoiceDate: 1, createdAt: 1 }).lean(),
       Payment.find(buildMatch(req.query, 'paymentDate')).sort({ paymentDate: 1, createdAt: 1 }).lean()
@@ -73,67 +78,30 @@ const createReportHandler = ({ Invoice, Payment, type }) => async (req, res) => 
     }
 
     const invoiceRows = allInvoices.map((invoice) => {
-      const invoiceAmount = Number(invoice.totalAmount) || 0;
-      const paymentAmount = Math.min(invoiceAmount, paidMap.get(String(invoice._id)) || 0);
-      const pendingAmount = Math.max(0, invoiceAmount - paymentAmount);
-      return {
-        _id: `invoice-${invoice._id}`,
-        date: invoice.invoiceDate,
-        transactionNo: invoice.invoiceNumber,
-        transactionType: `${type} Invoice`,
-        type: `${type} Invoice`,
-        invoiceNumber: invoice.invoiceNumber,
-        clientType: invoice.clientType,
-        clientName: getClientName(invoice, clients),
-        description: invoice.transactionDescription || '',
-        debit: invoiceAmount,
-        credit: 0,
-        balance: pendingAmount,
-        amount: invoiceAmount,
-        invoiceAmount,
-        paymentAmount: 0,
-        pendingAmount,
-        status: pendingAmount === 0 ? 'Paid' : paymentAmount > 0 ? 'Partial' : 'Pending'
-      };
+      return buildInvoiceReportRow({
+        invoice,
+        type,
+        companyName: getClientName(invoice, clients),
+        paidAmount: paidMap.get(String(invoice._id)) || 0
+      });
     });
 
     const paymentRows = allPayments.map((payment) => {
       const allocationAmount = (Array.isArray(payment.allocations) ? payment.allocations : [])
         .reduce((total, allocation) => total + (Number(allocation.amount) || 0), 0);
-      const creditAmount = Number(payment.amount) || allocationAmount;
-      return {
-        _id: `payment-${payment._id}`,
-        date: payment.paymentDate,
-        transactionNo: payment.paymentNumber,
-        transactionType: `${type} Payment`,
-        type: `${type} Payment`,
-        invoiceNumber: payment.paymentNumber,
-        clientType: payment.clientType,
-        clientName: getClientName(payment, clients),
-        description: payment.description || '',
-        debit: 0,
-        credit: creditAmount,
-        balance: 0,
-        amount: creditAmount,
-        invoiceAmount: 0,
-        paymentAmount: creditAmount,
-        pendingAmount: 0,
-        status: 'Paid'
-      };
+      return buildPaymentReportRow({
+        payment,
+        type,
+        companyName: getClientName(payment, clients),
+        allocationAmount
+      });
     });
 
-    const rows = [...invoiceRows, ...paymentRows].sort((a, b) => {
-      const dateDifference = new Date(a.date).getTime() - new Date(b.date).getTime();
-      return dateDifference || String(a.transactionNo).localeCompare(String(b.transactionNo));
-    });
+    const rows = sortReportRows([...invoiceRows, ...paymentRows], sortBy, sortOrder);
 
-    const totals = {
-      totalInvoiceAmount: invoiceRows.reduce((total, row) => total + row.debit, 0),
-      totalPaymentAmount: paymentRows.reduce((total, row) => total + row.credit, 0),
-      totalPendingAmount: invoiceRows.reduce((total, row) => total + row.balance, 0)
-    };
+    const totals = calculateReportTotals(invoiceRows);
 
-    res.json({ rows: rows.slice((page - 1) * limit, page * limit), totals, total: rows.length, page, totalPages: Math.ceil(rows.length / limit) });
+    res.json({ columns: REPORT_COLUMNS, rows: rows.slice((page - 1) * limit, page * limit), totals, total: rows.length, page, totalPages: Math.ceil(rows.length / limit) });
   } catch (error) {
     sendErrorResponse(res, error, 'Something went wrong. Please try again later.', 500, `reports.${type.toLowerCase()}`);
   }

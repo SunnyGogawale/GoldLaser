@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -11,6 +12,7 @@ import {
   User,
   Users,
   FileText,
+  Info,
   HandCoins,
   Search,
   Eye,
@@ -35,8 +37,14 @@ import { readJsonResponse } from '../../../utils/api'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
+import { REPORT_COLUMNS, REPORT_AMOUNT_COLUMN_KEYS, getReportPopoverPosition } from '../../reports/reportColumns'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
+const REPORT_COLUMN_INFO = {
+  invoiceAmount: 'Total Invoice Amount',
+  paidAmount: 'Total Invoice Paid Amount',
+  balance: 'Total Invoice Balance Amount'
+}
 
 // Helper to generate mock data for different ranges
 const generateData = (count, labelPrefix = '') => {
@@ -239,10 +247,12 @@ function Dashboard() {
   const [customerModalCustomerId, setCustomerModalCustomerId] = useState(null)
   const [customerModalProfile, setCustomerModalProfile] = useState(null)
   const [customerModalSalesRows, setCustomerModalSalesRows] = useState([])
+  const [customerModalSalesColumns, setCustomerModalSalesColumns] = useState(REPORT_COLUMNS)
+  const [customerModalSalesInfoColumn, setCustomerModalSalesInfoColumn] = useState(null)
   const [customerModalSalesTotals, setCustomerModalSalesTotals] = useState({
-    totalInvoiceAmount: 0,
-    totalPaidAmount: 0,
-    totalPendingAmount: 0
+    totalInvAmount: 0,
+    totalInvAmountPaid: 0,
+    totalInvBalance: 0
   })
   const [customerModalSalesPage, setCustomerModalSalesPage] = useState(1)
   const [customerModalSalesTotalPages, setCustomerModalSalesTotalPages] = useState(1)
@@ -349,15 +359,50 @@ function Dashboard() {
     return { background: 'rgba(249,115,22,0.18)', color: 'rgb(249,115,22)' }
   }
 
+  const toggleCustomerModalSalesInfo = (event, key) => {
+    if (customerModalSalesInfoColumn?.key === key) {
+      setCustomerModalSalesInfoColumn(null)
+      return
+    }
+    const anchor = event.currentTarget
+    setCustomerModalSalesInfoColumn({
+      key,
+      anchor,
+      ...getReportPopoverPosition(anchor.getBoundingClientRect())
+    })
+  }
+
+  useEffect(() => {
+    const anchor = customerModalSalesInfoColumn?.anchor
+    if (!anchor) return
+
+    const updatePosition = () => {
+      if (!anchor.isConnected) {
+        setCustomerModalSalesInfoColumn(null)
+        return
+      }
+      setCustomerModalSalesInfoColumn((current) => current?.anchor === anchor
+        ? { ...current, ...getReportPopoverPosition(anchor.getBoundingClientRect()) }
+        : current)
+    }
+
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [customerModalSalesInfoColumn])
+
   const closeCustomerModal = () => {
     setCustomerModalOpen(false)
     setCustomerModalCustomerId(null)
     setCustomerModalProfile(null)
     setCustomerModalSalesRows([])
     setCustomerModalSalesTotals({
-      totalInvoiceAmount: 0,
-      totalPaidAmount: 0,
-      totalPendingAmount: 0
+      totalInvAmount: 0,
+      totalInvAmountPaid: 0,
+      totalInvBalance: 0
     })
     setCustomerModalSalesPage(1)
     setCustomerModalSalesTotalPages(1)
@@ -375,13 +420,14 @@ function Dashboard() {
       const response = await fetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching customer sales report')
       setCustomerModalSalesRows(data.rows || [])
-      setCustomerModalSalesTotals(data.totals || { totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 })
+      setCustomerModalSalesColumns(REPORT_COLUMNS)
+      setCustomerModalSalesTotals(data.totals || { totalInvAmount: 0, totalInvAmountPaid: 0, totalInvBalance: 0 })
       setCustomerModalSalesPage(Number(data.page) || 1)
       setCustomerModalSalesTotalPages(Number(data.totalPages) || 1)
     } catch (err) {
       console.error('Error fetching customer sales report:', err)
       setCustomerModalSalesRows([])
-      setCustomerModalSalesTotals({ totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 })
+      setCustomerModalSalesTotals({ totalInvAmount: 0, totalInvAmountPaid: 0, totalInvBalance: 0 })
       setCustomerModalSalesPage(1)
       setCustomerModalSalesTotalPages(1)
     } finally {
@@ -395,7 +441,7 @@ function Dashboard() {
     setCustomerModalCustomerId(mongoCustomerId)
     setCustomerModalProfile(null)
     setCustomerModalSalesRows([])
-    setCustomerModalSalesTotals({ totalInvoiceAmount: 0, totalPaidAmount: 0, totalPendingAmount: 0 })
+    setCustomerModalSalesTotals({ totalInvAmount: 0, totalInvAmountPaid: 0, totalInvBalance: 0 })
     setCustomerModalSalesPage(1)
     setCustomerModalSalesTotalPages(1)
     setCustomerModalLoading(true)
@@ -975,21 +1021,21 @@ function Dashboard() {
             <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '1rem', background: 'var(--bg-main)' }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Invoice Amount</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Inv Amount</div>
                   <div style={{ marginTop: '0.4rem', fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-header)' }}>
-                    ${formatMoney(customerModalSalesTotals.totalInvoiceAmount, 0)}
+                    ${formatMoney(customerModalSalesTotals.totalInvAmount, 0)}
                   </div>
                 </div>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '1rem', background: 'var(--bg-main)' }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Paid Amount</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Inv Amount Paid</div>
                   <div style={{ marginTop: '0.4rem', fontSize: '1.2rem', fontWeight: 900, color: 'rgb(34,197,94)' }}>
-                    ${formatMoney(customerModalSalesTotals.totalPaidAmount, 0)}
+                    ${formatMoney(customerModalSalesTotals.totalInvAmountPaid, 0)}
                   </div>
                 </div>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '1rem', background: 'var(--bg-main)' }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Pending Amount</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)' }}>Total Inv Balance</div>
                   <div style={{ marginTop: '0.4rem', fontSize: '1.2rem', fontWeight: 900, color: 'rgb(239,68,68)' }}>
-                    ${formatMoney(customerModalSalesTotals.totalPendingAmount, 0)}
+                    ${formatMoney(customerModalSalesTotals.totalInvBalance, 0)}
                   </div>
                 </div>
               </div>
@@ -998,38 +1044,59 @@ function Dashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Invoice Number</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Invoice Date</th>
-                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Invoice Amount</th>
-                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Paid Amount</th>
-                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Pending Amount</th>
-                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800 }}>Status</th>
+                      {customerModalSalesColumns.map((column) => (
+                        <th key={column.key} style={{ position: 'relative', textAlign: REPORT_AMOUNT_COLUMN_KEYS.has(column.key) ? 'right' : 'left', padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 800, verticalAlign: 'top' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                            {column.label}
+                            {REPORT_COLUMN_INFO[column.key] && (
+                              <button
+                                type="button"
+                                aria-label={`Information about ${column.label}`}
+                                aria-expanded={customerModalSalesInfoColumn?.key === column.key}
+                                onClick={(event) => toggleCustomerModalSalesInfo(event, column.key)}
+                                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: 0, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+                              >
+                                <Info size={14} />
+                              </button>
+                            )}
+                          </div>
+                          {customerModalSalesInfoColumn?.key === column.key && createPortal(
+                            <div role="tooltip" style={{ position: 'fixed', left: customerModalSalesInfoColumn.left, top: customerModalSalesInfoColumn.top, zIndex: 100001, width: 240, padding: '0.5rem 0.65rem', border: '1px solid var(--border)', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-main)', textAlign: 'left', fontSize: '0.78rem', fontWeight: 600, lineHeight: 1.35, boxShadow: '0 4px 14px rgba(0,0,0,0.16)' }}>
+                              {REPORT_COLUMN_INFO[column.key]}
+                            </div>,
+                            document.body
+                          )}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {customerModalSalesLoading ? (
                       <tr>
-                        <td colSpan={6} style={{ padding: '1rem', color: 'var(--text-muted)' }}>Loading invoices...</td>
+                        <td colSpan={customerModalSalesColumns.length} style={{ padding: '1rem', color: 'var(--text-muted)' }}>Loading report...</td>
                       </tr>
                     ) : customerModalSalesRows.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ padding: '1rem' }}>
+                        <td colSpan={customerModalSalesColumns.length} style={{ padding: '1rem' }}>
                           <EmptyDataCard />
                         </td>
                       </tr>
                     ) : (
                       customerModalSalesRows.map((row) => (
                         <tr key={row._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-header)', fontWeight: 700 }}>{row.invoiceNumber}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', color: 'var(--text-main)' }}>{formatDateMMDDYYYY(row.invoiceDate)}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>${formatMoney(row.invoiceAmount, 0)}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>${formatMoney(row.paidAmount, 0)}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--text-main)' }}>${formatMoney(row.pendingAmount, 0)}</td>
-                          <td style={{ padding: '0.75rem 0.5rem' }}>
-                            <span style={{ ...statusBadgeStyle(row.status), padding: '0.25rem 0.6rem', borderRadius: 999, fontWeight: 800, fontSize: '0.75rem' }}>
-                              {row.status}
-                            </span>
-                          </td>
+                          {customerModalSalesColumns.map((column) => {
+                            const value = row[column.key]
+                            const displayValue = column.key === 'date'
+                              ? formatDateMMDDYYYY(value)
+                              : REPORT_AMOUNT_COLUMN_KEYS.has(column.key)
+                                ? `$${formatMoney(value, 2)}`
+                                : value || '-'
+                            return (
+                              <td key={column.key} style={{ padding: '0.75rem 0.5rem', textAlign: REPORT_AMOUNT_COLUMN_KEYS.has(column.key) ? 'right' : 'left', color: column.key === 'status' ? statusBadgeStyle(row.status).color : 'var(--text-main)', fontWeight: column.key === 'status' ? 800 : 400, overflowWrap: column.key === 'companyName' || column.key === 'description' ? 'anywhere' : 'normal' }}>
+                                {displayValue}
+                              </td>
+                            )
+                          })}
                         </tr>
                       ))
                     )}
