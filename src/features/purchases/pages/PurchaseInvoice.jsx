@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
+import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable } from '../../../components/SkeletonUI'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -99,6 +100,7 @@ function PurchaseInvoice() {
   }, []);
 
   const [productOptions, setProductOptions] = useState([]);
+  const [productOptionsLoading, setProductOptionsLoading] = useState(true);
 
   // Invoice form state
   const [invoiceForm, setInvoiceForm] = useState({
@@ -131,6 +133,7 @@ function PurchaseInvoice() {
   const [customers, setCustomers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -198,6 +201,7 @@ function PurchaseInvoice() {
 
   useEffect(() => {
     const fetchActiveProducts = async () => {
+      setProductOptionsLoading(true);
       try {
         const token = getAuthToken();
         const response = await fetch(`${API_BASE_URL}/api/products?activeOnly=true&limit=1000`, {
@@ -208,6 +212,8 @@ function PurchaseInvoice() {
       } catch (err) {
         handleApiError(err, 'Error fetching products');
         setProductOptions([]);
+      } finally {
+        setProductOptionsLoading(false);
       }
     };
 
@@ -301,6 +307,7 @@ function PurchaseInvoice() {
   // Vendor dropdown autocomplete state
   const [vendorSearchText, setVendorSearchText] = useState('');
   const [isVendorDropdownOpen, setIsVendorDropdownOpen] = useState(false);
+  const [vendorOptionsLoading, setVendorOptionsLoading] = useState(true);
   const [openProductDropdownIndex, setOpenProductDropdownIndex] = useState(null);
 
   // Only vendors for purchase invoices
@@ -327,12 +334,15 @@ function PurchaseInvoice() {
 
   // Fetch vendors for dropdown
   const fetchVendorsList = async () => {
+    setVendorOptionsLoading(true);
     try {
       const response = await fetch(`${VENDORS_API_URL}?limit=1000`); // Get all for dropdown
       const data = await readJsonResponse(response, 'Error fetching vendors');
       setVendors(data.vendors || []);
     } catch (err) {
       handleApiError(err, 'Error fetching vendors');
+    } finally {
+      setVendorOptionsLoading(false);
     }
   };
 
@@ -352,7 +362,7 @@ function PurchaseInvoice() {
   // Fetch invoices on component mount
   const fetchInvoices = async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
     const requestSequence = ++invoiceListRequestSequence.current;
-    setLoading(true);
+    setListLoading(true);
     try {
       let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
       if (column) {
@@ -369,7 +379,7 @@ function PurchaseInvoice() {
         handleApiError(err, 'Error fetching invoices');
       }
     } finally {
-      if (requestSequence === invoiceListRequestSequence.current) setLoading(false);
+      if (requestSequence === invoiceListRequestSequence.current) setListLoading(false);
     }
   };
 
@@ -1457,7 +1467,7 @@ function PurchaseInvoice() {
                             zIndex: 10,
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                           }}>
-                            {filteredVendors.map(vendor => (
+                            {vendorOptionsLoading ? <SkeletonOptionRows rows={3} /> : filteredVendors.length ? filteredVendors.map(vendor => (
                               <li
                                 key={vendor._id + vendor.type}
                                 onClick={() => {
@@ -1478,7 +1488,7 @@ function PurchaseInvoice() {
                               >
                                 {vendor.name}{vendor.companyName ? ' - ' + vendor.companyName : ''}
                               </li>
-                            ))}
+                            )) : <li style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matching vendors.</li>}
                           </ul>
                         )}
                       </div>
@@ -1641,7 +1651,7 @@ function PurchaseInvoice() {
                                       zIndex: 20,
                                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                                     }}>
-                                      {productOptions
+                                      {productOptionsLoading ? <SkeletonOptionRows rows={3} /> : productOptions
                                         .filter((option) => option.toLowerCase().includes(item.product.trim().toLowerCase()))
                                         .map((option) => (
                                           <li
@@ -1663,6 +1673,7 @@ function PurchaseInvoice() {
                                             {option}
                                           </li>
                                         ))}
+                                      {!productOptionsLoading && productOptions.filter((option) => option.toLowerCase().includes(item.product.trim().toLowerCase())).length === 0 && <li style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matching products.</li>}
                                     </ul>
                                   )}
                                 </div>
@@ -1985,8 +1996,8 @@ function PurchaseInvoice() {
             </div>
           </div>
 
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading invoices...</div>
+          {listLoading ? (
+            <LoadingSkeleton loading name="purchase-invoice-list" fallback={isMobile ? <SkeletonCardList rows={4} /> : <SkeletonTable columns={['5%', '20%', '10%', '30%', '10%', '5%']} rows={5} />} />
           ) : invoices.length === 0 ? (
             <EmptyDataCard />
           ) : (
@@ -2492,7 +2503,7 @@ function PurchaseInvoice() {
                 </MotionButton>
               </div>
               {invoiceHistoryLoading ? (
-                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading invoice history...</div>
+                <div style={{ marginTop: '1rem' }}><SkeletonDetail rows={4} /><SkeletonTable columns={['16%', '21%', '21%', '21%', '21%']} rows={3} /></div>
               ) : invoiceHistory ? (
                 <div style={{ marginTop: '1rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem', fontSize: '0.72rem' }}>

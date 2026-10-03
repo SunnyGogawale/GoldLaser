@@ -8,6 +8,7 @@ import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { sanitizeClientErrorMessage } from '../../../utils/api'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
+import { LoadingSkeleton, SkeletonCardList, SkeletonTable } from '../../../components/SkeletonUI'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const LOGIN_HISTORY_PAGE_SIZE = 10
@@ -24,7 +25,7 @@ function User() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [users, setUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -290,7 +291,7 @@ function User() {
 
         <div style={{ marginTop: '1rem' }}>
           {loading ? (
-            <div style={{ padding: '1rem', color: 'var(--text-muted)' }}>Loading...</div>
+            <LoadingSkeleton loading name="admin-user-list" fallback={isMobile ? <SkeletonCardList rows={4} /> : <SkeletonTable columns={['24%', '20%', '18%', '18%', '20%']} rows={5} />} />
           ) : filteredUsers.length === 0 ? (
             <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
               {searchQuery ? `No users found for "${searchQuery}".` : 'No users found.'}
@@ -693,7 +694,7 @@ function User() {
 
             <div style={{ padding: '0 1rem 1rem' }}>
               {loginHistoryLoading ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem 0' }}>Loading login history...</div>
+                <SkeletonTable columns={['15%', '42.5%', '42.5%']} rows={5} />
               ) : loginHistory.length === 0 ? (
                 <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem 0' }}>No login history available.</div>
               ) : (

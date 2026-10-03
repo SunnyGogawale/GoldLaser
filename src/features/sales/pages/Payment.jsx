@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
+import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable, SkeletonTableRows } from '../../../components/SkeletonUI'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
 import { parseCsvText, parseCsvData, getSuggestedCsvHeader, normalizeCsvDateValue, toIsoDateString } from '../../../utils/csvParser'
@@ -125,10 +126,14 @@ function Payment() {
 
   const [customers, setCustomers] = useState([])
   const [vendors, setVendors] = useState([])
+  const [customersLoading, setCustomersLoading] = useState(true)
+  const [vendorsLoading, setVendorsLoading] = useState(true)
+  const clientOptionsLoading = customersLoading || vendorsLoading
   const [clientSearchText, setClientSearchText] = useState('')
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
 
   const [pendingInvoices, setPendingInvoices] = useState([])
+  const [pendingInvoicesLoading, setPendingInvoicesLoading] = useState(false)
   const [totalPending, setTotalPending] = useState(0)
   const [availableCredit, setAvailableCredit] = useState(0)
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
@@ -144,7 +149,7 @@ function Payment() {
   const [payments, setPayments] = useState([])
   const [selectedPaymentIds, setSelectedPaymentIds] = useState([])
   const [loading, setLoading] = useState(false)
-  const [listLoading, setListLoading] = useState(false)
+  const [listLoading, setListLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
@@ -545,22 +550,28 @@ function Payment() {
   }
 
   const fetchCustomersList = async () => {
+    setCustomersLoading(true)
     try {
       const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`)
       const data = await readJsonResponse(response, 'Error fetching customers')
       setCustomers(data.customers || [])
     } catch (err) {
       console.error('Error fetching customers:', err)
+    } finally {
+      setCustomersLoading(false)
     }
   }
 
   const fetchVendorsList = async () => {
+    setVendorsLoading(true)
     try {
       const response = await fetch(`${VENDORS_API_URL}?limit=1000`)
       const data = await readJsonResponse(response, 'Error fetching vendors')
       setVendors(data.vendors || [])
     } catch (err) {
       handleApiError(err, 'Error fetching vendors')
+    } finally {
+      setVendorsLoading(false)
     }
   }
 
@@ -593,9 +604,11 @@ function Payment() {
     if (!clientId) {
       setPendingInvoices([])
       setTotalPending(0)
+      setPendingInvoicesLoading(false)
       return
     }
 
+    setPendingInvoicesLoading(true)
     try {
       const url = new URL(`${API_URL}/pending`)
       url.searchParams.set('clientId', clientId)
@@ -611,6 +624,8 @@ function Payment() {
       setPendingInvoices([])
       setTotalPending(0)
       setAvailableCredit(0)
+    } finally {
+      setPendingInvoicesLoading(false)
     }
   }
 
@@ -1784,7 +1799,7 @@ function Payment() {
                         color: 'var(--text-header)'
                       }}
                     />
-                    {isCsvClientDropdownOpen && filteredCsvClients.length > 0 && (
+                    {isCsvClientDropdownOpen && (clientOptionsLoading || filteredCsvClients.length > 0) && (
                       <ul style={{
                         position: 'absolute',
                         top: '100%',
@@ -1801,7 +1816,7 @@ function Payment() {
                         zIndex: 20,
                         boxShadow: '0 4px 10px rgba(0, 0, 0, 0.08)'
                       }}>
-                        {filteredCsvClients.map((client) => (
+                        {clientOptionsLoading ? <SkeletonOptionRows rows={3} /> : filteredCsvClients.map((client) => (
                           <li
                             key={String(client._id || client.id || client.customerName)}
                             onClick={() => {
@@ -2116,7 +2131,7 @@ function Payment() {
                           zIndex: 10,
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                         }}>
-                          {filteredClients.map(client => (
+                          {clientOptionsLoading ? <SkeletonOptionRows rows={3} /> : filteredClients.length ? filteredClients.map(client => (
                             <li
                               key={client._id + client.type}
                               onClick={() => {
@@ -2138,7 +2153,7 @@ function Payment() {
                             >
                               {client.displayName || client.name}
                             </li>
-                          ))}
+                          )) : <li style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matching clients.</li>}
                         </ul>
                       )}
                     </div>
@@ -2494,7 +2509,9 @@ function Payment() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredPendingInvoices.length === 0 ? (
+                        {pendingInvoicesLoading ? (
+                          <SkeletonTableRows columns={7} rows={4} />
+                        ) : filteredPendingInvoices.length === 0 ? (
                           <tr>
                             <td colSpan={7} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                               {paymentForm.clientId ? (invoiceInput ? 'No pending invoices match this search.' : 'No pending invoices for this client.') : 'Select a client to view pending invoices.'}
@@ -2885,7 +2902,7 @@ function Payment() {
         </div>
 
         {listLoading ? (
-          <div style={{ textAlign: 'center', padding: '2rem' }}>Loading payments...</div>
+          <LoadingSkeleton loading name="sales-payment-list" fallback={isMobile ? <SkeletonCardList rows={4} /> : <SkeletonTable columns={['9%', '20%', '12%', '28%', '12%', '9%', '10%']} rows={5} />} />
         ) : payments.length === 0 ? (
           <EmptyDataCard />
         ) : (
@@ -3370,7 +3387,7 @@ function Payment() {
                 </MotionButton>
               </div>
               {paymentHistoryLoading ? (
-                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading payment history...</div>
+                <div style={{ marginTop: '1rem' }}><SkeletonDetail rows={4} /><SkeletonTable columns={['16%', '21%', '21%', '21%', '21%']} rows={3} /></div>
               ) : paymentHistory ? (
                 <div style={{ marginTop: '1rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>

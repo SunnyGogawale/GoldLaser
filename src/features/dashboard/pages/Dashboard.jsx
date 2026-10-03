@@ -32,6 +32,7 @@ import {
   Area
 } from 'recharts'
 import EmptyDataCard from '../../../components/EmptyDataCard'
+import { LoadingSkeleton, SkeletonDetail, SkeletonMetricGrid, SkeletonTableRows } from '../../../components/SkeletonUI'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
 import MotionButton from '../../../components/MotionButton'
@@ -220,9 +221,9 @@ function Dashboard() {
   const [activeChartTab, setActiveChartTab] = useState('Cash Flow')
   const [activeTimeRange, setActiveTimeRange] = useState('14D')
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [summaryLoading, setSummaryLoading] = useState(false)
-  const [customerOverviewLoading, setCustomerOverviewLoading] = useState(false)
-  const [vendorOverviewLoading, setVendorOverviewLoading] = useState(false)
+  const [summaryLoading, setSummaryLoading] = useState(true)
+  const [customerOverviewLoading, setCustomerOverviewLoading] = useState(true)
+  const [vendorOverviewLoading, setVendorOverviewLoading] = useState(true)
   const [overviewViewType, setOverviewViewType] = useState('customers') // 'customers' or 'vendors'
   const [totalCustomers, setTotalCustomers] = useState(0)
   const [totalVendors, setTotalVendors] = useState(0)
@@ -676,6 +677,7 @@ function Dashboard() {
 
   return (
     <div className="dashboard-content">
+      <LoadingSkeleton loading={summaryLoading} name="dashboard-summary" fallback={<SkeletonMetricGrid cards={isAdmin ? 12 : 8} />}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
         {/* Row 1 */}
         <div className="card" style={{ padding: '1.5rem' }}>
@@ -803,6 +805,7 @@ function Dashboard() {
           </div>
         ))}
       </div>
+      </LoadingSkeleton>
 
       <div className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
@@ -867,9 +870,7 @@ function Dashboard() {
               {overviewViewType === 'customers' ? (
                 <>
                   {customerOverviewLoading ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</td>
-                    </tr>
+                    <SkeletonTableRows columns={['20%', '20%', '20%', '20%', '20%']} rows={5} />
                   ) : customerOverview.length === 0 ? (
                     <tr>
                       <td colSpan={5} style={{ padding: '1.5rem' }}>
@@ -901,9 +902,7 @@ function Dashboard() {
               ) : (
                 <>
                   {vendorOverviewLoading ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</td>
-                    </tr>
+                    <SkeletonTableRows columns={['20%', '20%', '20%', '20%', '20%']} rows={5} />
                   ) : vendorOverview.length === 0 ? (
                     <tr>
                       <td colSpan={5} style={{ padding: '1.5rem' }}>
@@ -979,7 +978,7 @@ function Dashboard() {
 
             <div style={{ marginTop: '1rem' }}>
               {customerModalLoading ? (
-                <div style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>Loading profile...</div>
+                <LoadingSkeleton loading name="dashboard-customer-profile" fallback={<SkeletonDetail rows={5} />} />
               ) : !customerModalProfile ? (
                 <div style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>Customer profile not found.</div>
               ) : (
@@ -1072,9 +1071,7 @@ function Dashboard() {
                   </thead>
                   <tbody>
                     {customerModalSalesLoading ? (
-                      <tr>
-                        <td colSpan={customerModalSalesColumns.length} style={{ padding: '1rem', color: 'var(--text-muted)' }}>Loading report...</td>
-                      </tr>
+                      <SkeletonTableRows columns={customerModalSalesColumns.length} rows={5} />
                     ) : customerModalSalesRows.length === 0 ? (
                       <tr>
                         <td colSpan={customerModalSalesColumns.length} style={{ padding: '1rem' }}>

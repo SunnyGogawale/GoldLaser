@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
+import { LoadingSkeleton, SkeletonCardList, SkeletonShape, SkeletonTable } from '../../../components/SkeletonUI'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
 import jsPDF from 'jspdf'
@@ -72,6 +73,7 @@ function Customer() {
 
   // Customers list state
   const [customers, setCustomers] = useState([])
+  const [listLoading, setListLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
@@ -159,7 +161,7 @@ function Customer() {
   };
 
   const fetchCustomers = useCallback(async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
-    setLoading(true);
+    setListLoading(true);
     try {
       let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
       if (column) {
@@ -173,7 +175,7 @@ function Customer() {
     } catch (err) {
       handleApiError(err, 'Error fetching customers');
     } finally {
-      setLoading(false);
+      setListLoading(false);
     }
   }, [searchQuery, sortColumn, sortOrder]);
 
@@ -2021,8 +2023,8 @@ function Customer() {
             </div>
           </div>
 
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading customers...</div>
+          {listLoading ? (
+            <LoadingSkeleton loading name="customer-list" fallback={isMobile ? <SkeletonCardList rows={4} /> : <SkeletonTable columns={['18%', '18%', '14%', '24%', '16%', '10%']} rows={5} />} />
           ) : customers.length === 0 ? (
             <EmptyDataCard />
           ) : (
@@ -2575,12 +2577,12 @@ function Customer() {
                                 whiteSpace: 'nowrap'
                               }}
                             >
-                              {infoLoading ? 'Loading...' : formatTimeAgo(a.at)}
+                              {infoLoading ? <SkeletonShape width={72} height={12} /> : formatTimeAgo(a.at)}
                             </div>
                           </div>
 
                           <div style={{ marginTop: 10, color: 'var(--text-header)', fontWeight: 800, fontSize: '0.93rem' }}>
-                            {infoLoading ? 'Loading...' : a.userName}
+                            {infoLoading ? <SkeletonShape width="36%" height={14} /> : a.userName}
                             <span style={{ color: 'var(--text-muted)', fontWeight: 700, marginLeft: 8 }}>
                               {infoLoading ? '' : a.userEmail && a.userEmail !== '-' ? `• ${a.userEmail}` : ''}
                             </span>

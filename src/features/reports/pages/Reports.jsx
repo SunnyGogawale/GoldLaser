@@ -5,6 +5,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import EmptyDataCard from '../../../components/EmptyDataCard'
+import { LoadingSkeleton, SkeletonTable } from '../../../components/SkeletonUI'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
@@ -28,7 +29,7 @@ function Reports() {
   const [totals, setTotals] = useState(emptyTotals)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [openColumnInfo, setOpenColumnInfo] = useState(null)
   const [sortBy, setSortBy] = useState('date')
   const [sortOrder, setSortOrder] = useState('desc')
@@ -295,7 +296,7 @@ function Reports() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem', marginTop: '1.25rem' }}>{[['Total Inv Amount', totals.totalInvAmount], ['Total Inv Amount Paid', totals.totalInvAmountPaid], ['Total Inv Balance', totals.totalInvBalance]].map(([label, value]) => <div key={label} style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '0.9rem', background: 'var(--bg-main)' }}><div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700 }}>{label}</div><div style={{ marginTop: '0.35rem', color: 'var(--text-header)', fontSize: '1.2rem', fontWeight: 900 }}>${formatSummaryMoney(label, value)}</div></div>)}</div>
       </div>
       <div className="card" style={{ width: '100%', padding: '1.5rem', marginTop: '1.25rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 700px' }}>
-        {loading ? <div style={{ textAlign: 'center', padding: '2rem' }}>Loading report...</div> : rows.length === 0 ? <EmptyDataCard /> : (
+        {loading ? <LoadingSkeleton loading name="reports-table" fallback={<SkeletonTable columns={['14%', '8%', '11%', '12%', '22%', '9%', '9%', '9%', '6%']} rows={6} minWidth={1050} />} /> : rows.length === 0 ? <EmptyDataCard /> : (
           <>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', minWidth: 1050, borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.82rem' }}>

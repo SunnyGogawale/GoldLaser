@@ -3,6 +3,7 @@ import { Archive, DatabaseBackup, RotateCcw, Upload } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
+import { LoadingSkeleton, SkeletonGridRows } from '../../../components/SkeletonUI'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const BACKUP_REFRESH_MS = Number(import.meta.env.VITE_BACKUP_REFRESH_MS || 15000)
@@ -35,7 +36,7 @@ function Backup() {
       return []
     }
   })
-  const [loadingBackups, setLoadingBackups] = useState(false)
+  const [loadingBackups, setLoadingBackups] = useState(true)
   const [storagePath, setStoragePath] = useState('')
   const [retentionDays, setRetentionDays] = useState(8)
   const [keepLatestBackups, setKeepLatestBackups] = useState(10)
@@ -786,7 +787,7 @@ function Backup() {
               <div>Action</div>
             </div>
             {loadingBackups ? (
-              <div style={{ padding: '1rem', color: 'var(--text-muted)' }}>Loading backups...</div>
+              <LoadingSkeleton loading name="backup-list" fallback={<SkeletonGridRows columns="3fr 2fr 1fr 1fr 3fr" rows={4} />} />
             ) : backupItems.length === 0 ? (
               <div style={{ padding: '1rem', color: 'var(--text-muted)' }}>No backups found yet.</div>
             ) : (

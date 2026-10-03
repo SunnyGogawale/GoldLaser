@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
+import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable, SkeletonTableRows } from '../../../components/SkeletonUI'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { parseCsvText, parseCsvData, getSuggestedCsvHeader, normalizeCsvDateValue, toIsoDateString } from '../../../utils/csvParser'
 import jsPDF from 'jspdf'
@@ -137,10 +138,14 @@ function PurchasePayment() {
 
   const [customers, setCustomers] = useState([])
   const [vendors, setVendors] = useState([])
+  const [customersLoading, setCustomersLoading] = useState(true)
+  const [vendorsLoading, setVendorsLoading] = useState(true)
+  const clientOptionsLoading = customersLoading || vendorsLoading
   const [clientSearchText, setClientSearchText] = useState('')
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false)
 
   const [pendingInvoices, setPendingInvoices] = useState([])
+  const [pendingInvoicesLoading, setPendingInvoicesLoading] = useState(false)
   const [totalPending, setTotalPending] = useState(0)
   const [availableCredit, setAvailableCredit] = useState(0)
   const [pendingInvoiceOrder, setPendingInvoiceOrder] = useState([])
@@ -156,7 +161,7 @@ function PurchasePayment() {
   const [payments, setPayments] = useState([])
   const [selectedPaymentIds, setSelectedPaymentIds] = useState([])
   const [loading, setLoading] = useState(false)
-  const [listLoading, setListLoading] = useState(false)
+  const [listLoading, setListLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
@@ -562,22 +567,28 @@ function PurchasePayment() {
   }
 
   const fetchCustomersList = async () => {
+    setCustomersLoading(true)
     try {
       const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`)
       const data = await readJsonResponse(response, 'Error fetching customers')
       setCustomers(data.customers || [])
     } catch (err) {
       handleApiError(err, 'Error fetching customers')
+    } finally {
+      setCustomersLoading(false)
     }
   }
 
   const fetchVendorsList = async () => {
+    setVendorsLoading(true)
     try {
       const response = await fetch(`${VENDORS_API_URL}?limit=1000`)
       const data = await readJsonResponse(response, 'Error fetching vendors')
       setVendors(data.vendors || [])
     } catch (err) {
       handleApiError(err, 'Error fetching vendors')
+    } finally {
+      setVendorsLoading(false)
     }
   }
 
@@ -611,9 +622,11 @@ function PurchasePayment() {
       setPendingInvoices([])
       setTotalPending(0)
       setAvailableCredit(0)
+      setPendingInvoicesLoading(false)
       return
     }
 
+    setPendingInvoicesLoading(true)
     try {
       const url = new URL(`${API_URL}/pending`)
       url.searchParams.set('clientId', clientId)
@@ -629,6 +642,8 @@ function PurchasePayment() {
       setPendingInvoices([])
       setTotalPending(0)
       setAvailableCredit(0)
+    } finally {
+      setPendingInvoicesLoading(false)
     }
   }
 
@@ -1650,7 +1665,7 @@ function PurchasePayment() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><h2 style={{ margin: 0, color: 'var(--text-header)' }}>Upload CSV</h2><MotionButton type="button" onClick={resetCsvImport} style={{ padding: '0.4rem', border: '1px solid var(--border)', background: 'var(--bg-main)', borderRadius: 8 }}><X size={16} /></MotionButton></div>
               <div style={{ display: 'grid', gap: '0.8rem', marginTop: '1rem' }}>
                 <input type="text" placeholder="Search vendor..." value={csvClientSearchText} onChange={(event) => { setCsvClientSearchText(event.target.value); setCsvSelectedClientId(''); setCsvSelectedClientName(''); setIsCsvClientDropdownOpen(true) }} onFocus={() => setIsCsvClientDropdownOpen(true)} style={{ padding: '0.65rem', border: '1px solid var(--border)', borderRadius: 8 }} />
-                {isCsvClientDropdownOpen && filteredCsvClients.length > 0 && <div style={{ border: '1px solid var(--border)', maxHeight: 160, overflowY: 'auto' }}>{filteredCsvClients.map((client) => <button key={client._id} type="button" onClick={() => { setCsvSelectedClientId(String(client._id)); setCsvSelectedClientName(client.displayName); setCsvClientSearchText(client.displayName); setIsCsvClientDropdownOpen(false) }} style={{ display: 'block', width: '100%', padding: '0.6rem', textAlign: 'left', border: 0, borderBottom: '1px solid var(--border)', background: 'var(--bg-card)' }}>{client.displayName}</button>)}</div>}
+                {isCsvClientDropdownOpen && (clientOptionsLoading || filteredCsvClients.length > 0) && <div style={{ border: '1px solid var(--border)', maxHeight: 160, overflowY: 'auto' }}>{clientOptionsLoading ? <ul style={{ margin: 0, padding: 0 }}>{<SkeletonOptionRows rows={3} />}</ul> : filteredCsvClients.map((client) => <button key={client._id} type="button" onClick={() => { setCsvSelectedClientId(String(client._id)); setCsvSelectedClientName(client.displayName); setCsvClientSearchText(client.displayName); setIsCsvClientDropdownOpen(false) }} style={{ display: 'block', width: '100%', padding: '0.6rem', textAlign: 'left', border: 0, borderBottom: '1px solid var(--border)', background: 'var(--bg-card)' }}>{client.displayName}</button>)}</div>}
                 <input ref={csvImportInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvFileSelection} disabled={csvImporting || !csvSelectedClientId} />
                 {csvSelectedClientName && <div style={{ color: 'var(--primary)', fontWeight: 700 }}>Selected vendor: {csvSelectedClientName}</div>}
                 {csvHeaders.length > 0 && ['paymentNumber', 'paymentDate', 'amount', 'description'].map((field) => <label key={field} style={{ display: 'grid', gap: '0.25rem', fontWeight: 700 }}>{field}<select value={csvFieldMapping[field]} onChange={(event) => setCsvFieldMapping((prev) => ({ ...prev, [field]: event.target.value }))}><option value="">Select CSV column</option>{csvHeaders.map((header) => <option key={header} value={header}>{header}</option>)}</select></label>)}
@@ -1785,7 +1800,7 @@ function PurchasePayment() {
                           zIndex: 10,
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                         }}>
-                          {filteredClients.map(client => (
+                          {clientOptionsLoading ? <SkeletonOptionRows rows={3} /> : filteredClients.length ? filteredClients.map(client => (
                             <li
                               key={client._id + client.type}
                               onClick={() => {
@@ -1807,7 +1822,7 @@ function PurchasePayment() {
                             >
                               {client.displayName}
                             </li>
-                          ))}
+                          )) : <li style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matching clients.</li>}
                         </ul>
                       )}
                     </div>
@@ -2167,7 +2182,9 @@ function PurchasePayment() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredPendingInvoices.length === 0 ? (
+                        {pendingInvoicesLoading ? (
+                          <SkeletonTableRows columns={7} rows={4} />
+                        ) : filteredPendingInvoices.length === 0 ? (
                           <tr>
                             <td colSpan={7} style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
                               {paymentForm.clientId ? (invoiceInput ? 'No pending invoices match this search.' : 'No pending invoices for this client.') : 'Select a client to view pending invoices.'}
@@ -2558,7 +2575,7 @@ function PurchasePayment() {
         </div>
 
         {listLoading ? (
-          <div style={{ textAlign: 'center', padding: '2rem' }}>Loading payments...</div>
+          <LoadingSkeleton loading name="purchase-payment-list" fallback={isMobile ? <SkeletonCardList rows={4} /> : <SkeletonTable columns={['9%', '20%', '12%', '28%', '12%', '9%', '10%']} rows={5} />} />
         ) : payments.length === 0 ? (
           <EmptyDataCard />
         ) : (
@@ -3050,7 +3067,7 @@ function PurchasePayment() {
                 </MotionButton>
               </div>
               {paymentHistoryLoading ? (
-                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading payment history...</div>
+                <div style={{ marginTop: '1rem' }}><SkeletonDetail rows={4} /><SkeletonTable columns={['16%', '21%', '21%', '21%', '21%']} rows={3} /></div>
               ) : paymentHistory ? (
                 <div style={{ marginTop: '1rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>

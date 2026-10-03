@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Edit2, Plus, Power, Search, X } from 'lucide-react'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
+import { SkeletonTableRows } from '../../../components/SkeletonUI'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -10,7 +11,7 @@ function Product() {
   const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])
   const [products, setProducts] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [formOpen, setFormOpen] = useState(false)
@@ -154,7 +155,7 @@ function Product() {
               {['Product Name', 'Status', 'Created By', 'Created On', 'Action'].map((heading) => <th key={heading} style={{ padding: '0.75rem', textAlign: heading === 'Action' ? 'center' : 'left', color: 'var(--text-header)', fontSize: '0.85rem' }}>{heading}</th>)}
             </tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={5} style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading products...</td></tr> : filteredProducts.length === 0 ? <tr><td colSpan={5} style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>No products found.</td></tr> : filteredProducts.map((product) => (
+              {loading ? <SkeletonTableRows columns={5} rows={5} /> : filteredProducts.length === 0 ? <tr><td colSpan={5} style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>No products found.</td></tr> : filteredProducts.map((product) => (
                 <tr key={product._id} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ padding: '0.75rem', color: 'var(--text-header)', fontWeight: 700 }}>{product.productName}</td>
                   <td style={{ padding: '0.75rem', color: product.isActive ? 'var(--success, #16a34a)' : 'var(--text-muted)', fontWeight: 700 }}>{product.isActive ? 'Active' : 'Inactive'}</td>

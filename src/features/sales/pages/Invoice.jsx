@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, UploadCloud, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
+import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable } from '../../../components/SkeletonUI'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage';
 import { readJsonResponse } from '../../../utils/api';
 import jsPDF from 'jspdf';
@@ -226,6 +227,7 @@ function Invoice() {
   }, [])
 
   const [productOptions, setProductOptions] = useState([]);
+  const [productOptionsLoading, setProductOptionsLoading] = useState(true);
 
   // Fetch company settings
   useEffect(() => {
@@ -245,6 +247,7 @@ function Invoice() {
 
   useEffect(() => {
     const fetchActiveProducts = async () => {
+      setProductOptionsLoading(true)
       try {
         const token = getAuthToken()
         const response = await fetch(`${API_BASE_URL}/api/products?activeOnly=true&limit=1000`, {
@@ -255,6 +258,8 @@ function Invoice() {
       } catch (err) {
         handleApiError(err, 'Error fetching products')
         setProductOptions([])
+      } finally {
+        setProductOptionsLoading(false)
       }
     }
 
@@ -291,6 +296,7 @@ function Invoice() {
   const [customers, setCustomers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -441,6 +447,7 @@ function Invoice() {
   // Customer dropdown autocomplete state
   const [customerSearchText, setCustomerSearchText] = useState('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [customersLoading, setCustomersLoading] = useState(true);
   const [openProductDropdownIndex, setOpenProductDropdownIndex] = useState(null);
 
   // Only use customers
@@ -496,12 +503,15 @@ function Invoice() {
 
   // Fetch customers for dropdown
   const fetchCustomersList = async () => {
+    setCustomersLoading(true);
     try {
       const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`); // Get all for dropdown
       const data = await readJsonResponse(response, 'Error fetching customers');
       setCustomers(data.customers || []);
     } catch (err) {
       handleApiError(err, 'Error fetching customers');
+    } finally {
+      setCustomersLoading(false);
     }
   };
 
@@ -510,7 +520,7 @@ function Invoice() {
   // Fetch invoices on component mount
   const fetchInvoices = async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
     const requestSequence = ++invoiceListRequestSequence.current;
-    setLoading(true);
+    setListLoading(true);
     try {
       let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
       if (column) {
@@ -527,7 +537,7 @@ function Invoice() {
         handleApiError(err, 'Error fetching invoices');
       }
     } finally {
-      if (requestSequence === invoiceListRequestSequence.current) setLoading(false);
+      if (requestSequence === invoiceListRequestSequence.current) setListLoading(false);
     }
   };
 
@@ -1726,7 +1736,7 @@ function Invoice() {
                         color: 'var(--text-header)'
                       }}
                     />
-                    {isCsvCustomerDropdownOpen && filteredCsvCustomers.length > 0 && (
+                    {isCsvCustomerDropdownOpen && (customersLoading || filteredCsvCustomers.length > 0) && (
                       <ul style={{
                         position: 'absolute',
                         top: '100%',
@@ -1743,7 +1753,7 @@ function Invoice() {
                         zIndex: 20,
                         boxShadow: '0 4px 10px rgba(0, 0, 0, 0.08)'
                       }}>
-                        {filteredCsvCustomers.map((customer) => (
+                        {customersLoading ? <SkeletonOptionRows rows={3} /> : filteredCsvCustomers.map((customer) => (
                           <li
                             key={String(customer._id || customer.id || customer.customerName)}
                             onClick={() => {
@@ -2055,7 +2065,7 @@ function Invoice() {
                           zIndex: 10,
                           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                         }}>
-                          {filteredCustomers.map(customer => (
+                          {customersLoading ? <SkeletonOptionRows rows={3} /> : filteredCustomers.length ? filteredCustomers.map(customer => (
                             <li
                               key={customer._id + customer.type}
                               onClick={() => {
@@ -2076,7 +2086,7 @@ function Invoice() {
                             >
                               {customer.displayName}
                             </li>
-                          ))}
+                          )) : <li style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matching customers.</li>}
                         </ul>
                       )}
                     </div>
@@ -2239,7 +2249,7 @@ function Invoice() {
                                     zIndex: 20,
                                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                                   }}>
-                                    {productOptions
+                                    {productOptionsLoading ? <SkeletonOptionRows rows={3} /> : productOptions
                                       .filter((option) => option.toLowerCase().includes(item.product.trim().toLowerCase()))
                                       .map((option) => (
                                         <li
@@ -2261,6 +2271,7 @@ function Invoice() {
                                           {option}
                                         </li>
                                       ))}
+                                    {!productOptionsLoading && productOptions.filter((option) => option.toLowerCase().includes(item.product.trim().toLowerCase())).length === 0 && <li style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matching products.</li>}
                                   </ul>
                                 )}
                               </div>
@@ -2680,8 +2691,8 @@ function Invoice() {
             </div>
           </div>
 
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading invoices...</div>
+          {listLoading ? (
+            <LoadingSkeleton loading name="sales-invoice-list" fallback={isMobile ? <SkeletonCardList rows={4} /> : <SkeletonTable columns={['5%', '20%', '10%', '30%', '10%', '5%']} rows={5} />} />
           ) : invoices.length === 0 ? (
             <EmptyDataCard />
           ) : (
@@ -3209,7 +3220,7 @@ function Invoice() {
                 </MotionButton>
               </div>
               {invoiceHistoryLoading ? (
-                <div style={{ padding: '2rem 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading invoice history...</div>
+                <div style={{ marginTop: '1rem' }}><SkeletonDetail rows={4} /><SkeletonTable columns={['16%', '21%', '21%', '21%', '21%']} rows={3} /></div>
               ) : invoiceHistory ? (
                 <div style={{ marginTop: '1rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem', fontSize: '0.72rem' }}>

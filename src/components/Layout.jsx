@@ -22,6 +22,7 @@ import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue, recordLogou
 import { modalMotionProps, overlayMotionProps } from './PageTransition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 import MotionButton from './MotionButton'
+import { LoadingSkeleton, SkeletonFormGrid } from './SkeletonUI'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -698,6 +699,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
               </div>
 
               <div style={{ marginTop: '1rem' }}>
+                <LoadingSkeleton loading={settingsLoading} name="profile-settings" fallback={<SkeletonFormGrid fields={3} />}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
                   <div>
                     <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Name</div>
@@ -740,6 +742,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                     </div>
                   </div>
                 </div>
+                </LoadingSkeleton>
 
                 <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                   <MotionButton
@@ -768,6 +771,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                 <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                   <div style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Company Settings</div>
                   
+                  <LoadingSkeleton loading={settingsLoading} name="company-settings" fallback={<SkeletonFormGrid fields={8} />}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
                     <div>
                       <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Company Name</div>
@@ -906,6 +910,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                       />
                     </div>
                   </div>
+                  </LoadingSkeleton>
                   
                   <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                     <MotionButton

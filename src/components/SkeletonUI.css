@@ -1,0 +1,119 @@
+.ui-skeleton-shape {
+  display: block;
+  max-width: 100%;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background-color: var(--border);
+  background-image: linear-gradient(100deg, transparent 25%, rgba(255, 255, 255, 0.4) 50%, transparent 75%);
+  background-size: 220% 100%;
+  animation: ui-skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+.ui-skeleton-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.ui-skeleton-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.ui-skeleton-table th,
+.ui-skeleton-table td {
+  padding: 0.7rem 0.45rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.ui-skeleton-table th .ui-skeleton-shape {
+  opacity: 0.8;
+}
+
+.ui-skeleton-row td {
+  padding: 1rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ui-skeleton-option-row {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  list-style: none;
+}
+
+.ui-skeleton-grid-row {
+  display: grid;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.ui-skeleton-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ui-skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.ui-skeleton-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.15rem;
+}
+
+.ui-skeleton-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.75rem;
+}
+
+.ui-skeleton-metric-card {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+
+.ui-skeleton-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.ui-skeleton-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.5rem 0;
+}
+
+.ui-skeleton-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+@keyframes ui-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-skeleton-shape { animation: none; }
+}
