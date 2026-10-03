@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Archive, DatabaseBackup, RotateCcw, Upload } from 'lucide-react'
-import { getAuthToken } from '../../../utils/authStorage'
+import { getAuthValue } from '../../../utils/authStorage'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 import { LoadingSkeleton, SkeletonGridRows } from '../../../components/SkeletonUI'
+import { apiFetch } from '../../../utils/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const BACKUP_REFRESH_MS = Number(import.meta.env.VITE_BACKUP_REFRESH_MS || 15000)
@@ -61,15 +62,12 @@ function Backup() {
   }
 
   const fetchBackups = async () => {
-    const token = getAuthToken()
-    if (!token) return
+    if (!getAuthValue('userRole')) return
 
     setLoadingBackups(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/list`, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        }
+      const response = await apiFetch(`${API_BASE_URL}/api/backups/list`, {
+        headers: {}
       })
 
       const data = await response.json().catch(() => null)
@@ -105,8 +103,7 @@ function Backup() {
     fetchBackups()
 
     const refreshTimer = window.setInterval(() => {
-      const token = getAuthToken()
-      if (token) {
+      if (getAuthValue('userRole')) {
         fetchBackups()
       }
     }, BACKUP_REFRESH_MS)
@@ -166,16 +163,14 @@ function Backup() {
   }
 
   const handleDownloadBackup = async (fileName) => {
-    const token = getAuthToken()
-    if (!token) {
+    if (!getAuthValue('userRole')) {
       showErrorToast('You must be logged in to download a backup.')
       return
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/download/${encodeURIComponent(fileName)}`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/backups/download/${encodeURIComponent(fileName)}`, {
         headers: {
-          Authorization: `Bearer ${token}`
         }
       })
 
@@ -202,19 +197,17 @@ function Backup() {
     const confirmed = window.confirm(`Restore backup "${fileName}" into the current MongoDB database? This will overwrite the existing data.`)
     if (!confirmed) return
 
-    const token = getAuthToken()
-    if (!token) {
+    if (!getAuthValue('userRole')) {
       showErrorToast('You must be logged in to restore a backup.')
       return
     }
 
     setRestoringBackup(fileName)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/restore`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/backups/restore`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ fileName })
       })
@@ -240,8 +233,7 @@ function Backup() {
   const handleUploadAndRestoreBackup = async (file) => {
     if (!file) return
 
-    const token = getAuthToken()
-    if (!token) {
+    if (!getAuthValue('userRole')) {
       showErrorToast('You must be logged in to restore an external backup.')
       return
     }
@@ -256,10 +248,9 @@ function Backup() {
 
     setUploadingExternalBackup(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/restore-upload`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/backups/restore-upload`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/octet-stream',
           'x-backup-filename': file.name
         },
@@ -288,19 +279,17 @@ function Backup() {
     const confirmed = window.confirm(`Delete backup "${fileName}" from the backup storage folder? This action cannot be undone.`)
     if (!confirmed) return
 
-    const token = getAuthToken()
-    if (!token) {
+    if (!getAuthValue('userRole')) {
       showErrorToast('You must be logged in to delete a backup.')
       return
     }
 
     setDeletingBackup(fileName)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/delete`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/backups/delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ fileName })
       })
@@ -323,8 +312,7 @@ function Backup() {
   }
 
   const handleSaveBackupCount = async () => {
-    const token = getAuthToken()
-    if (!token) {
+    if (!getAuthValue('userRole')) {
       showErrorToast('You must be logged in to update backup retention.')
       return
     }
@@ -337,11 +325,10 @@ function Backup() {
 
     setSavingBackupConfig(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/config`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/backups/config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ keepLatestBackups: parsedCount })
       })
@@ -363,8 +350,7 @@ function Backup() {
   }
 
   const handleSaveBackupSchedule = async () => {
-    const token = getAuthToken()
-    if (!token) {
+    if (!getAuthValue('userRole')) {
       showErrorToast('You must be logged in to update the backup schedule.')
       return
     }
@@ -382,11 +368,10 @@ function Backup() {
 
     setSavingBackupSchedule(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/schedule`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/backups/schedule`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
           backupIntervalHours: normalizedHours,
@@ -413,19 +398,17 @@ function Backup() {
   }
 
   const handleCreateBackup = async () => {
-    const token = getAuthToken()
-    if (!token) {
+    if (!getAuthValue('userRole')) {
       showErrorToast('You must be logged in to create a backup.')
       return
     }
 
     setCreatingBackup(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/create`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/backups/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
       })
 

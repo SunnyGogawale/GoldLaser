@@ -8,6 +8,7 @@ import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonTable } from '../../../components/SkeletonUI'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
+import { apiFetch } from '../../../utils/api'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { REPORT_COLUMNS, REPORT_AMOUNT_COLUMN_KEYS, REPORT_COLUMN_INFO, getReportPopoverPosition } from '../reportColumns'
 
@@ -49,8 +50,8 @@ function Reports() {
   const fetchClients = async () => {
     try {
       const [customerResponse, vendorResponse] = await Promise.all([
-        fetch(`${CUSTOMERS_API_URL}?limit=1000`),
-        fetch(`${VENDORS_API_URL}?limit=1000`)
+        apiFetch(`${CUSTOMERS_API_URL}?limit=1000`),
+        apiFetch(`${VENDORS_API_URL}?limit=1000`)
       ])
       const [customerData, vendorData] = await Promise.all([customerResponse.json(), vendorResponse.json()])
       const customers = (customerData.customers || []).map((client) => ({ id: String(client._id), type: 'Customer', name: client.customerName || client.companyName || client.id || 'Customer' }))
@@ -82,7 +83,7 @@ function Reports() {
           url.searchParams.set('clientType', selected.type)
         }
       }
-      const response = await fetch(url.toString())
+      const response = await apiFetch(url.toString())
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Error fetching report')
       if (!options.download) {

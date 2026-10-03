@@ -33,8 +33,9 @@ import {
 } from 'recharts'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonDetail, SkeletonMetricGrid, SkeletonTableRows } from '../../../components/SkeletonUI'
-import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
+import { getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
+import { apiFetch } from '../../../utils/api'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
@@ -262,7 +263,7 @@ function Dashboard() {
   const fetchDashboardSummary = useCallback(async () => {
     setSummaryLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/dashboard/summary`)
+      const response = await apiFetch(`${API_BASE_URL}/api/dashboard/summary`)
       const data = await readJsonResponse(response, 'Error fetching dashboard summary')
       setTotalCustomers(Number(data.totalCustomers) || 0)
       setTotalVendors(Number(data.totalVendors) || 0)
@@ -303,7 +304,7 @@ function Dashboard() {
       const url = new URL(`${API_BASE_URL}/api/dashboard/customer-overview`, window.location.origin)
       url.searchParams.set('limit', '100')
       if (search.trim()) url.searchParams.set('search', search.trim())
-      const response = await fetch(url.toString())
+      const response = await apiFetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching customer overview')
       setCustomerOverview(data.customers || [])
     } catch (err) {
@@ -320,7 +321,7 @@ function Dashboard() {
       const url = new URL(`${API_BASE_URL}/api/dashboard/vendor-overview`, window.location.origin)
       url.searchParams.set('limit', '100')
       if (search.trim()) url.searchParams.set('search', search.trim())
-      const response = await fetch(url.toString())
+      const response = await apiFetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching vendor overview')
       setVendorOverview(data.vendors || [])
     } catch (err) {
@@ -418,7 +419,7 @@ function Dashboard() {
       url.searchParams.set('customerId', customerId)
       url.searchParams.set('page', String(page))
       url.searchParams.set('limit', '25')
-      const response = await fetch(url.toString())
+      const response = await apiFetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching customer sales report')
       setCustomerModalSalesRows(data.rows || [])
       setCustomerModalSalesColumns(REPORT_COLUMNS)
@@ -452,7 +453,7 @@ function Dashboard() {
       url.searchParams.set('limit', '1')
       if (customerRow?.id) url.searchParams.set('search', customerRow.id)
       else if (customerRow?.customerName) url.searchParams.set('search', customerRow.customerName)
-      const response = await fetch(url.toString())
+      const response = await apiFetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching customer profile')
       setCustomerModalProfile((data.customers && data.customers[0]) || null)
     } catch (err) {
@@ -481,8 +482,7 @@ function Dashboard() {
     }
     if (!window.confirm('Are you sure you want to delete this customer?')) return
     try {
-      const token = getAuthToken()
-      const response = await fetch(`${API_BASE_URL}/api/customers/${mongoId}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      const response = await apiFetch(`${API_BASE_URL}/api/customers/${mongoId}`, { method: 'DELETE', headers: undefined })
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)
         throw new Error(errorData?.message || 'Error deleting customer')

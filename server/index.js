@@ -1,18 +1,83 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 const { sanitizeErrorMessage, sendErrorResponse } = require('./utils/errorHandler');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+const User = require('./models/User');
+const { AUTH_COOKIE_NAME } = require('./utils/authCookie');
 
 const app = express();
+app.set('trust proxy', 1);
 const REQUEST_BODY_LIMIT = '200mb';
 const backupRoutes = require('./routes/backups');
+const configuredOrigins = String(process.env.CORS_ORIGINS || process.env.CLIENT_ORIGIN || process.env.FRONTEND_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = new Set([
+  'http://localhost:5173',
+  'http://localhost:5174',
+  ...configuredOrigins
+]);
+
+const isAllowedOrigin = (origin, req) => {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  return origin === `${req.protocol}://${req.get('host')}`;
+};
+
+const corsOptions = {
+  origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin)),
+  credentials: true
+};
 
 // Middleware
 app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: REQUEST_BODY_LIMIT }));
-app.use(cors());
+app.use(cookieParser());
+app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('origin') && !isAllowedOrigin(req.get('origin'), req)) {
+    return res.status(403).json({ message: 'Origin not allowed' });
+  }
+
+  if (!req.get('origin') && req.get('sec-fetch-site') === 'cross-site' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return res.status(403).json({ message: 'Cross-site request not allowed' });
+  }
+
+  return next();
+});
+
+// Routes accept authentication only from the HttpOnly cookie. Never trust a
+// browser-supplied Authorization header; existing route middleware consumes
+// this server-generated header after validating the cookie session.
+app.use(async (req, res, next) => {
+  delete req.headers.authorization;
+  const token = req.cookies?.[AUTH_COOKIE_NAME];
+  if (!token) return next();
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded?.user?.id;
+    const sessionId = decoded?.user?.sessionId;
+    if (!userId || !sessionId) return next();
+
+    const user = await User.findById(userId).select('isActive loginHistory');
+    const activeSession = Array.isArray(user?.loginHistory) && user.loginHistory.some((entry) =>
+      entry?.sessionId === sessionId && !entry?.logoutTime
+    );
+    if (user && user.isActive !== false && activeSession) {
+      req.headers.authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // Protected route middleware will return 401 when no valid cookie exists.
+  }
+
+  return next();
+});
 
 app.use((req, res, next) => {
   const originalJson = res.json.bind(res);

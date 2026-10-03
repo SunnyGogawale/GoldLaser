@@ -16,10 +16,14 @@ import Product from './features/admin/pages/Product'
 import Vendor from './features/vendors/pages/Vendor'
 import PurchaseInvoice from './features/purchases/pages/PurchaseInvoice'
 import PurchasePayment from './features/purchases/pages/PurchasePayment'
-import { clearAuthSession, getAuthToken, getLastActivityAt, markSessionActivity, recordLogout } from './utils/authStorage'
+import { clearAuthSession, getLastActivityAt, markSessionActivity, recordLogout, setAuthSession } from './utils/authStorage'
+import { apiFetch, readJsonResponse } from './utils/api'
+import { SkeletonShape } from './components/SkeletonUI'
 import PageTransition from './components/PageTransition'
 import ToastProvider from './components/ToastProvider'
 import './App.css'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
 function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
   const navigate = useNavigate()
@@ -44,13 +48,6 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
     document.addEventListener('visibilitychange', onVisibilityChange)
 
     const intervalId = window.setInterval(() => {
-      const token = getAuthToken()
-      if (!token) {
-        onLogout()
-        navigate('/login', { replace: true })
-        return
-      }
-
       const lastActivityAt = getLastActivityAt()
       if (lastActivityAt && Date.now() - lastActivityAt >= timeoutMs) {
         onLogout()
@@ -58,8 +55,21 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
       }
     }, 1000)
 
+    const refreshIntervalId = window.setInterval(async () => {
+      try {
+        const response = await apiFetch(`${API_BASE_URL}/api/auth/refresh`, { method: 'POST' })
+        if (response.status === 401) {
+          onLogout()
+          navigate('/login', { replace: true })
+        }
+      } catch {
+        // Keep the local session during transient network failures.
+      }
+    }, 30 * 60 * 1000)
+
     return () => {
       window.clearInterval(intervalId)
+      window.clearInterval(refreshIntervalId)
       for (const eventName of events) {
         window.removeEventListener(eventName, markActivity)
       }
@@ -72,14 +82,36 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [authChecking, setAuthChecking] = useState(true)
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('theme')
     return savedTheme === 'dark' ? 'dark' : 'light'
   })
 
   useEffect(() => {
-    const token = getAuthToken()
-    setIsLoggedIn(Boolean(token))
+    let active = true
+    const restoreSession = async () => {
+      try {
+        const response = await apiFetch(`${API_BASE_URL}/api/auth/refresh`, { method: 'POST' })
+        if (!response.ok) {
+          clearAuthSession()
+          return
+        }
+        const data = await readJsonResponse(response, 'Unable to restore session')
+        if (data.user) {
+          setAuthSession(data.user)
+          if (active) setIsLoggedIn(true)
+        } else {
+          clearAuthSession()
+        }
+      } catch {
+        clearAuthSession()
+      } finally {
+        if (active) setAuthChecking(false)
+      }
+    }
+    restoreSession()
+    return () => { active = false }
   }, [])
 
   // Apply theme to document
@@ -102,7 +134,20 @@ function App() {
     setIsLoggedIn(false)
   }, [])
 
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      logout()
+      window.location.assign('/login')
+    }
+    window.addEventListener('goldflow:session-expired', handleSessionExpired)
+    return () => window.removeEventListener('goldflow:session-expired', handleSessionExpired)
+  }, [logout])
+
   const withPageTransition = (element) => <PageTransition>{element}</PageTransition>
+  const sessionLoadingView = <div className="dashboard-content" style={{ padding: '2rem' }}><SkeletonShape width="min(420px, 100%)" height={18} style={{ margin: '20vh auto' }} /></div>
+  const protectedPage = (element) => authChecking
+    ? sessionLoadingView
+    : isLoggedIn ? element : <Navigate to="/login" replace />
 
   return (
     <ToastProvider>
@@ -113,7 +158,9 @@ function App() {
         <Route
           path="/login"
           element={
-            isLoggedIn
+            authChecking
+              ? sessionLoadingView
+              : isLoggedIn
               ? <Navigate to="/dashboard" replace />
               : withPageTransition(<Login setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />)
           }
@@ -121,7 +168,9 @@ function App() {
         <Route
           path="/admin"
           element={
-            isLoggedIn
+            authChecking
+              ? sessionLoadingView
+              : isLoggedIn
               ? <Navigate to="/dashboard" replace />
               : withPageTransition(<AdminLogin setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />)
           }
@@ -131,18 +180,18 @@ function App() {
         
         {/* Protected Routes with Layout */}
         <Route element={<Layout setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />}>
-          <Route index element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
-          <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" replace />} />
-          <Route path="/customer" element={isLoggedIn ? <Customer /> : <Navigate to="/login" replace />} />
-          <Route path="/vendor" element={isLoggedIn ? <Vendor /> : <Navigate to="/login" replace />} />
-          <Route path="/invoice" element={isLoggedIn ? <Invoice /> : <Navigate to="/login" replace />} />
-          <Route path="/payment" element={isLoggedIn ? <Payment /> : <Navigate to="/login" replace />} />
-          <Route path="/purchase-invoice" element={isLoggedIn ? <PurchaseInvoice /> : <Navigate to="/login" replace />} />
-          <Route path="/purchase-payment" element={isLoggedIn ? <PurchasePayment /> : <Navigate to="/login" replace />} />
-          <Route path="/reports" element={isLoggedIn ? <Reports /> : <Navigate to="/login" replace />} />
-          <Route path="/user" element={isLoggedIn ? <User /> : <Navigate to="/login" replace />} />
-          <Route path="/backup" element={isLoggedIn ? <Backup /> : <Navigate to="/login" replace />} />
-          <Route path="/product" element={isLoggedIn ? <Product /> : <Navigate to="/login" replace />} />
+          <Route index element={authChecking ? sessionLoadingView : isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
+          <Route path="/dashboard" element={protectedPage(<Dashboard />)} />
+          <Route path="/customer" element={protectedPage(<Customer />)} />
+          <Route path="/vendor" element={protectedPage(<Vendor />)} />
+          <Route path="/invoice" element={protectedPage(<Invoice />)} />
+          <Route path="/payment" element={protectedPage(<Payment />)} />
+          <Route path="/purchase-invoice" element={protectedPage(<PurchaseInvoice />)} />
+          <Route path="/purchase-payment" element={protectedPage(<PurchasePayment />)} />
+          <Route path="/reports" element={protectedPage(<Reports />)} />
+          <Route path="/user" element={protectedPage(<User />)} />
+          <Route path="/backup" element={protectedPage(<Backup />)} />
+          <Route path="/product" element={protectedPage(<Product />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

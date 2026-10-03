@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Edit2, Trash2, X, MoreVertical, Search, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
-import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
+import { getAuthValue } from '../../../utils/authStorage'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
@@ -9,6 +9,7 @@ import { sanitizeClientErrorMessage } from '../../../utils/api'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 import { LoadingSkeleton, SkeletonCardList, SkeletonTable } from '../../../components/SkeletonUI'
+import { apiFetch } from '../../../utils/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const LOGIN_HISTORY_PAGE_SIZE = 10
@@ -36,7 +37,6 @@ function User() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  const token = useMemo(() => getAuthToken(), [])
   const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])
   const filteredUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -63,8 +63,8 @@ function User() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      const response = await apiFetch(`${API_BASE_URL}/api/users`, {
+        headers: undefined
       })
       if (!response.ok) {
         const text = await response.text()
@@ -89,8 +89,8 @@ function User() {
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${u._id}/login-history`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      const response = await apiFetch(`${API_BASE_URL}/api/users/${u._id}/login-history`, {
+        headers: undefined
       })
       const data = await response.json()
       if (!response.ok) {
@@ -107,7 +107,7 @@ function User() {
 
   useEffect(() => {
     fetchUsers()
-  }, [isAdmin, token])
+  }, [isAdmin])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -153,11 +153,10 @@ function User() {
       if (passwordOpen && (newPassword || confirmPassword)) {
         if (newPassword.length < 6) throw new Error('Password must be at least 6 characters')
         if (newPassword !== confirmPassword) throw new Error('Passwords do not match')
-        const passRes = await fetch(`${API_BASE_URL}/api/users/${editForm.id}/password`, {
+        const passRes = await apiFetch(`${API_BASE_URL}/api/users/${editForm.id}/password`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify({ password: newPassword })
         })
@@ -167,11 +166,10 @@ function User() {
         }
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/users/${editForm.id}`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/users/${editForm.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           fullName: editForm.fullName,
@@ -200,9 +198,9 @@ function User() {
     setSaving(true)
     setError('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/users/${id}`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        headers: undefined
       })
       if (!response.ok) {
         const text = await response.text()
@@ -223,11 +221,10 @@ function User() {
     setSaving(true)
     setError('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${id}/status`, {
+      const response = await apiFetch(`${API_BASE_URL}/api/users/${id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ isActive: u.isActive !== false ? false : true })
       })

@@ -1,8 +1,9 @@
+import { apiFetch } from '../../../utils/api'
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, UploadCloud, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable } from '../../../components/SkeletonUI'
-import { getAuthToken, getAuthValue } from '../../../utils/authStorage';
+import { getAuthValue } from '../../../utils/authStorage';
 import { readJsonResponse } from '../../../utils/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -233,7 +234,7 @@ function Invoice() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/company-settings`)
+        const res = await apiFetch(`${API_BASE_URL}/api/company-settings`)
         if (res.ok) {
           const data = await res.json()
           setCompanySettings(data.settings)
@@ -249,9 +250,8 @@ function Invoice() {
     const fetchActiveProducts = async () => {
       setProductOptionsLoading(true)
       try {
-        const token = getAuthToken()
-        const response = await fetch(`${API_BASE_URL}/api/products?activeOnly=true&limit=1000`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+        const response = await apiFetch(`${API_BASE_URL}/api/products?activeOnly=true&limit=1000`, {
+          headers: undefined
         })
         const data = await readJsonResponse(response, 'Error fetching products')
         setProductOptions((data.products || []).map((product) => product.productName).filter(Boolean))
@@ -371,9 +371,8 @@ function Invoice() {
     setInvoiceHistoryOpen(true);
     setInvoiceHistory(null);
     try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/api/invoices/${invoice._id}/history`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      const response = await apiFetch(`${API_BASE_URL}/api/invoices/${invoice._id}/history`, {
+        headers: undefined
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.message || 'Failed to load invoice history');
@@ -482,7 +481,7 @@ function Invoice() {
   // Fetch vendors for dropdown
   const fetchVendorsList = async () => {
     try {
-      const response = await fetch(`${VENDORS_API_URL}?limit=1000`); // Get all for dropdown
+      const response = await apiFetch(`${VENDORS_API_URL}?limit=1000`); // Get all for dropdown
       const data = await readJsonResponse(response, 'Error fetching vendors');
       setVendors(data.vendors || []);
     } catch (err) {
@@ -493,7 +492,7 @@ function Invoice() {
   // Fetch next invoice number
   const fetchNextInvoiceNumber = async () => {
     try {
-      const response = await fetch(`${API_URL}/next-number`);
+      const response = await apiFetch(`${API_URL}/next-number`);
       const data = await readJsonResponse(response, 'Error fetching next invoice number');
       setInvoiceForm(prev => ({ ...prev, invoiceNumber: data.nextNumber }));
     } catch (err) {
@@ -505,7 +504,7 @@ function Invoice() {
   const fetchCustomersList = async () => {
     setCustomersLoading(true);
     try {
-      const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`); // Get all for dropdown
+      const response = await apiFetch(`${CUSTOMERS_API_URL}?limit=1000`); // Get all for dropdown
       const data = await readJsonResponse(response, 'Error fetching customers');
       setCustomers(data.customers || []);
     } catch (err) {
@@ -526,7 +525,7 @@ function Invoice() {
       if (column) {
         url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
       }
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       const data = await readJsonResponse(response, 'Error fetching invoices');
       if (requestSequence !== invoiceListRequestSequence.current) return;
       setInvoices(data.invoices || []);
@@ -877,14 +876,12 @@ function Invoice() {
 
     setLoading(true);
     try {
-      const token = getAuthToken();
       if (editingInvoiceId) {
         // Update existing invoice
-        const response = await fetch(`${API_URL}/${editingInvoiceId}`, {
+        const response = await apiFetch(`${API_URL}/${editingInvoiceId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify(invoiceForm)
         });
@@ -898,11 +895,10 @@ function Invoice() {
         showSuccessToast('Invoice updated successfully!');
       } else {
         // Add new invoice
-        const response = await fetch(API_URL, {
+        const response = await apiFetch(API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify(invoiceForm)
         });
@@ -956,9 +952,8 @@ function Invoice() {
     setInfoLoading(true);
     setInfoNowMs(Date.now());
     try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_URL}/detail/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      const response = await apiFetch(`${API_URL}/detail/${id}`, {
+        headers: undefined
       });
       const data = await readJsonResponse(response, 'Error fetching invoice info');
       setInfoInvoice(data || null);
@@ -975,9 +970,8 @@ function Invoice() {
     setInfoLoading(true);
     setInfoNowMs(Date.now());
     try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_URL}/detail/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      const response = await apiFetch(`${API_URL}/detail/${id}`, {
+        headers: undefined
       });
       const data = await readJsonResponse(response, 'Error refreshing invoice info');
       setInfoInvoice(data || null);
@@ -1484,7 +1478,6 @@ function Invoice() {
       setCsvImporting(true);
       setCsvImportError('');
 
-      const token = getAuthToken();
       const headers = csvHeaders;
       const createdInvoices = [];
 
@@ -1515,11 +1508,10 @@ function Invoice() {
           attachments: [],
         };
 
-        const response = await fetch(API_URL, {
+        const response = await apiFetch(API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify(payload)
         });
@@ -1540,10 +1532,9 @@ function Invoice() {
   const handleDeleteInvoice = async (id) => {
     if (window.confirm('Are you sure you want to delete this invoice?')) {
       try {
-        const token = getAuthToken();
-        const response = await fetch(`${API_URL}/${id}`, {
+        const response = await apiFetch(`${API_URL}/${id}`, {
           method: 'DELETE',
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined
+          headers: undefined
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
@@ -1589,12 +1580,10 @@ function Invoice() {
     }
 
     try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_URL}/bulk-delete`, {
+      const response = await apiFetch(`${API_URL}/bulk-delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ ids: selectedInvoiceIds })
       });

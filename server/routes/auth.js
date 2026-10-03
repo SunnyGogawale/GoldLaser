@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const { sendErrorResponse } = require('../utils/errorHandler');
+const { AUTH_COOKIE_NAME, setAuthCookie, clearAuthCookie } = require('../utils/authCookie');
 const LOGIN_HISTORY_MAX_RECORDS = 30;
 
 const getBearerToken = (req) => {
@@ -53,39 +54,16 @@ router.post('/signup', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
 
-    console.log('Attempting to save user with roll:', user.roll);
     await user.save();
-    console.log('User saved successfully. Saved document:', user);
-
-    // Create JWT
-    const payload = {
+    const userObj = user.toObject();
+    return res.status(201).json({
       user: {
-        id: user.id
+        id: userObj._id,
+        fullName: userObj.fullName,
+        email: userObj.email,
+        roll: userObj.roll || userObj.role || 'user'
       }
-    };
-
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' },
-      (tokenErr, token) => {
-        if (tokenErr) {
-          return sendErrorResponse(res, tokenErr, 'Something went wrong. Please try again later.', 500, 'auth.signup');
-        }
-        const userObj = user.toObject();
-        const responseData = { 
-          token, 
-          user: { 
-            id: userObj._id, 
-            fullName: userObj.fullName, 
-            email: userObj.email, 
-            roll: userObj.roll || userObj.role || 'user'
-          } 
-        };
-        console.log('DEBUG: Final responseData.user:', responseData.user);
-        return res.json(responseData);
-      }
-    );
+    });
   } catch (err) {
     return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.signup');
   }
@@ -144,17 +122,15 @@ router.post('/signin', async (req, res) => {
           return sendErrorResponse(res, tokenErr, 'Something went wrong. Please try again later.', 500, 'auth.signin');
         }
         const userObj = user.toObject();
-        const responseData = { 
-          token, 
-          user: { 
-            id: userObj._id, 
-            fullName: userObj.fullName, 
-            email: userObj.email, 
+        setAuthCookie(res, token);
+        return res.json({
+          user: {
+            id: userObj._id,
+            fullName: userObj.fullName,
+            email: userObj.email,
             roll: userObj.roll || userObj.role || 'user'
-          } 
-        };
-        console.log('DEBUG: Final responseData.user:', responseData.user);
-        return res.json(responseData);
+          }
+        });
       }
     );
   } catch (err) {
@@ -162,30 +138,66 @@ router.post('/signin', async (req, res) => {
   }
 });
 
-router.post('/logout', requireAuth, async (req, res) => {
+router.post('/logout', async (req, res) => {
   try {
-    const user = await User.findById(req.auth.userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    const history = Array.isArray(user.loginHistory) ? user.loginHistory : [];
-    for (let index = history.length - 1; index >= 0; index -= 1) {
-      const entry = history[index];
-      if (
-        entry &&
-        typeof entry === 'object' &&
-        !Array.isArray(entry) &&
-        !entry.logoutTime &&
-        (!req.auth.sessionId || entry.sessionId === req.auth.sessionId)
-      ) {
-        entry.logoutTime = new Date();
-        break;
+    const cookieToken = req.cookies?.[AUTH_COOKIE_NAME];
+    if (cookieToken) {
+      try {
+        const decoded = jwt.verify(cookieToken, process.env.JWT_SECRET);
+        const user = await User.findById(decoded?.user?.id);
+        if (user) {
+          const history = Array.isArray(user.loginHistory) ? user.loginHistory : [];
+          for (let index = history.length - 1; index >= 0; index -= 1) {
+            const entry = history[index];
+            if (entry && !entry.logoutTime && entry.sessionId === decoded?.user?.sessionId) {
+              entry.logoutTime = new Date();
+              break;
+            }
+          }
+          user.loginHistory = history.slice(-LOGIN_HISTORY_MAX_RECORDS);
+          await user.save();
+        }
+      } catch {
+        // Expired cookies are still cleared even when their session can't be recorded.
       }
     }
-    user.loginHistory = history.slice(-LOGIN_HISTORY_MAX_RECORDS);
-    await user.save();
+    clearAuthCookie(res);
     return res.json({ message: 'Logout recorded' });
   } catch (err) {
+    clearAuthCookie(res);
     return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.logout');
+  }
+});
+
+router.post('/refresh', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.auth.userId);
+    if (!user || user.isActive === false) {
+      clearAuthCookie(res);
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const isSessionActive = (Array.isArray(user.loginHistory) ? user.loginHistory : []).some((entry) =>
+      entry && entry.sessionId === req.auth.sessionId && !entry.logoutTime
+    );
+    if (!isSessionActive) {
+      clearAuthCookie(res);
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const token = jwt.sign({ user: { id: String(user._id), sessionId: req.auth.sessionId } }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    setAuthCookie(res, token);
+    return res.json({
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        roll: user.roll || user.role || 'user'
+      }
+    });
+  } catch (err) {
+    clearAuthCookie(res);
+    return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'auth.refresh');
   }
 });
 
