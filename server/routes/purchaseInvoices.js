@@ -229,7 +229,7 @@ router.get('/', async (req, res) => {
         const items = Array.isArray(inv.items) ? inv.items : [];
         const itemProducts = items.map((item) => String(item?.product || ''));
         const itemDescriptions = items.map((item) => String(item?.description || ''));
-        const itemAmounts = items.map((item) => String(item?.amount || ''));
+        const itemAmounts = items.map((item) => String(item?.amount ?? ''));
         const searchableParts = [
           inv.invoiceNumber,
           inv.transactionDescription,
@@ -252,7 +252,7 @@ router.get('/', async (req, res) => {
         ];
 
         const searchableText = searchableParts
-          .map((part) => String(part || ''))
+          .map((part) => String(part ?? ''))
           .join(' ')
           .toLowerCase();
 

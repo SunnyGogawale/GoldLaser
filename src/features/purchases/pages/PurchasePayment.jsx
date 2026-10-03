@@ -581,7 +581,10 @@ function PurchasePayment() {
     }
   }
 
+  const paymentListRequestSequence = useRef(0)
+
   const fetchPayments = async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
+    const requestSequence = ++paymentListRequestSequence.current
     setListLoading(true)
     try {
       let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`
@@ -590,13 +593,16 @@ function PurchasePayment() {
       }
       const response = await fetch(url)
       const data = await readJsonResponse(response, 'Error fetching payments')
+      if (requestSequence !== paymentListRequestSequence.current) return
       setPayments(data.payments || [])
       setTotalPages(data.totalPages || 0)
       setCurrentPage(page)
     } catch (err) {
-      handleApiError(err, 'Error fetching payments')
+      if (requestSequence === paymentListRequestSequence.current) {
+        handleApiError(err, 'Error fetching payments')
+      }
     } finally {
-      setListLoading(false)
+      if (requestSequence === paymentListRequestSequence.current) setListLoading(false)
     }
   }
 

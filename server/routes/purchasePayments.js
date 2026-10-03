@@ -427,21 +427,36 @@ router.get('/', async (req, res) => {
     const customerMap = new Map(customers.map(c => [c._id.toString(), c]));
     const vendorMap = new Map(vendors.map(v => [v._id.toString(), v]));
 
+    const clientCreditBalances = new Map();
+    const paymentCreditBalances = new Map();
+    for (const payment of payments) {
+      const allocationTotal = Array.isArray(payment.allocations)
+        ? payment.allocations.reduce((sum, allocation) => sum + (Number(allocation?.amount) || 0), 0)
+        : 0;
+      const balance = (Number(payment.amount) || 0) - allocationTotal;
+      const clientKey = `${payment.clientType}:${payment.clientId?.toString() || ''}`;
+      clientCreditBalances.set(clientKey, (clientCreditBalances.get(clientKey) || 0) + balance);
+      paymentCreditBalances.set(payment._id.toString(), balance);
+    }
+
     // Attach client data as vendorId
-    const paymentsWithClients = await Promise.all(payments.map(async (p) => {
+    const paymentsWithClients = payments.map((p) => {
       const pObj = p.toObject();
       if (pObj.clientType === 'Customer') {
         pObj.vendorId = customerMap.get(pObj.clientId?.toString()) || null;
       } else {
         pObj.vendorId = vendorMap.get(pObj.clientId?.toString()) || null;
       }
+      const clientKey = `${pObj.clientType}:${pObj.clientId?.toString() || ''}`;
       const availableCredit = Number(pObj.amount) > 0
         ? 0
-        : await getClientCreditBalance(pObj.clientId, pObj.clientType, pObj._id);
+        : Math.round(((clientCreditBalances.get(clientKey) || 0)
+          - (paymentCreditBalances.get(pObj._id.toString()) || 0)
+          + Number.EPSILON) * 100) / 100;
       pObj.paymentListAvailableCredit = Math.max(0, Number(availableCredit) || 0);
       pObj.paymentListAmount = calculatePaymentListAmount(pObj.amount, pObj.allocations, availableCredit);
       return pObj;
-    }));
+    });
 
     // Filter by search
     let filteredPayments = paymentsWithClients;
@@ -450,7 +465,7 @@ router.get('/', async (req, res) => {
         const allocations = Array.isArray(p.allocations) ? p.allocations : [];
         const allocationInvoiceNumbers = allocations.map((row) => String(row?.invoiceId?.invoiceNumber || row?.invoiceId || ''));
         const allocationDescriptions = allocations.map((row) => String(row?.description || ''));
-        const allocationAmounts = allocations.map((row) => String(row?.amount || ''));
+        const allocationAmounts = allocations.map((row) => String(row?.amount ?? ''));
         const searchableParts = [
           p.paymentNumber,
           p.paymentDate,
@@ -473,7 +488,7 @@ router.get('/', async (req, res) => {
         ];
 
         const searchableText = searchableParts
-          .map((part) => String(part || ''))
+          .map((part) => String(part ?? ''))
           .join(' ')
           .toLowerCase();
 

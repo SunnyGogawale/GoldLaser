@@ -20,6 +20,6 @@
 			"label": "track-purchase-payment-search",
 			"type": "shell",
 			"command": "echo '1 backend all-field search 2 placeholder update 3 validate'"
-		}
+		},
 	]
 }

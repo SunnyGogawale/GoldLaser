@@ -347,8 +347,11 @@ function PurchaseInvoice() {
     }
   };
 
+  const invoiceListRequestSequence = useRef(0);
+
   // Fetch invoices on component mount
   const fetchInvoices = async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
+    const requestSequence = ++invoiceListRequestSequence.current;
     setLoading(true);
     try {
       let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
@@ -357,13 +360,16 @@ function PurchaseInvoice() {
       }
       const response = await fetch(url);
       const data = await readJsonResponse(response, 'Error fetching invoices');
+      if (requestSequence !== invoiceListRequestSequence.current) return;
       setInvoices(data.invoices || []);
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
     } catch (err) {
-      handleApiError(err, 'Error fetching invoices');
+      if (requestSequence === invoiceListRequestSequence.current) {
+        handleApiError(err, 'Error fetching invoices');
+      }
     } finally {
-      setLoading(false);
+      if (requestSequence === invoiceListRequestSequence.current) setLoading(false);
     }
   };
 
