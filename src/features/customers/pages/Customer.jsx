@@ -3,8 +3,7 @@ import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical } from 'lu
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonShape, SkeletonTable } from '../../../components/SkeletonUI'
 import { getAuthValue } from '../../../utils/authStorage'
-import { readJsonResponse } from '../../../utils/api'
-import { apiFetch } from '../../../utils/api'
+import { API_BASE_URL, apiFetch, readJsonResponse } from '../../../utils/api'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import MotionButton from '../../../components/MotionButton'
@@ -13,7 +12,6 @@ import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY, formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/customers`
 
 const CUSTOM_FIELDS_API_URL = `${API_BASE_URL}/api/customer-custom-fields`

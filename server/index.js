@@ -3,26 +3,17 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
-const path = require('path');
-const { sanitizeErrorMessage, sendErrorResponse } = require('./utils/errorHandler');
+const config = require('./config/env');
+const { logError, sanitizeErrorMessage, sendErrorResponse } = require('./utils/errorHandler');
 const { disableBrowserCaching } = require('./services/browserCache.service');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
 const User = require('./models/User');
 const { AUTH_COOKIE_NAME } = require('./utils/authCookie');
 
 const app = express();
-app.set('trust proxy', 1);
-const REQUEST_BODY_LIMIT = '200mb';
+app.set('trust proxy', config.trustProxy);
+const REQUEST_BODY_LIMIT = config.requestBodyLimit;
 const backupRoutes = require('./routes/backups');
-const configuredOrigins = String(process.env.CORS_ORIGINS || process.env.CLIENT_ORIGIN || process.env.FRONTEND_ORIGIN || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const allowedOrigins = new Set([
-  'http://localhost:5173',
-  'http://localhost:5174',
-  ...configuredOrigins
-]);
+const allowedOrigins = new Set(config.cors.origins);
 
 const isAllowedOrigin = (origin, req) => {
   if (!origin) return true;
@@ -32,7 +23,7 @@ const isAllowedOrigin = (origin, req) => {
 
 const corsOptions = {
   origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin)),
-  credentials: true
+  credentials: config.cors.credentials
 };
 
 // Middleware
@@ -65,7 +56,7 @@ app.use(async (req, res, next) => {
   if (!token) return next();
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, config.jwt.secret);
     const userId = decoded?.user?.id;
     const sessionId = decoded?.user?.sessionId;
     if (!userId || !sessionId) return next();
@@ -93,7 +84,7 @@ app.use((req, res, next) => {
       const safeMessage = sanitizeErrorMessage(body.message, 'Something went wrong. Please try again later.');
 
       if (shouldSanitize && body.message !== safeMessage) {
-        console.error(`[${req.method} ${req.originalUrl}]`, body.message);
+        logError('api.response', body.message);
       }
 
       return originalJson({ ...body, message: shouldSanitize ? safeMessage : body.message });
@@ -133,25 +124,24 @@ app.use((err, req, res, next) => {
 });
 
 // MongoDB Connection
-const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow';
-
 let cached = global._mongoose;
 if (!cached) {
   cached = global._mongoose = { conn: null, promise: null };
 }
 
 const connectToDatabase = async () => {
+  config.validateDatabase();
   if (cached.conn) return cached.conn;
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((m) => m);
+    cached.promise = mongoose.connect(config.database.uri).then((m) => m);
   }
   cached.conn = await cached.promise;
   return cached.conn;
 };
 
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  config.validateListener();
+  app.listen(config.port, () => console.log(`Server running on port ${config.port}`));
   connectToDatabase()
     .then(async () => {
       console.log('Connected to MongoDB');
@@ -163,10 +153,10 @@ if (require.main === module) {
           { $unset: { unappliedAmount: '' } }
         );
       } catch (err) {
-        console.error('Could not cleanup unappliedAmount field', err);
+        logError('startup.cleanup', err);
       }
     })
-    .catch(err => console.error('Could not connect to MongoDB', err));
+    .catch(err => logError('startup.mongodb', err));
 }
 
 module.exports = { app, connectToDatabase };

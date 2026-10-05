@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+dist/
+.vite/
+.dbg/
+.env
+.env.*
+!.env.example
+!.env.production.example
+!.env.development.example
+server/.env
+server/.env.*
+!server/.env.example
+!server/.env.development.example

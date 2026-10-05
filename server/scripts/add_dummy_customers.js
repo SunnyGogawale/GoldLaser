@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
-require('dotenv').config();
+const config = require('../config/env');
 
 const dummyCustomers = [];
 const firstNames = ['John', 'Jane', 'Michael', 'Emily', 'David', 'Sarah', 'Robert', 'Amanda', 'William', 'Jessica', 'Richard', 'Jennifer', 'Joseph', 'Elizabeth', 'Thomas', 'Patricia', 'Christopher', 'Linda', 'Daniel', 'Barbara', 'Paul', 'Margaret', 'Mark', 'Susan', 'Donald', 'Dorothy', 'George', 'Lisa', 'Kenneth', 'Nancy', 'Steven', 'Karen', 'Edward', 'Betty', 'Brian', 'Helen', 'Ronald', 'Sandra', 'Anthony', 'Donna', 'Kevin', 'Carol', 'Jason', 'Ruth', 'Matthew', 'Sharon', 'Gary', 'Michelle', 'Timothy', 'Laura', 'Larry', 'Cynthia', 'Jeffrey', 'Angela', 'Frank', 'Melissa', 'Scott', 'Brenda', 'Eric', 'Amy', 'Stephen', 'Anna', 'Andrew', 'Rebecca', 'Raymond', 'Virginia', 'Gregory', 'Kathleen', 'Joshua', 'Pamela', 'Dennis', 'Martha', 'Jerry', 'Debra', 'Walter', 'Amanda', 'Patrick', 'Stephanie', 'Peter', 'Carolyn', 'Harold', 'Christine', 'Douglas', 'Marie', 'Henry', 'Janet', 'Carl', 'Catherine', 'Arthur', 'Frances', 'Ryan', 'Ann', 'Roger', 'Joyce', 'Joe', 'Diane'];
@@ -25,7 +25,8 @@ async function getNextCustomerId() {
 
 async function addDummyCustomers() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow');
+    config.validateDatabase();
+    await mongoose.connect(config.database.uri);
     console.log('Connected to MongoDB');
 
     for (let i = 1; i <= 90; i++) {
@@ -49,8 +50,8 @@ async function addDummyCustomers() {
     console.log(`✅ Successfully added ${dummyCustomers.length} dummy customers`);
 
     process.exit(0);
-  } catch (err) {
-    console.error('Error adding dummy customers:', err);
+  } catch {
+    console.error('Error adding dummy customers');
     process.exit(1);
   }
 }

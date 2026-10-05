@@ -1,4 +1,4 @@
-import { apiFetch } from '../../../utils/api'
+import { API_BASE_URL, apiFetch } from '../../../utils/api'
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
@@ -20,7 +20,6 @@ import {
   calculatePaymentListAmount
 } from '../../../utils/creditCalculation'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/purchase-payments`
 const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
 const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`

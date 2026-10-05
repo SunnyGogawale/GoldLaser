@@ -4,9 +4,8 @@ import { getAuthValue } from '../../../utils/authStorage'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 import { LoadingSkeleton, SkeletonGridRows } from '../../../components/SkeletonUI'
-import { apiFetch } from '../../../utils/api'
+import { API_BASE_URL, apiFetch } from '../../../utils/api'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const BACKUP_REFRESH_MS = Number(import.meta.env.VITE_BACKUP_REFRESH_MS || 15000)
 
 function Backup() {

@@ -1,4 +1,4 @@
-import { apiFetch } from './api'
+import { API_BASE_URL, apiFetch } from './api'
 
 const AUTH_KEYS = ['userRole', 'userFullName', 'userEmail', 'lastActivityAt']
 
@@ -44,8 +44,7 @@ export const markSessionActivity = () => {
 export const getLastActivityAt = () => Number(getAuthValue('lastActivityAt') || 0)
 
 export const recordLogout = () => {
-  const apiBaseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-  apiFetch(`${apiBaseUrl}/api/auth/logout`, {
+  apiFetch(`${API_BASE_URL}/api/auth/logout`, {
     method: 'POST',
     keepalive: true
   }).catch(() => {})

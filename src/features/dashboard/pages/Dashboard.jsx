@@ -34,14 +34,12 @@ import {
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonDetail, SkeletonMetricGrid, SkeletonTableRows } from '../../../components/SkeletonUI'
 import { getAuthValue } from '../../../utils/authStorage'
-import { readJsonResponse } from '../../../utils/api'
-import { apiFetch } from '../../../utils/api'
+import { API_BASE_URL, apiFetch, readJsonResponse } from '../../../utils/api'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { REPORT_COLUMNS, REPORT_AMOUNT_COLUMN_KEYS, getReportPopoverPosition } from '../../reports/reportColumns'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORT_COLUMN_INFO = {
   invoiceAmount: 'Total Invoice Amount',
   paidAmount: 'Total Invoice Paid Amount',
