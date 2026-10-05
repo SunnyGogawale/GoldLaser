@@ -17,11 +17,13 @@ import Vendor from './features/vendors/pages/Vendor'
 import PurchaseInvoice from './features/purchases/pages/PurchaseInvoice'
 import PurchasePayment from './features/purchases/pages/PurchasePayment'
 import { clearAuthSession, getLastActivityAt, markSessionActivity, recordLogout, setAuthSession } from './utils/authStorage'
-import { API_BASE_URL, apiFetch, readJsonResponse } from './utils/api'
+import { apiFetch, readJsonResponse } from './utils/api'
 import { SkeletonShape } from './components/SkeletonUI'
 import PageTransition from './components/PageTransition'
 import ToastProvider from './components/ToastProvider'
 import './App.css'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
 function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
   const navigate = useNavigate()

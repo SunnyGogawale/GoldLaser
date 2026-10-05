@@ -23,7 +23,9 @@ import { modalMotionProps, overlayMotionProps } from './PageTransition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 import MotionButton from './MotionButton'
 import { LoadingSkeleton, SkeletonFormGrid } from './SkeletonUI'
-import { API_BASE_URL, apiFetch } from '../utils/api'
+import { apiFetch } from '../utils/api'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
 function Layout({ setIsLoggedIn, theme, toggleTheme }) {
   const navigate = useNavigate()

@@ -3,7 +3,9 @@ import { Edit2, Plus, Power, Search, X } from 'lucide-react'
 import { getAuthValue } from '../../../utils/authStorage'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
 import { SkeletonTableRows } from '../../../components/SkeletonUI'
-import { API_BASE_URL, apiFetch } from '../../../utils/api'
+import { apiFetch } from '../../../utils/api'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
 function Product() {
   const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])

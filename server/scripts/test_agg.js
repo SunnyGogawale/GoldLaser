@@ -1,10 +1,9 @@
 const mongoose = require('mongoose');
-const config = require('../config/env');
+require('dotenv').config();
 const Invoice = require('../models/Invoice');
 
 async function test() {
-  config.validateDatabase();
-  await mongoose.connect(config.database.uri);
+  await mongoose.connect('mongodb://localhost:27017/goldflow');
   const res = await Invoice.aggregate([
     {
       $addFields: {
@@ -22,7 +21,7 @@ async function test() {
     { $sort: { numericId: -1 } },
     { $limit: 10 }
   ]);
-  console.log(`Found ${res.length} matching invoices`);
+  console.log(res);
   process.exit(0);
 }
 test();

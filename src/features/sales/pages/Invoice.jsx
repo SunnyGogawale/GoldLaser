@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiFetch } from '../../../utils/api'
+import { apiFetch } from '../../../utils/api'
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, UploadCloud, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
@@ -13,6 +13,7 @@ import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY, formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/invoices`;
 const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`;
 const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`;

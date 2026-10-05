@@ -5,12 +5,13 @@ import { getAuthValue } from '../../../utils/authStorage'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
-import { API_BASE_URL, sanitizeClientErrorMessage } from '../../../utils/api'
+import { sanitizeClientErrorMessage } from '../../../utils/api'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 import { LoadingSkeleton, SkeletonCardList, SkeletonTable } from '../../../components/SkeletonUI'
 import { apiFetch } from '../../../utils/api'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const LOGIN_HISTORY_PAGE_SIZE = 10
 
 function User() {

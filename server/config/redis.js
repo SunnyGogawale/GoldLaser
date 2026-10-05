@@ -1,7 +1,6 @@
 let redisClient = null;
 let connectionPromise = null;
 let injectedClient = null;
-const { logError } = require('../utils/errorHandler');
 
 const getRedisClient = async () => {
   if (injectedClient) return injectedClient;
@@ -18,7 +17,7 @@ const getRedisClient = async () => {
         reconnectStrategy: false
       }
     });
-    client.on('error', (err) => logError('redis.connection', err));
+    client.on('error', (err) => console.error('Redis cache connection error:', err.message));
     redisClient = client;
     try {
       await client.connect();
@@ -28,7 +27,7 @@ const getRedisClient = async () => {
       throw err;
     }
   })().catch((err) => {
-    logError('redis.unavailable', err);
+    console.error('Redis cache unavailable; continuing without cache:', err.message);
     return null;
   }).finally(() => {
     connectionPromise = null;

@@ -1,6 +1,6 @@
 import { showErrorToast } from './toast'
 
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REFRESH_URL = `${API_BASE_URL}/api/auth/refresh`
 let refreshRequest = null
 

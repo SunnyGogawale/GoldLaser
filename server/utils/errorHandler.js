@@ -22,14 +22,9 @@ const sanitizeErrorMessage = (error, fallbackMessage = 'Something went wrong. Pl
   return message;
 };
 
-const redactSensitiveDetails = (details) => String(details)
-  .replace(/([a-z][a-z0-9+.-]*:\/\/[^:/@\s]*:)[^@/\s]+@/gi, '$1[REDACTED]@')
-  .replace(/(authorization\s*[:=]\s*)(?:Bearer\s+)?[^\s,;]+/gi, '$1[REDACTED]')
-  .replace(/((?:password|passwd|token|secret|api[_-]?key|authorization|mongodb_uri)\s*[=:]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi, '$1[REDACTED]');
-
 const logError = (context, error) => {
   const details = error?.stack || error?.message || error || 'Unknown error';
-  console.error(`[${context}]`, redactSensitiveDetails(details));
+  console.error(`[${context}]`, details);
 };
 
 const sendErrorResponse = (res, error, fallbackMessage = 'Something went wrong. Please try again later.', statusCode = 500, context = 'server') => {
@@ -40,7 +35,6 @@ const sendErrorResponse = (res, error, fallbackMessage = 'Something went wrong. 
 
 module.exports = {
   sanitizeErrorMessage,
-  redactSensitiveDetails,
   logError,
   sendErrorResponse,
 };

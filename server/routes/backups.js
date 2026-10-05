@@ -1,16 +1,16 @@
 const express = require('express')
 const fs = require('fs')
+const os = require('os')
 const path = require('path')
 const { execFile } = require('child_process')
 const jwt = require('jsonwebtoken')
 const mongoose = require('mongoose')
-const config = require('../config/env')
 const router = express.Router()
 const User = require('../models/User')
-const { logError, sendErrorResponse } = require('../utils/errorHandler')
+const { sendErrorResponse } = require('../utils/errorHandler')
 
 let backupSchedulerTimer = null
-const MAX_BACKUPS = config.backup.maxCount
+const MAX_BACKUPS = 25
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || ''
@@ -24,7 +24,7 @@ const requireAdmin = async (req, res, next) => {
     const token = getBearerToken(req)
     if (!token) return res.status(401).json({ message: 'Unauthorized' })
 
-    const decoded = jwt.verify(token, config.jwt.secret)
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
     const userId = decoded?.user?.id
     if (!userId) return res.status(401).json({ message: 'Unauthorized' })
 
@@ -34,17 +34,49 @@ const requireAdmin = async (req, res, next) => {
 
     req.auth = { userId: String(userId) }
     return next()
-  } catch {
+  } catch (err) {
     return res.status(401).json({ message: 'Unauthorized' })
   }
 }
 
 const getMongoDumpCommand = () => {
-  return config.backup.mongoDumpPath || 'mongodump'
+  const configured = process.env.MONGODUMP_PATH
+  if (configured) return configured
+
+  const candidates = [
+    '/opt/homebrew/bin/mongodump',
+    '/usr/local/bin/mongodump',
+    'mongodump'
+  ]
+
+  return candidates.find((candidate) => {
+    try {
+      fs.accessSync(candidate)
+      return true
+    } catch {
+      return false
+    }
+  }) || 'mongodump'
 }
 
 const getMongoRestoreCommand = () => {
-  return config.backup.mongoRestorePath || 'mongorestore'
+  const configured = process.env.MONGORESTORE_PATH
+  if (configured) return configured
+
+  const candidates = [
+    '/opt/homebrew/bin/mongorestore',
+    '/usr/local/bin/mongorestore',
+    'mongorestore'
+  ]
+
+  return candidates.find((candidate) => {
+    try {
+      fs.accessSync(candidate)
+      return true
+    } catch {
+      return false
+    }
+  }) || 'mongorestore'
 }
 
 const runCommand = (command, args) => new Promise((resolve, reject) => {
@@ -69,21 +101,49 @@ const formatSize = (size) => {
 
 const getBackupRoot = () => {
   const projectRoot = path.resolve(__dirname, '..', '..')
-  return path.resolve(projectRoot, config.backup.storagePath)
+
+  if (process.env.BACKUP_STORAGE_PATH) {
+    const configuredPath = process.env.BACKUP_STORAGE_PATH.trim()
+    return path.isAbsolute(configuredPath)
+      ? path.resolve(configuredPath)
+      : path.resolve(projectRoot, configuredPath)
+  }
+
+  return path.join(projectRoot, 'backups')
 }
 
-const getRetentionDays = () => config.backup.retentionDays
+const getRetentionDays = () => {
+  const retentionDays = Number.parseInt(process.env.BACKUP_RETENTION_DAYS || '8', 10)
+  return Number.isFinite(retentionDays) && retentionDays > 0 ? retentionDays : 8
+}
 
 const getKeepLatestBackupsCount = () => {
-  return Math.min(config.backup.keepLatestCount, MAX_BACKUPS)
+  const keepLatestBackups = Number.parseInt(process.env.BACKUP_KEEP_LATEST_COUNT || '10', 10)
+  return Number.isFinite(keepLatestBackups) && keepLatestBackups > 0
+    ? Math.min(keepLatestBackups, MAX_BACKUPS)
+    : 10
 }
 
-const getBackupIntervalHours = () => config.backup.intervalHours
+const getBackupIntervalHours = () => {
+  const backupIntervalHours = Number.parseInt(process.env.BACKUP_INTERVAL_HOURS || '0', 10)
+  return Number.isFinite(backupIntervalHours) && backupIntervalHours > 0 ? backupIntervalHours : 0
+}
 
-const getBackupIntervalMinutes = () => config.backup.intervalMinutes
+const getBackupIntervalMinutes = () => {
+  const backupIntervalMinutes = Number.parseInt(process.env.BACKUP_INTERVAL_MINUTES || '0', 10)
+  return Number.isFinite(backupIntervalMinutes) && backupIntervalMinutes > 0 ? backupIntervalMinutes : 0
+}
 
 const persistEnvValue = (key, value) => {
-  config.persistBackupSetting(key, value)
+  const envFilePath = path.join(__dirname, '..', '.env')
+  const envContents = fs.existsSync(envFilePath) ? fs.readFileSync(envFilePath, 'utf8') : ''
+  const normalizedValue = String(value)
+  const updatedContents = envContents.match(new RegExp(`^${key}=.*$`, 'm'))
+    ? envContents.replace(new RegExp(`^${key}=.*$`, 'm'), `${key}=${normalizedValue}`)
+    : `${envContents.trim() ? `${envContents.trim()}\n` : ''}${key}=${normalizedValue}\n`
+
+  fs.writeFileSync(envFilePath, updatedContents)
+  process.env[key] = normalizedValue
 }
 
 const createBackupArchive = async () => {
@@ -97,7 +157,7 @@ const createBackupArchive = async () => {
     fs.rmSync(archiveFile, { force: true })
   }
 
-  const mongoUri = config.database.uri
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow'
   const command = getMongoDumpCommand()
   const args = ['--uri=' + mongoUri, '--archive=' + archiveFile, '--gzip']
 
@@ -133,7 +193,7 @@ const startBackupScheduler = () => {
     try {
       await createBackupArchive()
     } catch (error) {
-      logError('backups.scheduler', error)
+      console.error('Scheduled backup creation failed:', error.message)
     }
   }, intervalMs)
 }
@@ -327,7 +387,7 @@ router.post('/restore', requireAdmin, async (req, res) => {
       await mongoose.connection.db.dropDatabase()
     }
 
-    const mongoUri = config.database.uri
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow'
     const command = getMongoRestoreCommand()
     const args = ['--uri=' + mongoUri, '--archive=' + archiveFile, '--gzip']
 
@@ -343,7 +403,7 @@ router.post('/restore', requireAdmin, async (req, res) => {
   }
 })
 
-router.post('/restore-upload', requireAdmin, express.raw({ type: 'application/octet-stream', limit: config.requestBodyLimit }), async (req, res) => {
+router.post('/restore-upload', requireAdmin, express.raw({ type: 'application/octet-stream', limit: '200mb' }), async (req, res) => {
   try {
     const backupRoot = getBackupRoot()
     fs.mkdirSync(backupRoot, { recursive: true })
@@ -364,7 +424,7 @@ router.post('/restore-upload', requireAdmin, express.raw({ type: 'application/oc
       await mongoose.connection.db.dropDatabase()
     }
 
-    const mongoUri = config.database.uri
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow'
     const command = getMongoRestoreCommand()
     const args = ['--uri=' + mongoUri, '--archive=' + archiveFile, '--gzip']
 

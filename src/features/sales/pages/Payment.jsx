@@ -3,7 +3,8 @@ import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Fil
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable, SkeletonTableRows } from '../../../components/SkeletonUI'
 import { clearAuthSession, getAuthValue } from '../../../utils/authStorage'
-import { API_BASE_URL, apiFetch, readJsonResponse } from '../../../utils/api'
+import { readJsonResponse } from '../../../utils/api'
+import { apiFetch } from '../../../utils/api'
 import { parseCsvText, parseCsvData, getSuggestedCsvHeader, normalizeCsvDateValue, toIsoDateString } from '../../../utils/csvParser'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
@@ -20,6 +21,7 @@ import {
   calculatePaymentListAmount
 } from '../../../utils/creditCalculation'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/payments`
 const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
 const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`

@@ -8,10 +8,11 @@ import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonTable } from '../../../components/SkeletonUI'
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
-import { API_BASE_URL, apiFetch } from '../../../utils/api'
+import { apiFetch } from '../../../utils/api'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { REPORT_COLUMNS, REPORT_AMOUNT_COLUMN_KEYS, REPORT_COLUMN_INFO, getReportPopoverPosition } from '../reportColumns'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORTS_API_URL = `${API_BASE_URL}/api/reports`
 const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
 const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`

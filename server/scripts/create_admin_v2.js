@@ -1,34 +1,41 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const config = require('../config/env');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow';
 
 const createAdmin = async () => {
   try {
-    const { email, password, fullName } = config.adminBootstrap;
-    if (!email || !password) throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be configured');
-    config.validateDatabase();
-    await mongoose.connect(config.database.uri);
+    await mongoose.connect(MONGODB_URI);
     console.log('Connected to MongoDB...');
 
     const User = require('../models/User');
-    await User.deleteOne({ email });
+
+    const adminEmail = 'admin@goldflow.com';
+    const adminPassword = 'adminpassword123';
+
+    await User.deleteOne({ email: adminEmail });
     console.log('Old admin deleted (if existed).');
 
-    const salt = await bcrypt.genSalt(config.auth.bcryptSaltRounds);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(adminPassword, salt);
 
     const admin = new User({
-      fullName,
-      email,
+      fullName: 'System Administrator',
+      email: adminEmail,
       password: hashedPassword,
       roll: 'admin'
     });
 
     await admin.save();
-    console.log('Admin account created successfully.');
+    console.log('New Admin user created successfully!');
+    console.log('Email:', adminEmail);
+    console.log('Password:', adminPassword);
+    console.log('Roll:', admin.roll);
     process.exit(0);
-  } catch {
-    console.error('Failed to create admin account.');
+  } catch (err) {
+    console.error('Failed to create admin:', err);
     process.exit(1);
   }
 };

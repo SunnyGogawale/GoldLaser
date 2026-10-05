@@ -1,19 +1,18 @@
 const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
-const config = require('../config/env');
+require('dotenv').config();
 
 async function deleteAllCustomers() {
   try {
-    config.validateDatabase();
-    await mongoose.connect(config.database.uri);
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/goldflow');
     console.log('Connected to MongoDB');
 
     const result = await Customer.deleteMany({});
     console.log(`✅ Successfully deleted ${result.deletedCount} customers`);
 
     process.exit(0);
-  } catch {
-    console.error('Error deleting customers');
+  } catch (err) {
+    console.error('Error deleting customers:', err);
     process.exit(1);
   }
 }
