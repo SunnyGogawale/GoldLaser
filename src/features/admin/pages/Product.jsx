@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Edit2, Plus, Power, Search, X } from 'lucide-react'
-import { getAuthValue } from '../../../utils/authStorage'
+import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
 import { SkeletonTableRows } from '../../../components/SkeletonUI'
-import { apiFetch } from '../../../utils/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
 function Product() {
+  const token = useMemo(() => getAuthToken(), [])
   const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])
   const [products, setProducts] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -29,8 +29,8 @@ function Product() {
     setLoading(true)
     setError('')
     try {
-      const response = await apiFetch(`${API_BASE_URL}/api/products`, {
-        headers: undefined
+      const response = await fetch(`${API_BASE_URL}/api/products`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) throw new Error(data?.message || 'Failed to load products')
@@ -41,7 +41,7 @@ function Product() {
     } finally {
       setLoading(false)
     }
-  }, [isAdmin])
+  }, [isAdmin, token])
 
   useEffect(() => {
     fetchProducts()
@@ -79,12 +79,13 @@ function Product() {
     setSaving(true)
     setError('')
     try {
-      const response = await apiFetch(
+      const response = await fetch(
         `${API_BASE_URL}/api/products${editingProduct?._id ? `/${editingProduct._id}` : ''}`,
         {
           method: editingProduct?._id ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify({ productName: trimmedName })
         }
@@ -105,10 +106,11 @@ function Product() {
     setSaving(true)
     setError('')
     try {
-      const response = await apiFetch(`${API_BASE_URL}/api/products/${product._id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/products/${product._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ isActive: !product.isActive })
       })

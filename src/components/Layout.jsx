@@ -18,12 +18,11 @@ import {
   Archive,
   Package
 } from 'lucide-react'
-import { clearAuthSession, getAuthValue, setAuthValue, recordLogout } from '../utils/authStorage'
+import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue, recordLogout } from '../utils/authStorage'
 import { modalMotionProps, overlayMotionProps } from './PageTransition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 import MotionButton from './MotionButton'
 import { LoadingSkeleton, SkeletonFormGrid } from './SkeletonUI'
-import { apiFetch } from '../utils/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
@@ -168,15 +167,18 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     setProfileForm({ fullName: userFullName || '', email: userEmail || '' })
 
+    const token = getAuthToken()
 
     setSettingsLoading(true)
     try {
       // Fetch user profile
-      if (getAuthValue('userRole')) {
-        let response = await apiFetch(`${API_BASE_URL}/api/auth/me`, {
+      if (token) {
+        let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
         })
         if (response.status === 404) {
-          response = await apiFetch(`${API_BASE_URL}/api/users/me`, {
+          response = await fetch(`${API_BASE_URL}/api/users/me`, {
+            headers: { Authorization: `Bearer ${token}` }
           })
         }
         if (!response.ok) {
@@ -199,7 +201,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
       }
       
       // Fetch company settings
-      const settingsRes = await apiFetch(`${API_BASE_URL}/api/company-settings`)
+      const settingsRes = await fetch(`${API_BASE_URL}/api/company-settings`)
       if (settingsRes.ok) {
         const settingsData = await settingsRes.json()
         setCompanyForm({
@@ -226,7 +228,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
   const saveCompanySettings = async () => {
     if (companySaving) return
 
-    if (!getAuthValue('userRole')) {
+    const token = getAuthToken()
+    if (!token) {
       showErrorToast('Please login again.')
       clearAuthSession()
       setIsLoggedIn(false)
@@ -236,10 +239,11 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
 
     setCompanySaving(true)
     try {
-      const response = await apiFetch(`${API_BASE_URL}/api/company-settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/company-settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(companyForm)
       })
@@ -292,7 +296,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     if (!fullName) return showErrorToast('Full name is required')
     if (!email || !email.includes('@')) return showErrorToast('Valid email is required')
 
-    if (!getAuthValue('userRole')) {
+    const token = getAuthToken()
+    if (!token) {
       alert('Please login again.')
           clearAuthSession()
       setIsLoggedIn(false)
@@ -302,18 +307,20 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
 
     setProfileSaving(true)
     try {
-      let response = await apiFetch(`${API_BASE_URL}/api/auth/me`, {
+      let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ fullName, email })
       })
       if (response.status === 404) {
-        response = await apiFetch(`${API_BASE_URL}/api/users/me`, {
+        response = await fetch(`${API_BASE_URL}/api/users/me`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ fullName, email })
         })
@@ -363,7 +370,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     if (!newPassword || newPassword.length < 6) return showErrorToast('New password must be at least 6 characters')
     if (newPassword !== confirmPassword) return showErrorToast('New password and confirm password must match')
 
-    if (!getAuthValue('userRole')) {
+    const token = getAuthToken()
+    if (!token) {
       alert('Please login again.')
           clearAuthSession()
       setIsLoggedIn(false)
@@ -373,18 +381,20 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
 
     setPasswordSaving(true)
     try {
-      let response = await apiFetch(`${API_BASE_URL}/api/auth/me/password`, {
+      let response = await fetch(`${API_BASE_URL}/api/auth/me/password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ currentPassword, newPassword })
       })
       if (response.status === 404) {
-        response = await apiFetch(`${API_BASE_URL}/api/users/me/password`, {
+        response = await fetch(`${API_BASE_URL}/api/users/me/password`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ currentPassword, newPassword })
         })

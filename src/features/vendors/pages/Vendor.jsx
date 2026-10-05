@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonShape, SkeletonTable } from '../../../components/SkeletonUI'
-import { getAuthValue } from '../../../utils/authStorage'
+import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
-import { apiFetch } from '../../../utils/api'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import MotionButton from '../../../components/MotionButton'
@@ -141,8 +140,9 @@ function Vendor() {
   }
 
   const fetchJsonWithAuth = async (url, fallbackMessage) => {
-    const response = await apiFetch(url, {
-      headers: undefined
+    const token = getAuthToken()
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
     })
     return readJsonResponse(response, fallbackMessage)
   }
@@ -243,7 +243,7 @@ function Vendor() {
   // Function to fetch next vendor id
   const fetchNextVendorId = useCallback(async () => {
     try {
-      const response = await apiFetch(`${API_URL}/next-id`);
+      const response = await fetch(`${API_URL}/next-id`);
       const data = await readJsonResponse(response, 'Error fetching next vendor id');
       setVendorForm(prev => ({ ...prev, id: data.nextId }));
     } catch (err) {
@@ -267,7 +267,7 @@ function Vendor() {
       if (column) {
         url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
       }
-      const response = await apiFetch(url);
+      const response = await fetch(url);
       const data = await readJsonResponse(response, 'Error fetching vendors');
       setVendors(data.vendors || []);
       setTotalPages(data.totalPages || 0);
@@ -281,7 +281,7 @@ function Vendor() {
 
   const fetchCustomFields = useCallback(async () => {
     try {
-      const response = await apiFetch(CUSTOM_FIELDS_API_URL);
+      const response = await fetch(CUSTOM_FIELDS_API_URL);
       const fields = await response.json();
       setCustomFieldNames(fields.map(f => f.fieldName));
       setCustomColumns(fields.filter(f => f.showInTable).map(f => f.fieldName));
@@ -408,10 +408,12 @@ function Vendor() {
 
     try {
       // Save to backend
-      const response = await apiFetch(CUSTOM_FIELDS_API_URL, {
+      const token = getAuthToken();
+      const response = await fetch(CUSTOM_FIELDS_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           fieldName: newFieldName.trim(),
@@ -445,9 +447,11 @@ function Vendor() {
 
     try {
       // Delete from backend
-      const response = await apiFetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(fieldName)}`, {
+      const token = getAuthToken();
+      const response = await fetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(fieldName)}`, {
         method: 'DELETE',
         headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
       });
 
@@ -483,10 +487,12 @@ function Vendor() {
 
     try {
       // Update in backend
-      const response = await apiFetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(editingFieldOldName)}`, {
+      const token = getAuthToken();
+      const response = await fetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(editingFieldOldName)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           newFieldName: editingFieldNewName.trim()
@@ -568,6 +574,7 @@ function Vendor() {
     }
     setLoading(true);
     try {
+      const token = getAuthToken()
       const payload = {
         ...vendorForm,
         id: String(vendorForm.id || '').trim(),
@@ -582,7 +589,7 @@ function Vendor() {
       }
 
       if (!editingVendorId && !payload.id) {
-        const idResponse = await apiFetch(`${API_URL}/next-id`)
+        const idResponse = await fetch(`${API_URL}/next-id`)
         const idData = await readJsonResponse(idResponse, 'Error fetching next vendor id')
         const nextId = String(idData?.nextId || '').trim()
         if (nextId) {
@@ -593,10 +600,11 @@ function Vendor() {
 
       if (editingVendorId) {
         // Update existing vendor
-        const response = await apiFetch(`${API_URL}/${editingVendorId}`, {
+        const response = await fetch(`${API_URL}/${editingVendorId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify(payload)
         });
@@ -610,10 +618,11 @@ function Vendor() {
         showSuccessToast('Vendor updated successfully!');
       } else {
         // Add new vendor to list
-        const response = await apiFetch(API_URL, {
+        const response = await fetch(API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify(payload)
         });
@@ -697,8 +706,10 @@ function Vendor() {
   const handleEditVendor = async (vendor) => {
     try {
       // Fetch full vendor details to ensure we have all customFields
-      const response = await apiFetch(`${API_URL}/${vendor._id}`, {
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${vendor._id}`, {
         headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
       })
       if (!response.ok) throw new Error('Failed to fetch vendor details')
@@ -780,9 +791,10 @@ function Vendor() {
     }
     if (window.confirm('Are you sure you want to delete this vendor?')) {
       try {
-        const response = await apiFetch(`${API_URL}/${id}`, {
+        const token = getAuthToken()
+        const response = await fetch(`${API_URL}/${id}`, {
           method: 'DELETE',
-          headers: undefined
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
@@ -804,8 +816,9 @@ function Vendor() {
     setInfoLoading(true)
     setInfoNowMs(Date.now())
     try {
-      const response = await apiFetch(`${API_URL}/${id}`, {
-        headers: undefined
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await readJsonResponse(response, 'Error fetching vendor info')
       setInfoVendor(data || null)
@@ -825,8 +838,9 @@ function Vendor() {
       // Refresh custom fields first to ensure we have the latest
       await fetchCustomFields()
 
-      const response = await apiFetch(`${API_URL}/${id}`, {
-        headers: undefined
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await readJsonResponse(response, 'Error refreshing vendor info')
 

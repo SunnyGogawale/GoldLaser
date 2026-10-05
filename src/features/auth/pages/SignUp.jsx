@@ -40,15 +40,14 @@ const SignUp = ({ theme, toggleTheme }) => {
 
     setLoading(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/auth/signup`, {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/signup`, {
         fullName,
         email,
         password,
         roll: 'user'
-      }, {
-        withCredentials: true
       });
       
+      console.log('Signup successful:', response.data);
       showSuccessToast('Account created successfully');
       navigate('/login');
     } catch (err) {

@@ -2,9 +2,8 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable, SkeletonTableRows } from '../../../components/SkeletonUI'
-import { clearAuthSession, getAuthValue } from '../../../utils/authStorage'
+import { clearAuthSession, getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
-import { apiFetch } from '../../../utils/api'
 import { parseCsvText, parseCsvData, getSuggestedCsvHeader, normalizeCsvDateValue, toIsoDateString } from '../../../utils/csvParser'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
@@ -542,7 +541,7 @@ function Payment() {
 
   const fetchNextPaymentNumber = async () => {
     try {
-      const response = await apiFetch(`${API_URL}/next-number`)
+      const response = await fetch(`${API_URL}/next-number`)
       const data = await readJsonResponse(response, 'Error fetching next payment number')
       setPaymentForm(prev => ({ ...prev, paymentNumber: data.nextNumber }))
     } catch (err) {
@@ -553,7 +552,7 @@ function Payment() {
   const fetchCustomersList = async () => {
     setCustomersLoading(true)
     try {
-      const response = await apiFetch(`${CUSTOMERS_API_URL}?limit=1000`)
+      const response = await fetch(`${CUSTOMERS_API_URL}?limit=1000`)
       const data = await readJsonResponse(response, 'Error fetching customers')
       setCustomers(data.customers || [])
     } catch (err) {
@@ -566,7 +565,7 @@ function Payment() {
   const fetchVendorsList = async () => {
     setVendorsLoading(true)
     try {
-      const response = await apiFetch(`${VENDORS_API_URL}?limit=1000`)
+      const response = await fetch(`${VENDORS_API_URL}?limit=1000`)
       const data = await readJsonResponse(response, 'Error fetching vendors')
       setVendors(data.vendors || [])
     } catch (err) {
@@ -586,7 +585,7 @@ function Payment() {
       if (column) {
         url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`
       }
-      const response = await apiFetch(url)
+      const response = await fetch(url)
       const data = await readJsonResponse(response, 'Error fetching payments')
       if (requestSequence !== paymentListRequestSequence.current) return
       setPayments(data.payments || [])
@@ -615,7 +614,7 @@ function Payment() {
       url.searchParams.set('clientId', clientId)
       url.searchParams.set('clientType', clientType)
       if (excludePaymentId) url.searchParams.set('excludePaymentId', excludePaymentId)
-      const response = await apiFetch(url.toString())
+      const response = await fetch(url.toString())
       const data = await readJsonResponse(response, 'Error fetching pending invoices')
       setPendingInvoices(data.invoices || [])
       setTotalPending(Number(data.totalPending) || 0)
@@ -633,7 +632,7 @@ function Payment() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await apiFetch(`${API_BASE_URL}/api/company-settings`)
+        const res = await fetch(`${API_BASE_URL}/api/company-settings`)
         if (res.ok) {
           const data = await res.json()
           setCompanySettings(data.settings)
@@ -735,6 +734,7 @@ function Payment() {
 
     setLoading(true)
     try {
+      const token = getAuthToken()
       
       // Calculate amount: if blank/0 and invoices selected, use total of selected allocations
       const userAmount = Number(paymentForm.amount) || 0
@@ -758,9 +758,9 @@ function Payment() {
       const url = editingPaymentId ? `${API_URL}/${editingPaymentId}` : API_URL
       const method = editingPaymentId ? 'PUT' : 'POST'
 
-      const response = await apiFetch(url, {
+      const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(payload)
       })
 
@@ -817,7 +817,8 @@ function Payment() {
     setInfoLoading(true)
     setInfoNowMs(Date.now())
     try {
-      const response = await apiFetch(`${API_URL}/detail/${id}`, { headers: undefined })
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/detail/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
       const data = await readJsonResponse(response, 'Error fetching payment info')
       setInfoPayment(data || null)
     } catch (err) {
@@ -833,7 +834,8 @@ function Payment() {
     setInfoLoading(true)
     setInfoNowMs(Date.now())
     try {
-      const response = await apiFetch(`${API_URL}/detail/${id}`, { headers: undefined })
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/detail/${id}`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
       const data = await readJsonResponse(response, 'Error refreshing payment info')
       setInfoPayment(data || null)
     } catch (err) {
@@ -854,8 +856,9 @@ function Payment() {
     setPaymentHistoryLoading(true)
     setPaymentHistory(null)
     try {
-      const response = await apiFetch(`${API_URL}/${payment._id}/history`, {
-        headers: undefined
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${payment._id}/history`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await response.json().catch(() => null)
       if (!response.ok) throw new Error(data?.message || 'Failed to load payment history')
@@ -897,7 +900,7 @@ function Payment() {
   const handleEditPayment = async (payment) => {
     setLoading(true)
     try {
-      const response = await apiFetch(`${API_URL}/${payment._id}`)
+      const response = await fetch(`${API_URL}/${payment._id}`)
       const data = await readJsonResponse(response, 'Error loading payment')
       const clientType = data.clientType || 'Customer'
       const clientId = data.clientId || data.vendorId?._id || data.vendorId
@@ -1146,15 +1149,17 @@ function Payment() {
     if (!window.confirm(`Delete ${selectedPaymentIds.length} selected payment(s)?`)) return
 
     try {
-      if (!getAuthValue('userRole')) {
+      const token = getAuthToken()
+      if (!token) {
         showErrorToast('Please login again.')
         return
       }
 
-      const response = await apiFetch(`${API_URL}/bulk-delete`, {
+      const response = await fetch(`${API_URL}/bulk-delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ ids: selectedPaymentIds })
       })
@@ -1185,11 +1190,12 @@ function Payment() {
   const handleDeletePayment = async (id) => {
     if (!window.confirm('Are you sure you want to delete this payment?')) return
     try {
-      if (!getAuthValue('userRole')) {
+      const token = getAuthToken()
+      if (!token) {
         showErrorToast('Please login again.')
         return
       }
-      const response = await apiFetch(`${API_URL}/${id}`, { method: 'DELETE', headers: {} })
+      const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
       if (!response.ok) {
         if (response.status === 401) {
           clearAuthSession()
@@ -1621,6 +1627,7 @@ function Payment() {
       setCsvImporting(true)
       setCsvImportError('')
 
+      const token = getAuthToken()
       const headers = csvHeaders
       const createdPayments = []
 
@@ -1649,10 +1656,11 @@ function Payment() {
           attachments: []
         }
 
-        const response = await apiFetch(API_URL, {
+        const response = await fetch(API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify(payload)
         })

@@ -36,13 +36,13 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
         email,
         password,
         requiredRole: 'admin' // Flag for Admin Login
-      }, {
-        withCredentials: true
       });
 
+      console.log('Admin login successful:', response.data);
       showSuccessToast('Admin login successful');
       
       setAuthSession({
+        token: response.data.token,
         role: response.data?.user?.roll || response.data?.user?.role || 'admin',
         fullName: response.data?.user?.fullName || '',
         email: response.data?.user?.email || ''

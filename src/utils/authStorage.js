@@ -1,25 +1,18 @@
-import { apiFetch } from './api'
-
-const AUTH_KEYS = ['userRole', 'userFullName', 'userEmail', 'lastActivityAt']
+const AUTH_KEYS = ['token', 'userRole', 'userFullName', 'userEmail', 'lastActivityAt']
 
 const storage = () => window.sessionStorage
 
-if (typeof window !== 'undefined') {
-  window.sessionStorage.removeItem('token')
-  window.localStorage.removeItem('token')
-}
+export const getAuthValue = (key) => storage().getItem(key) || ''
 
-export const getAuthValue = (key) => key === 'token' ? '' : storage().getItem(key) || ''
+export const getAuthToken = () => getAuthValue('token')
 
 export const setAuthValue = (key, value) => {
-  if (key === 'token') return
   storage().setItem(key, String(value ?? ''))
 }
 
-export const setAuthSession = ({ role, roll, fullName, email }) => {
-  storage().removeItem('token')
-  window.localStorage.removeItem('token')
-  setAuthValue('userRole', role || roll || 'user')
+export const setAuthSession = ({ token, role, fullName, email }) => {
+  setAuthValue('token', token)
+  setAuthValue('userRole', role)
   setAuthValue('userFullName', fullName)
   setAuthValue('userEmail', email)
 
@@ -33,8 +26,6 @@ export const clearAuthSession = () => {
     storage().removeItem(key)
     window.localStorage.removeItem(key)
   }
-  storage().removeItem('token')
-  window.localStorage.removeItem('token')
 }
 
 export const markSessionActivity = () => {
@@ -44,9 +35,13 @@ export const markSessionActivity = () => {
 export const getLastActivityAt = () => Number(getAuthValue('lastActivityAt') || 0)
 
 export const recordLogout = () => {
+  const token = getAuthToken()
+  if (!token) return
+
   const apiBaseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-  apiFetch(`${apiBaseUrl}/api/auth/logout`, {
+  fetch(`${apiBaseUrl}/api/auth/logout`, {
     method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
     keepalive: true
   }).catch(() => {})
 }

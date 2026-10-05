@@ -37,13 +37,13 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
         email,
         password,
         requiredRole: 'user' // Flag for User Login
-      }, {
-        withCredentials: true
       });
 
+      console.log('Login successful:', response.data);
       showSuccessToast('Login successful');
       
       setAuthSession({
+        token: response.data.token,
         role: response.data?.user?.roll || response.data?.user?.role || 'user',
         fullName: response.data?.user?.fullName || '',
         email: response.data?.user?.email || ''

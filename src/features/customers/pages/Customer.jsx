@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonShape, SkeletonTable } from '../../../components/SkeletonUI'
-import { getAuthValue } from '../../../utils/authStorage'
+import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { readJsonResponse } from '../../../utils/api'
-import { apiFetch } from '../../../utils/api'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import MotionButton from '../../../components/MotionButton'
@@ -144,7 +143,7 @@ function Customer() {
   // Function to fetch next customer id
   const fetchNextCustomerId = useCallback(async () => {
     try {
-      const response = await apiFetch(`${API_URL}/next-id`);
+      const response = await fetch(`${API_URL}/next-id`);
       const data = await readJsonResponse(response, 'Error fetching next customer id');
       setCustomerForm(prev => ({ ...prev, id: data.nextId }));
     } catch (err) {
@@ -168,7 +167,7 @@ function Customer() {
       if (column) {
         url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
       }
-      const response = await apiFetch(url);
+      const response = await fetch(url);
       const data = await readJsonResponse(response, 'Error fetching customers');
       setCustomers(data.customers || []);
       setTotalPages(data.totalPages || 0);
@@ -182,7 +181,7 @@ function Customer() {
 
   const fetchCustomFields = useCallback(async () => {
     try {
-      const response = await apiFetch(CUSTOM_FIELDS_API_URL);
+      const response = await fetch(CUSTOM_FIELDS_API_URL);
       const fields = await response.json();
       setCustomFieldNames(fields.map(f => f.fieldName));
       setCustomColumns(fields.filter(f => f.showInTable).map(f => f.fieldName));
@@ -309,10 +308,12 @@ function Customer() {
 
     try {
       // Save to backend
-      const response = await apiFetch(CUSTOM_FIELDS_API_URL, {
+      const token = getAuthToken();
+      const response = await fetch(CUSTOM_FIELDS_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           fieldName: newFieldName.trim(),
@@ -346,9 +347,11 @@ function Customer() {
 
     try {
       // Delete from backend
-      const response = await apiFetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(fieldName)}`, {
+      const token = getAuthToken();
+      const response = await fetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(fieldName)}`, {
         method: 'DELETE',
         headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
       });
 
@@ -384,10 +387,12 @@ function Customer() {
 
     try {
       // Update in backend
-      const response = await apiFetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(editingFieldOldName)}`, {
+      const token = getAuthToken();
+      const response = await fetch(`${CUSTOM_FIELDS_API_URL}/${encodeURIComponent(editingFieldOldName)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           newFieldName: editingFieldNewName.trim()
@@ -469,6 +474,7 @@ function Customer() {
     }
     setLoading(true);
     try {
+      const token = getAuthToken()
       const payload = {
         ...customerForm,
         id: String(customerForm.id || '').trim(),
@@ -483,7 +489,7 @@ function Customer() {
       }
 
       if (!editingCustomerId && !payload.id) {
-        const idResponse = await apiFetch(`${API_URL}/next-id`)
+        const idResponse = await fetch(`${API_URL}/next-id`)
         const idData = await readJsonResponse(idResponse, 'Error fetching next customer id')
         const nextId = String(idData?.nextId || '').trim()
         if (nextId) {
@@ -494,10 +500,11 @@ function Customer() {
 
       if (editingCustomerId) {
         // Update existing customer
-        const response = await apiFetch(`${API_URL}/${editingCustomerId}`, {
+        const response = await fetch(`${API_URL}/${editingCustomerId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify(payload)
         });
@@ -511,10 +518,11 @@ function Customer() {
         showSuccessToast('Customer updated successfully!');
       } else {
         // Add new customer to list
-        const response = await apiFetch(API_URL, {
+        const response = await fetch(API_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify(payload)
         });
@@ -598,8 +606,10 @@ function Customer() {
   const handleEditCustomer = async (customer) => {
     try {
       // Fetch full customer details to ensure we have all customFields
-      const response = await apiFetch(`${API_URL}/${customer._id}`, {
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${customer._id}`, {
         headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
       })
       if (!response.ok) throw new Error('Failed to fetch customer details')
@@ -681,9 +691,10 @@ function Customer() {
     }
     if (window.confirm('Are you sure you want to delete this customer?')) {
       try {
-        const response = await apiFetch(`${API_URL}/${id}`, {
+        const token = getAuthToken()
+        const response = await fetch(`${API_URL}/${id}`, {
           method: 'DELETE',
-          headers: undefined
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
@@ -705,8 +716,9 @@ function Customer() {
     setInfoLoading(true)
     setInfoNowMs(Date.now())
     try {
-      const response = await apiFetch(`${API_URL}/${id}`, {
-        headers: undefined
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await readJsonResponse(response, 'Error fetching customer info')
       setInfoCustomer(data || null)
@@ -726,8 +738,9 @@ function Customer() {
       // Refresh custom fields first to ensure we have the latest
       await fetchCustomFields()
       
-      const response = await apiFetch(`${API_URL}/${id}`, {
-        headers: undefined
+      const token = getAuthToken()
+      const response = await fetch(`${API_URL}/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await readJsonResponse(response, 'Error refreshing customer info')
       
@@ -760,8 +773,9 @@ function Customer() {
   }
 
   const fetchJsonWithAuth = async (url, fallbackMessage) => {
-    const response = await apiFetch(url, {
-      headers: undefined
+    const token = getAuthToken()
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
     })
     return readJsonResponse(response, fallbackMessage)
   }

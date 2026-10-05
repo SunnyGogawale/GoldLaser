@@ -1,58 +1,5 @@
 import { showErrorToast } from './toast'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-const REFRESH_URL = `${API_BASE_URL}/api/auth/refresh`
-let refreshRequest = null
-
-const isAuthEndpoint = (input) => /\/api\/auth\/(signin|signup|refresh|logout)(?:\?|$)/.test(
-  typeof input === 'string' ? input : input?.url || ''
-)
-
-const sendWithCookies = (input, init = {}) => {
-  const inputHeaders = typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined
-  const headers = new Headers(inputHeaders)
-  new Headers(init.headers).forEach((value, key) => headers.set(key, value))
-  headers.delete('Authorization')
-
-  const requestInit = { ...init, headers, credentials: 'include' }
-  const requestInput = typeof Request !== 'undefined' && input instanceof Request
-    ? () => input.clone()
-    : () => input
-
-  return fetch(requestInput(), requestInit)
-}
-
-const refreshCookieSession = async () => {
-  if (!refreshRequest) {
-    refreshRequest = fetch(REFRESH_URL, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' }
-    }).finally(() => {
-      refreshRequest = null
-    })
-  }
-  return refreshRequest
-}
-
-export const apiFetch = async (input, init = {}) => {
-  const response = await sendWithCookies(input, init)
-  if (response.status !== 401 || isAuthEndpoint(input)) return response
-
-  try {
-    const refreshResponse = await refreshCookieSession()
-    if (!refreshResponse.ok) {
-      if (refreshResponse.status === 401 && typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('goldflow:session-expired'))
-      }
-      return response
-    }
-    return sendWithCookies(input, init)
-  } catch {
-    return response
-  }
-}
-
 export const sanitizeClientErrorMessage = (message, fallbackMessage = 'An error occurred') => {
   if (typeof message !== 'string') return fallbackMessage
   const cleaned = message.trim()
@@ -65,7 +12,7 @@ export const sanitizeClientErrorMessage = (message, fallbackMessage = 'An error 
 
 export const readJsonResponse = async (response, fallbackMessage) => {
   const raw = await response.text()
-  let data
+  let data = null
 
   try {
     data = raw ? JSON.parse(raw) : null
