@@ -4,10 +4,6 @@ const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const { sendErrorResponse } = require('../utils/errorHandler');
-const getCacheCommand = require('../commands/cache/getCache.command');
-const setCacheCommand = require('../commands/cache/setCache.command');
-const invalidateCacheCommand = require('../commands/cache/invalidateCache.command');
-const { PRODUCT_LIST_TTL_SECONDS } = require('../config/cache');
 
 const router = express.Router();
 
@@ -52,15 +48,6 @@ const duplicateProductResponse = (res) => res.status(400).json({
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const cacheKey = {
-      userId: String(req.auth.userId),
-      isAdmin: req.auth.isAdmin,
-      activeOnly: String(req.query.activeOnly).toLowerCase() === 'true',
-      search: String(req.query.search || '').trim()
-    };
-    const cached = await getCacheCommand('products:list', cacheKey);
-    if (cached.hit) return res.json(cached.value);
-
     const query = {};
     if (!req.auth.isAdmin || String(req.query.activeOnly).toLowerCase() === 'true') query.isActive = true;
     if (req.query.search) {
@@ -70,9 +57,7 @@ router.get('/', requireAuth, async (req, res) => {
     const products = await Product.find(query)
       .populate('createdBy', 'fullName email roll')
       .sort({ productName: 1 });
-    const response = { products };
-    await setCacheCommand('products:list', cacheKey, response, PRODUCT_LIST_TTL_SECONDS, cached.version);
-    return res.json(response);
+    return res.json({ products });
   } catch (err) {
     return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'products.list');
   }
@@ -101,7 +86,6 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
       createdBy: req.auth.userId,
       createdOn: new Date()
     });
-    await invalidateCacheCommand('products:list');
     return res.status(201).json(product);
   } catch (err) {
     if (err.code === 11000) return duplicateProductResponse(res);
@@ -125,7 +109,6 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       runValidators: true
     });
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    await invalidateCacheCommand('products:list');
     return res.json(product);
   } catch (err) {
     if (err.code === 11000) return duplicateProductResponse(res);
@@ -137,7 +120,6 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    await invalidateCacheCommand('products:list');
     return res.json({ message: 'Product deleted successfully' });
   } catch (err) {
     return sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 400, 'products.delete');

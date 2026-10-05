@@ -1,4 +1,0 @@
-module.exports = {
-  PRODUCT_LIST_TTL_SECONDS: 120,
-  VERSION_KEY_TTL_SECONDS: 86400
-};

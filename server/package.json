@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js",
-    "test": "node --test",
     "seed:customers": "node scripts/add_dummy_customers.js",
     "seed:admin": "node scripts/create_admin_v2.js",
     "cleanup:customers": "node scripts/delete_all_customers.js",
@@ -22,7 +21,6 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.6.2",
-    "redis": "^5.0.0"
+    "mongoose": "^9.6.2"
   }
 }

@@ -5,7 +5,6 @@ const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const { sanitizeErrorMessage, sendErrorResponse } = require('./utils/errorHandler');
-const { disableBrowserCaching } = require('./services/browserCache.service');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const User = require('./models/User');
 const { AUTH_COOKIE_NAME } = require('./utils/authCookie');
@@ -40,10 +39,6 @@ app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
 app.use(express.urlencoded({ extended: true, limit: REQUEST_BODY_LIMIT }));
 app.use(cookieParser());
 app.use(cors(corsOptions));
-app.use('/api', (req, res, next) => {
-  disableBrowserCaching(res);
-  next();
-});
 app.use((req, res, next) => {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('origin') && !isAllowedOrigin(req.get('origin'), req)) {
     return res.status(403).json({ message: 'Origin not allowed' });
