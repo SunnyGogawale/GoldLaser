@@ -10,15 +10,17 @@ export const sanitizeClientErrorMessage = (message, fallbackMessage = 'An error 
   return cleaned
 }
 
+const parseJson = (raw) => {
+  try {
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 export const readJsonResponse = async (response, fallbackMessage) => {
   const raw = await response.text()
-  let data = null
-
-  try {
-    data = raw ? JSON.parse(raw) : null
-  } catch {
-    data = null
-  }
+  const data = parseJson(raw)
 
   if (!response.ok) {
     const safeMessage = sanitizeClientErrorMessage(data?.message || raw || fallbackMessage || `Request failed (${response.status})`, fallbackMessage)
@@ -26,6 +28,45 @@ export const readJsonResponse = async (response, fallbackMessage) => {
   }
 
   return data || {}
+}
+
+const normalizePdfLogo = (settings = {}) => {
+  const logoData = settings.companyLogo
+  if (!logoData || /^data:image\/(png|jpe?g);base64,/i.test(logoData)) return Promise.resolve(settings)
+  if (typeof Image === 'undefined' || typeof document === 'undefined') return Promise.resolve(settings)
+
+  return new Promise((resolve) => {
+    const image = new Image()
+    image.onload = () => {
+      try {
+        const maxDimension = 1200
+        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
+        const context = canvas.getContext('2d')
+        if (!context) return resolve(settings)
+
+        context.drawImage(image, 0, 0, canvas.width, canvas.height)
+        resolve({ ...settings, companyLogo: canvas.toDataURL('image/png') })
+      } catch {
+        resolve(settings)
+      }
+    }
+    image.onerror = () => resolve(settings)
+    image.src = logoData
+  })
+}
+
+export const refreshCompanySettings = async (apiBaseUrl, cachedSettings = {}) => {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/company-settings`)
+    const data = await readJsonResponse(response, 'Error fetching company settings')
+    return normalizePdfLogo(data.settings || cachedSettings)
+  } catch (error) {
+    console.warn('Unable to refresh company settings; using cached settings for PDF.', error)
+    return normalizePdfLogo(cachedSettings)
+  }
 }
 
 export const readErrorMessage = async (response, fallbackMessage) => {

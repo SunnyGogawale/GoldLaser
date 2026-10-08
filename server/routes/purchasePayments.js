@@ -579,7 +579,7 @@ const getPurchasePaymentWithClient = async (id) => {
   const payment = await Payment.findById(id)
     .populate('createdBy', 'fullName email roll')
     .populate('updatedBy', 'fullName email roll')
-    .populate('allocations.invoiceId', 'invoiceNumber totalAmount');
+    .populate('allocations.invoiceId', 'invoiceNumber invoiceDate transactionDescription totalAmount');
   if (!payment) return null;
   
   let client = null;
@@ -604,12 +604,10 @@ router.get('/detail/:id', async (req, res) => {
     if (payment.createdBy && (!payment.createdByName || !payment.createdByEmail)) {
       payment.createdByName = payment.createdByName || payment.createdBy?.fullName || '';
       payment.createdByEmail = payment.createdByEmail || payment.createdBy?.email || '';
-      await payment.save();
     }
     if (payment.updatedBy && (!payment.updatedByName || !payment.updatedByEmail)) {
       payment.updatedByName = payment.updatedByName || payment.updatedBy?.fullName || '';
       payment.updatedByEmail = payment.updatedByEmail || payment.updatedBy?.email || '';
-      await payment.save();
     }
     if (!Array.isArray(payment.activity) || payment.activity.length === 0) {
       const activity = [];
@@ -635,7 +633,6 @@ router.get('/detail/:id', async (req, res) => {
         });
       }
       payment.activity = activity;
-      await payment.save();
     }
     res.json(payment);
   } catch (err) {
@@ -693,12 +690,10 @@ router.get('/:id', async (req, res) => {
     if (payment.createdBy && (!payment.createdByName || !payment.createdByEmail)) {
       payment.createdByName = payment.createdByName || payment.createdBy?.fullName || '';
       payment.createdByEmail = payment.createdByEmail || payment.createdBy?.email || '';
-      await payment.save();
     }
     if (payment.updatedBy && (!payment.updatedByName || !payment.updatedByEmail)) {
       payment.updatedByName = payment.updatedByName || payment.updatedBy?.fullName || '';
       payment.updatedByEmail = payment.updatedByEmail || payment.updatedBy?.email || '';
-      await payment.save();
     }
     if (!Array.isArray(payment.activity) || payment.activity.length === 0) {
       const activity = [];
@@ -724,7 +719,6 @@ router.get('/:id', async (req, res) => {
         });
       }
       payment.activity = activity;
-      await payment.save();
     }
     res.json(payment);
   } catch (err) {

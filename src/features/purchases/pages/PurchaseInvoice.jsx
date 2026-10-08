@@ -4,10 +4,11 @@ import { AnimatePresence, motion } from 'motion/react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable } from '../../../components/SkeletonUI'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { refreshCompanySettings } from '../../../utils/api';
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
+import CommonPDFViewer from '../../../components/CommonPDFViewer'
+import { generateInvoicePdfBlob } from '../../../utils/invoicePdf'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
@@ -168,6 +169,8 @@ function PurchaseInvoice() {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [pdfFileName, setPdfFileName] = useState('purchase_invoice.pdf');
+  const [pdfViewerLoading, setPdfViewerLoading] = useState(false);
+  const [pdfViewerError, setPdfViewerError] = useState('');
   const [attachmentViewerOpen, setAttachmentViewerOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState(null);
   const [companySettings, setCompanySettings] = useState({
@@ -939,273 +942,26 @@ function PurchaseInvoice() {
     setFormOpen(false);
   };
 
-  const generatePurchaseInvoicePDF = (invoice) => {
-    const doc = new jsPDF({
-      unit: 'mm',
-      format: 'a4',
-      compress: true
-    });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const marginLeft = 15;
-    const marginRight = 15;
-    let y = 20;
-
-    // --- Header ---
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(0, 0, 0); // Black border
-    doc.setFillColor(255, 255, 255);
-    doc.setTextColor(0, 0, 0);
-
-    // --- Top Section (Company Info & Logo) ---
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PURCHASE INVOICE', marginLeft, y);
-
-    // Company Info (Left)
-    y += 8;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(companySettings.companyName || 'Company Name', marginLeft, y);
-    y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y);
-    y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text(companySettings.companyEmail || 'Email', marginLeft, y);
-    y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.text(companySettings.companyContactNumber || 'Contact No', marginLeft, y);
-
-    // Logo Placeholder (Right)
-    const logoX = pageWidth - marginRight - 50;
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(0, 0, 0);
-    doc.rect(logoX, 20, 50, 30); // Logo box
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Company', logoX + 25, 32, { align: 'center' });
-    doc.text('Logo', logoX + 25, 42, { align: 'center' });
-
-    // --- Bill To Section ---
-    y = 65;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Bill To:', marginLeft, y);
-    y += 6;
-    const client = invoice.vendorId;
-    const isCustomer = client?.customerName;
-
-    const rightColX = pageWidth - marginRight - 80;
-    // Customer/Vendor Name
-    doc.setFont('helvetica', 'bold');
-    doc.text('Name:', marginLeft, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(isCustomer ? client.customerName : (client?.vendorName || 'N/A'), marginLeft + 20, y);
-
-    // Email in the same row on the right
-    if (isCustomer && client.email || !isCustomer && client?.email) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Email:', rightColX, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(isCustomer ? client.email : (client?.email || ''), rightColX + 15, y);
-    }
-    y += 5;
-
-    if (isCustomer) {
-      // Display customer details with bold titles
-      let hasCompanyOrPhone = false;
-      if (client.companyName) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Company:', marginLeft, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(client.companyName, marginLeft + 20, y);
-        hasCompanyOrPhone = true;
-      }
-      if (client.contactNumber) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Phone:', rightColX, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(client.contactNumber, rightColX + 15, y);
-        hasCompanyOrPhone = true;
-      }
-      if (hasCompanyOrPhone) y += 5;
-
-      if (client.address) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Address:', marginLeft, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(client.address, marginLeft + 20, y);
-        y += 5;
-      }
-
-      if (client.alternateNumber) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Alt:', marginLeft, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(client.alternateNumber, marginLeft + 10, y);
-        y += 5;
-      }
-    } else {
-      // Display vendor details with bold titles
-      let hasCompanyOrPhone = false;
-      if (client?.companyName) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Company:', marginLeft, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(client.companyName, marginLeft + 20, y);
-        hasCompanyOrPhone = true;
-      }
-      if (client?.contactNumber) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Phone:', rightColX, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(client.contactNumber, rightColX + 10, y);
-        hasCompanyOrPhone = true;
-      }
-      if (hasCompanyOrPhone) y += 5;
-
-      if (client?.address) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Address:', marginLeft, y);
-        doc.setFont('helvetica', 'normal');
-        doc.text(client.address, marginLeft + 20, y);
-        y += 5;
-      }
-    }
-
-    // --- Invoice Details ---
-    y += 5; // Add space before invoice details
-    doc.setLineWidth(0.3);
-    doc.setDrawColor(150, 150, 150);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 8;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Invoice details', marginLeft, y);
-
-    const invoiceNo = invoice.invoiceNumber || 'PI00001';
-    const formatDate = (dateStr) => {
-      const date = new Date(dateStr);
-      const mm = String(date.getMonth() + 1).padStart(2, '0');
-      const dd = String(date.getDate()).padStart(2, '0');
-      const yyyy = date.getFullYear();
-      return `${mm}/${dd}/${yyyy}`;
-    };
-
-    const invoiceDate = invoice.invoiceDate
-      ? formatDate(invoice.invoiceDate)
-      : '11/05/2026';
-
-    // Invoice No
-    doc.setFont('helvetica', 'bold');
-    doc.text('Invoice No:', marginLeft, y + 6);
-    doc.setFont('helvetica', 'normal');
-    doc.text(invoiceNo, marginLeft + 25, y + 6);
-
-    // Invoice Date on next line
-    y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Invoice Date:', marginLeft, y + 6);
-    doc.setFont('helvetica', 'normal');
-    doc.text(invoiceDate, marginLeft + 25, y + 6);
-
-    // --- Items Table ---
-    y += 15;
-    const items = invoice.items || [];
-    const tableData = items.map((item, idx) => [
-      idx + 1,
-      item.product?.toString().trim() || '-',
-      item.description?.toString().trim() || '-',
-      `${(parseFloat(item.amount) || 0).toLocaleString('en-US')}/-`
-    ]);
-
-    autoTable(doc, {
-      startY: y,
-      head: [['Sr No', 'Product', 'Description', 'Amount']],
-      body: tableData,
-      theme: 'grid',
-      margin: { left: marginLeft, right: marginRight },
-      headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
-        fontStyle: 'bold',
-        fontSize: 9,
-        cellPadding: 3,
-        lineColor: [0, 0, 0],
-        lineWidth: 0.3
-      },
-      bodyStyles: {
-        fontSize: 9,
-        cellPadding: 3,
-        lineColor: [0, 0, 0],
-        lineWidth: 0.3
-      },
-      alternateRowStyles: { fillColor: [255, 255, 255] },
-      columnStyles: {
-        0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 45, halign: 'left' },
-        2: { cellWidth: 90, halign: 'left' },
-        3: { cellWidth: 35, halign: 'right' }
-      }
-    });
-
-    // --- Total ---
-    const finalY = doc.lastAutoTable?.finalY || y + 40;
-    y = finalY + 5;
-    const totalAmt = parseFloat(invoice.totalAmount) || 0;
-    const totalAmtStr = totalAmt.toLocaleString('en-US');
-
-    doc.setLineWidth(0.5);
-    doc.setDrawColor(0, 0, 0);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 8;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Total', pageWidth - marginRight - 60, y);
-    doc.text(`${totalAmtStr}/-`, pageWidth - marginRight, y, { align: 'right' });
-
-    // --- Company Footer ---
-    y += 20;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(companySettings.companyName || 'Company Name', marginLeft, y);
-    y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.text(companySettings.companyAddress || 'Company Address', marginLeft, y);
-
-    // --- Bank Details ---
-    y += 20;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Bank Details', marginLeft, y);
-    y += 5;
-    doc.setFont('helvetica', 'bold');
-    doc.text(companySettings.bankDetails?.bankName || 'Bank Name', marginLeft, y);
-    y += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.text(companySettings.bankDetails?.bankAddress || 'Bank Address', marginLeft, y);
-    y += 4;
-    doc.setFont('helvetica', 'bold');
-    doc.text(companySettings.bankDetails?.accountNumber || 'A/c Number', marginLeft, y);
-    y += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.text(companySettings.bankDetails?.ifscCode || 'IFSC Code', marginLeft, y);
-
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    setPdfBlobUrl(url);
-    setPdfFileName(`purchase_invoice_${invoice.invoiceNumber || 'unknown'}.pdf`);
+  const generatePurchaseInvoicePDF = async (invoice) => {
     setPdfViewerOpen(true);
-  };
+    setPdfViewerLoading(true);
+    setPdfViewerError('');
+    setPdfBlobUrl(null);
 
-  const handleDownloadPdf = () => {
-    const a = document.createElement('a');
-    a.href = pdfBlobUrl;
-    a.download = pdfFileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const pdfCompanySettings = await refreshCompanySettings(API_BASE_URL, companySettings);
+      setCompanySettings(pdfCompanySettings);
+      const generatedPdf = generateInvoicePdfBlob({ invoiceType: 'purchase', invoice, companySettings: pdfCompanySettings });
+      const url = URL.createObjectURL(generatedPdf.blob);
+      setPdfBlobUrl(url);
+      setPdfFileName(generatedPdf.fileName);
+    } catch (error) {
+      console.error('Error generating purchase invoice PDF:', error);
+      setPdfViewerError('Unable to generate this purchase invoice PDF.');
+    } finally {
+      setPdfViewerLoading(false);
+    }
   };
 
   const closeActionDropdown = () => {
@@ -2738,7 +2494,7 @@ function PurchaseInvoice() {
                   }}
                 >
                   <Eye size={14} />
-                  View PDF
+                  PDF
                 </MotionButton>
                 <MotionButton
                   onClick={(e) => {
@@ -2888,96 +2644,15 @@ function PurchaseInvoice() {
         </ActionMenuPortal>
       )}
 
-      {/* PDF Viewer Modal */}
-      {pdfViewerOpen && pdfBlobUrl && (
-        <ActionMenuPortal>
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.85)',
-              zIndex: 100000,
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-            onClick={() => setPdfViewerOpen(false)}
-          >
-            {/* Header */}
-            <div
-              style={{
-                background: '#f8fafc',
-                borderBottom: '1px solid #e5e7eb',
-                padding: '1rem 1.5rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ margin: 0, color: '#1e293b' }}>{pdfFileName}</h3>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <MotionButton
-                  onClick={handleDownloadPdf}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Download
-                </MotionButton>
-                <MotionButton
-                  onClick={() => setPdfViewerOpen(false)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: '#e5e7eb',
-                    color: '#1e293b',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Close
-                </MotionButton>
-              </div>
-            </div>
-
-            {/* PDF Content */}
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                padding: '1.5rem',
-                overflow: 'auto'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <iframe
-                src={pdfBlobUrl}
-                style={{
-                  width: '100%',
-                  maxWidth: '900px',
-                  height: '100%',
-                  minHeight: '600px',
-                  border: 'none',
-                  borderRadius: '8px',
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.25)'
-                }}
-                title="PDF Viewer"
-              />
-            </div>
-          </div>
-        </ActionMenuPortal>
-      )}
+      <CommonPDFViewer
+        isOpen={pdfViewerOpen}
+        onClose={() => setPdfViewerOpen(false)}
+        pdfUrl={pdfBlobUrl}
+        fileName={pdfFileName}
+        title={pdfFileName}
+        isLoading={pdfViewerLoading}
+        error={pdfViewerError}
+      />
 
     </div>
   );

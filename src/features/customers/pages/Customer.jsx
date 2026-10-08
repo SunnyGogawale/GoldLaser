@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical, FileText } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonShape, SkeletonTable } from '../../../components/SkeletonUI'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
-import { readJsonResponse } from '../../../utils/api'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { readJsonResponse, refreshCompanySettings } from '../../../utils/api'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
+import CommonPDFViewer from '../../../components/CommonPDFViewer'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
-import { formatDateMMDDYYYY, formatDateTimeMMDDYYYY } from '../../../utils/formatters'
+import { formatDateMMDDYYYY } from '../../../utils/formatters'
+import { generateStatementPdfBlob } from '../../../utils/commonPdf'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/customers`
@@ -93,6 +93,7 @@ function Customer() {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
   const [pdfFileName, setPdfFileName] = useState('customer_statement.pdf')
+  const [pdfTitle, setPdfTitle] = useState('Customer Statement')
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -762,16 +763,6 @@ function Customer() {
     setInfoCustomer(null)
   }
 
-  const handleDownloadPdf = () => {
-    if (!pdfBlobUrl) return
-    const a = document.createElement('a')
-    a.href = pdfBlobUrl
-    a.download = pdfFileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  }
-
   const fetchJsonWithAuth = async (url, fallbackMessage) => {
     const token = getAuthToken()
     const response = await fetch(url, {
@@ -889,187 +880,21 @@ function Customer() {
       const statementCustomer = data?.customer || customer
       const summary = data?.summary || {}
       const transactions = Array.isArray(data?.transactions) ? data.transactions : []
+      const companySettings = await refreshCompanySettings(API_BASE_URL)
 
-      const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
-      const pageWidth = doc.internal.pageSize.getWidth()
-      const pageHeight = doc.internal.pageSize.getHeight()
-      const marginLeft = 10
-      const marginRight = 10
-      let y = 14
-
-      doc.setTextColor(17, 24, 39)
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(20)
-      doc.text('Customer Statement', marginLeft, y)
-
-      y += 8
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-      doc.text(`Generated: ${formatDateTimeMMDDYYYY(new Date())}`, marginLeft, y)
-
-      y += 8
-      doc.setDrawColor(75, 85, 99)
-      doc.setLineWidth(0.4)
-      doc.roundedRect(marginLeft, y, pageWidth - marginLeft - marginRight, 30, 3, 3)
-
-      const customerName = statementCustomer?.customerName || '-'
-      const companyName = statementCustomer?.companyName || '-'
-      const customerCode = statementCustomer?.id || '-'
-      const contactNumber = statementCustomer?.contactNumber || '-'
-      const email = statementCustomer?.email || '-'
-      const address = statementCustomer?.address || '-'
-
-      let detailY = y + 6
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.text('Customer Details', marginLeft + 4, detailY)
-
-      detailY += 6
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Name:', marginLeft + 4, detailY)
-      doc.setFont('helvetica', 'normal')
-      doc.text(String(customerName), marginLeft + 23, detailY)
-
-      doc.setFont('helvetica', 'bold')
-      doc.text('Customer ID:', marginLeft + 105, detailY)
-      doc.setFont('helvetica', 'normal')
-      doc.text(String(customerCode), marginLeft + 128, detailY)
-
-      detailY += 5
-      doc.setFont('helvetica', 'bold')
-      doc.text('Company:', marginLeft + 4, detailY)
-      doc.setFont('helvetica', 'normal')
-      doc.text(String(companyName), marginLeft + 23, detailY)
-
-      doc.setFont('helvetica', 'bold')
-      doc.text('Mobile:', marginLeft + 105, detailY)
-      doc.setFont('helvetica', 'normal')
-      doc.text(String(contactNumber), marginLeft + 128, detailY)
-
-      detailY += 5
-      doc.setFont('helvetica', 'bold')
-      doc.text('Email:', marginLeft + 4, detailY)
-      doc.setFont('helvetica', 'normal')
-      doc.text(String(email), marginLeft + 23, detailY)
-
-      const addressLines = doc.splitTextToSize(String(address), 72)
-      doc.setFont('helvetica', 'bold')
-      doc.text('Address:', marginLeft + 105, detailY)
-      doc.setFont('helvetica', 'normal')
-      doc.text(addressLines, marginLeft + 128, detailY)
-
-      y += 38
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
-      doc.text('Summary', marginLeft, y)
-
-      autoTable(doc, {
-        startY: y + 3,
-        margin: { left: marginLeft, right: marginRight },
-        // theme: 'grid',
-        head: [['Particular', 'Amount']],
-        body: [
-          ['Opening Balance', formatPdfMoney(summary.openingBalance || 0)],
-          ['Total Invoice', formatPdfMoney(summary.totalInvoice || 0)],
-          ['Total Payment', formatPdfMoney(summary.totalPayment || 0)],
-          ['Closing Balance', formatPdfMoney(summary.closingBalance || 0)]
-        ],
-        headStyles: {
-          fillColor: [255, 255, 255],
-          textColor: [17, 24, 39],
-          fontStyle: 'bold',
-          fillColor: [255, 255, 255],
-          bottomlineColor: [0, 0, 0],
-          lineWidth: 0.2,
-          halign: 'center',
-        },
-        bodyStyles: {
-          font: 'helvetica',
-          fontStyle: 'normal',
-          textColor: [17, 24, 39],
-          bottomlineColor: [0, 0, 0],
-          lineWidth: 0.15
-        },
-        columnStyles: {
-          0: { cellWidth: 115, halign: 'left' },
-          1: { cellWidth: 65, halign: 'left', fontStyle: 'normal' }
-        }
-      })
-
-      y = (doc.lastAutoTable?.finalY || y + 35) + 10
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
-      doc.text('Statement Grid', marginLeft, y)
-
-      autoTable(doc, {
-        startY: y + 3,
-        margin: { left: marginLeft, right: marginRight },
-        // theme: 'grid',
-        head: [['Date', 'Transaction No', 'Transaction Type', 'Description', 'Debit (Invoice)', 'Credit (Payment)', 'Balance']],
-        body: transactions.length > 0
-          ? transactions.map((row) => [
-              formatPdfDate(row.date),
-              row.transactionNo || '-',
-              row.transactionType || '-',
-              row.description || '-',
-              row.debit ? formatPdfMoney(row.debit) : '-',
-              row.credit ? formatPdfMoney(row.credit) : '-',
-              formatPdfMoney(row.balance || 0)
-            ])
-          : [['-', '-', '-', 'No transactions found', '-', '-', formatPdfMoney(summary.closingBalance || 0)]],
-        headStyles: {
-          fillColor: [255, 255, 255],
-          textColor: [17, 24, 39],
-          fontStyle: 'bold',
-          fontSize: 8,
-          bottomLineColor: [0, 0, 0],
-          lineWidth: 0.2,
-          halign: 'center',
-        },
-        bodyStyles: {
-          fontSize: 8,
-          font: 'helvetica',
-          fontStyle: 'normal',
-          textColor: [17, 24, 39],
-          bottomLineColor: [0, 0, 0],
-          lineWidth: 0.15,
-          cellPadding: { top: 2, right: 1.2, bottom: 2, left: 1.2 }
-        },
-        columnStyles: {
-          0: { cellWidth: 20, halign: 'center' },
-          1: { cellWidth: 24, halign: 'center' },
-          2: { cellWidth: 34, halign: 'left' },
-          3: { cellWidth: 28, halign: 'left' },
-          4: { cellWidth: 28, halign: 'left', fontStyle: 'normal' },
-          5: { cellWidth: 27, halign: 'left', fontStyle: 'normal' },
-          6: { cellWidth: 29, halign: 'left', fontStyle: 'normal' }
-        },
-        didParseCell: (hookData) => {
-          if (hookData.section !== 'body') return
-          if (![4, 5, 6].includes(hookData.column.index)) return
-          hookData.cell.styles.fontStyle = 'normal'
-          hookData.cell.styles.font = 'helvetica'
-          hookData.cell.styles.fontSize = 8
-          hookData.cell.styles.halign = 'center'
-        },
-        didDrawPage: () => {
-          doc.setFontSize(8)
-          doc.setTextColor(107, 114, 128)
-          doc.text(
-            'Customer statement generated from GoldFlow.',
-            pageWidth / 2,
-            pageHeight - 8,
-            { align: 'center' }
-          )
-        }
+      const generatedPdf = await generateStatementPdfBlob({
+        entityType: 'customer',
+        record: statementCustomer,
+        summary,
+        transactions,
+        companySettings
       })
 
       if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl)
-      const blob = doc.output('blob')
-      const url = URL.createObjectURL(blob)
+      const url = URL.createObjectURL(generatedPdf.blob)
       setPdfBlobUrl(url)
-      setPdfFileName(`customer_statement_${statementCustomer?.id || statementCustomer?.customerName || 'customer'}.pdf`)
+      setPdfFileName(generatedPdf.fileName)
+      setPdfTitle(generatedPdf.title)
       setPdfViewerOpen(true)
     } catch (err) {
       handleApiError(err, 'Failed to generate customer statement PDF')
@@ -2703,7 +2528,7 @@ function Customer() {
               transition: 'all 0.2s'
             }}
           >
-            <span>📄</span>
+            <FileText size={14} />
             PDF
           </MotionButton>
           {isAdmin && (
@@ -2737,91 +2562,13 @@ function Customer() {
         </ActionMenuPortal>
       )}
 
-      {/* PDF Viewer Modal */}
-      {pdfViewerOpen && pdfBlobUrl && (
-        <ActionMenuPortal>
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.85)',
-              zIndex: 100000,
-              display: 'flex',
-              flexDirection: 'column'
-            }}
-            onClick={() => setPdfViewerOpen(false)}
-          >
-          <div
-            style={{
-              background: '#f8fafc',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '1rem 1.5rem',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              color: '#1f2937',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <MotionButton
-                onClick={() => setPdfViewerOpen(false)}
-                style={{
-                  background: 'rgba(0,0,0,0.05)',
-                  border: 'none',
-                  borderRadius: '999px',
-                  padding: '0.5rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s',
-                  color: '#1f2937'
-                }}
-              >
-                <X size={24} />
-              </MotionButton>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>{pdfFileName}</h2>
-              </div>
-            </div>
-            <MotionButton
-              onClick={handleDownloadPdf}
-              style={{
-                background: 'rgba(0,0,0,0.05)',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '0.5rem 1rem',
-                color: '#1f2937',
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>⬇️</span>
-              Download
-            </MotionButton>
-          </div>
-
-          <div style={{ flex: 1, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-            <iframe
-              src={pdfBlobUrl}
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none'
-              }}
-              title={pdfFileName}
-            />
-          </div>
-        </div>
-        </ActionMenuPortal>
-      )}
+      <CommonPDFViewer
+        isOpen={pdfViewerOpen}
+        onClose={() => setPdfViewerOpen(false)}
+        pdfUrl={pdfBlobUrl}
+        fileName={pdfFileName}
+        title={pdfTitle}
+      />
     </div>
   );
 }

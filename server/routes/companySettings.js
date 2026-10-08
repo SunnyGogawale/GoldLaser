@@ -62,6 +62,7 @@ router.put('/', requireAuth, async (req, res) => {
       companyAddress, 
       companyEmail, 
       companyContactNumber,
+      companyLogo,
       bankDetails 
     } = req.body;
     
@@ -69,6 +70,7 @@ router.put('/', requireAuth, async (req, res) => {
     if (companyAddress !== undefined) settings.companyAddress = companyAddress;
     if (companyEmail !== undefined) settings.companyEmail = companyEmail;
     if (companyContactNumber !== undefined) settings.companyContactNumber = companyContactNumber;
+    if (companyLogo !== undefined) settings.companyLogo = companyLogo;
     if (bankDetails !== undefined) {
       settings.bankDetails = {
         ...settings.bankDetails,

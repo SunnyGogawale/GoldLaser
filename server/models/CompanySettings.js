@@ -17,6 +17,10 @@ const companySettingsSchema = new mongoose.Schema({
     type: String,
     default: '+1234567890'
   },
+  companyLogo: {
+    type: String,
+    default: ''
+  },
   bankDetails: {
     bankName: {
       type: String,

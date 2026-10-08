@@ -25,6 +25,7 @@ import MotionButton from './MotionButton'
 import { LoadingSkeleton, SkeletonFormGrid } from './SkeletonUI'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
+const MAX_COMPANY_LOGO_SIZE = 5 * 1024 * 1024
 
 function Layout({ setIsLoggedIn, theme, toggleTheme }) {
   const navigate = useNavigate()
@@ -45,6 +46,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     companyAddress: '', 
     companyEmail: '', 
     companyContactNumber: '',
+    companyLogo: '',
     bankDetails: {
       bankName: '',
       bankAddress: '',
@@ -209,6 +211,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
           companyAddress: settingsData.settings?.companyAddress || '',
           companyEmail: settingsData.settings?.companyEmail || '',
           companyContactNumber: settingsData.settings?.companyContactNumber || '',
+          companyLogo: settingsData.settings?.companyLogo || '',
           bankDetails: {
             bankName: settingsData.settings?.bankDetails?.bankName || '',
             bankAddress: settingsData.settings?.bankDetails?.bankAddress || '',
@@ -223,6 +226,29 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     } finally {
       setSettingsLoading(false)
     }
+  }
+
+  const handleCompanyLogoUpload = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      showErrorToast('Please select an image file for the company logo.')
+      event.target.value = ''
+      return
+    }
+    if (file.size > MAX_COMPANY_LOGO_SIZE) {
+      showErrorToast('Company logo must be 5 MB or smaller.')
+      event.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCompanyForm((previous) => ({ ...previous, companyLogo: String(reader.result || '') }))
+    }
+    reader.onerror = () => showErrorToast('Unable to read the company logo.')
+    reader.readAsDataURL(file)
   }
   
   const saveCompanySettings = async () => {
@@ -261,6 +287,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         companyAddress: data.settings?.companyAddress || '',
         companyEmail: data.settings?.companyEmail || '',
         companyContactNumber: data.settings?.companyContactNumber || '',
+        companyLogo: data.settings?.companyLogo || '',
         bankDetails: {
           bankName: data.settings?.bankDetails?.bankName || '',
           bankAddress: data.settings?.bankDetails?.bankAddress || '',
@@ -771,7 +798,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                 <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                   <div style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-header)', marginBottom: '0.75rem' }}>Company Settings</div>
                   
-                  <LoadingSkeleton loading={settingsLoading} name="company-settings" fallback={<SkeletonFormGrid fields={8} />}>
+                  <LoadingSkeleton loading={settingsLoading} name="company-settings" fallback={<SkeletonFormGrid fields={9} />}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
                     <div>
                       <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Company Name</div>
@@ -840,6 +867,30 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                           outline: 'none'
                         }}
                       />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>LOGO</div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCompanyLogoUpload}
+                        disabled={settingsLoading || companySaving}
+                        style={{
+                          width: '100%',
+                          padding: '0.4rem',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          background: 'var(--bg-card)',
+                          color: 'var(--text-header)'
+                        }}
+                      />
+                      {companyForm.companyLogo && (
+                        <img
+                          src={companyForm.companyLogo}
+                          alt="Company logo preview"
+                          style={{ display: 'block', maxWidth: 140, maxHeight: 72, objectFit: 'contain', marginTop: '0.5rem' }}
+                        />
+                      )}
                     </div>
                     <div>
                       <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '0.3rem' }}>Bank Name</div>
