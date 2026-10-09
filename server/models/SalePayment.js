@@ -146,5 +146,9 @@ const paymentSchema = new mongoose.Schema({
 paymentSchema.index({ clientId: 1, clientType: 1, paymentDate: 1, createdAt: 1 });
 paymentSchema.index({ paymentDate: 1, createdAt: 1 });
 paymentSchema.index({ 'allocations.invoiceId': 1 });
+paymentSchema.index(
+  { customerId: 1, paymentDate: 1, createdAt: 1 },
+  { partialFilterExpression: { customerId: { $exists: true } } }
+);
 
 module.exports = mongoose.model('SalePayment', paymentSchema, 'salepayments');

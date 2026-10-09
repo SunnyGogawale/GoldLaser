@@ -163,5 +163,9 @@ const invoiceSchema = new mongoose.Schema({
 // Supports client ledger queries and ordered invoice timelines.
 invoiceSchema.index({ clientId: 1, clientType: 1, invoiceDate: 1, createdAt: 1 });
 invoiceSchema.index({ invoiceDate: 1, createdAt: 1 });
+invoiceSchema.index(
+  { customerId: 1, invoiceDate: 1, createdAt: 1 },
+  { partialFilterExpression: { customerId: { $exists: true } } }
+);
 
 module.exports = mongoose.model('SaleInvoice', invoiceSchema, 'saleinvoices');

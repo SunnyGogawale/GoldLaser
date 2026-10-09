@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js",
+    "indexes:ensure": "node scripts/manage_indexes.js",
+    "indexes:explain": "node scripts/explain_indexes.js",
     "seed:customers": "node scripts/add_dummy_customers.js",
     "seed:admin": "node scripts/create_admin_v2.js",
     "cleanup:customers": "node scripts/delete_all_customers.js",
