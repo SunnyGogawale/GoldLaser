@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react'
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable, SkeletonTableRows } from '../../../components/SkeletonUI'
@@ -196,6 +196,7 @@ function PurchasePayment() {
   const [dropdownUp, setDropdownUp] = useState(false)
   const [attachmentsMenuOpen, setAttachmentsMenuOpen] = useState(false)
   const dropdownRef = useRef(null)
+  const dropdownAnchorRectRef = useRef(null)
   const attachmentInputRef = useRef(null)
   const csvImportInputRef = useRef(null)
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
@@ -248,6 +249,39 @@ function PurchasePayment() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [openDropdownId])
+
+  useEffect(() => {
+    if (!openDropdownId) return undefined
+
+    const closeOnScroll = () => {
+      setOpenDropdownId(null)
+      setDropdownPurchasePayment(null)
+      setAttachmentsMenuOpen(false)
+    }
+
+    document.addEventListener('scroll', closeOnScroll, true)
+    window.addEventListener('scroll', closeOnScroll, true)
+    window.addEventListener('wheel', closeOnScroll, { passive: true })
+    window.addEventListener('touchmove', closeOnScroll, { passive: true })
+    return () => {
+      document.removeEventListener('scroll', closeOnScroll, true)
+      window.removeEventListener('scroll', closeOnScroll, true)
+      window.removeEventListener('wheel', closeOnScroll)
+      window.removeEventListener('touchmove', closeOnScroll)
+    }
+  }, [openDropdownId])
+
+  useLayoutEffect(() => {
+    if (!openDropdownId || !dropdownRef.current || !dropdownAnchorRectRef.current) return
+
+    const { top, left, shouldOpenUp } = getActionDropdownPosition({
+      rect: dropdownAnchorRectRef.current,
+      dropdownWidth: dropdownRef.current.offsetWidth,
+      dropdownHeight: dropdownRef.current.offsetHeight
+    })
+    setDropdownPosition((current) => current.top === top && current.left === left ? current : { top, left })
+    setDropdownUp(shouldOpenUp)
+  }, [openDropdownId, attachmentsMenuOpen, dropdownPurchasePayment?.attachments?.length, isAdmin])
 
   const formatTimeAgo = (dateValue) => {
     const d = dateValue ? new Date(dateValue) : null
@@ -1424,7 +1458,7 @@ function PurchasePayment() {
   }
 
   return (
-    <div className="dashboard-content" style={{ padding: '1rem' }}>
+    <div className="dashboard-content" style={{ padding: '1rem' }} onScrollCapture={closeActionDropdown}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0, gap: '0.75rem' }}>
         {isAdmin && <MotionButton type="button" onClick={() => { resetCsvImport(); setCsvImportOpen(true) }} disabled={loading} style={{ padding: '0.5rem 1rem', background: 'var(--bg-main)', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}><UploadCloud size={16} />Upload CSV</MotionButton>}
         <MotionButton
@@ -2427,9 +2461,11 @@ function PurchasePayment() {
                                 closeActionDropdown();
                               } else {
                                 const rect = e.currentTarget.getBoundingClientRect();
+                                dropdownAnchorRectRef.current = rect;
                                 const { top, left, shouldOpenUp } = getActionDropdownPosition({
                                   rect,
-                                  dropdownHeight: 280
+                                  dropdownWidth: 260,
+                                  dropdownHeight: 320
                                 });
                                 setDropdownPosition({ top, left });
                                 setDropdownUp(shouldOpenUp);
@@ -2562,9 +2598,11 @@ function PurchasePayment() {
                                     closeActionDropdown();
                                   } else {
                                     const rect = e.currentTarget.getBoundingClientRect();
+                                    dropdownAnchorRectRef.current = rect;
                                     const { top, left, shouldOpenUp } = getActionDropdownPosition({
                                       rect,
-                                      dropdownHeight: 280
+                                      dropdownWidth: 260,
+                                      dropdownHeight: 320
                                     });
                                     setDropdownPosition({ top, left });
                                     setDropdownUp(shouldOpenUp);
@@ -2920,8 +2958,9 @@ function PurchasePayment() {
                   borderRadius: '8px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   zIndex: 99999,
-                  minWidth: '220px',
-                  maxWidth: '260px',
+                  width: 'min(260px, calc(100vw - 16px))',
+                  minWidth: 'min(220px, calc(100vw - 16px))',
+                  maxWidth: 'calc(100vw - 16px)',
                   maxHeight: 'min(320px, 70vh)',
                   overflowY: 'auto'
                 }}

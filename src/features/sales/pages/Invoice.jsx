@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, UploadCloud, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable } from '../../../components/SkeletonUI'
@@ -318,6 +318,7 @@ function Invoice() {
   const [dropdownUp, setDropdownUp] = useState(false);
   const [attachmentsMenuOpen, setAttachmentsMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const dropdownAnchorRectRef = useRef(null);
   const attachmentInputRef = useRef(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
@@ -356,6 +357,31 @@ function Invoice() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [openDropdownId]);
+
+  useEffect(() => {
+    if (!openDropdownId) return undefined;
+
+    const closeOnScroll = () => {
+      setOpenDropdownId(null);
+      setDropdownInvoice(null);
+      setAttachmentsMenuOpen(false);
+    };
+
+    document.addEventListener('scroll', closeOnScroll, true);
+    return () => document.removeEventListener('scroll', closeOnScroll, true);
+  }, [openDropdownId]);
+
+  useLayoutEffect(() => {
+    if (!openDropdownId || !dropdownRef.current || !dropdownAnchorRectRef.current) return;
+
+    const { top, left, shouldOpenUp } = getActionDropdownPosition({
+      rect: dropdownAnchorRectRef.current,
+      dropdownWidth: dropdownRef.current.offsetWidth,
+      dropdownHeight: dropdownRef.current.offsetHeight
+    });
+    setDropdownPosition((current) => current.top === top && current.left === left ? current : { top, left });
+    setDropdownUp(shouldOpenUp);
+  }, [openDropdownId, attachmentsMenuOpen, dropdownInvoice?.attachments?.length, isAdmin]);
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -2522,9 +2548,11 @@ function Invoice() {
                                   closeActionDropdown();
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
+                                    dropdownAnchorRectRef.current = rect;
                                   const { top, left, shouldOpenUp } = getActionDropdownPosition({
                                     rect,
-                                    dropdownHeight: 280
+                                      dropdownWidth: 260,
+                                      dropdownHeight: 320
                                   });
                                   setDropdownPosition({ top, left });
                                   setDropdownUp(shouldOpenUp);
@@ -2670,9 +2698,11 @@ function Invoice() {
                                       closeActionDropdown();
                                     } else {
                                       const rect = e.currentTarget.getBoundingClientRect();
+                                      dropdownAnchorRectRef.current = rect;
                                       const { top, left, shouldOpenUp } = getActionDropdownPosition({
                                         rect,
-                                        dropdownHeight: 280
+                                        dropdownWidth: 260,
+                                        dropdownHeight: 320
                                       });
                                       setDropdownPosition({ top, left });
                                       setDropdownUp(shouldOpenUp);
@@ -3040,8 +3070,9 @@ function Invoice() {
                   borderRadius: '8px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   zIndex: 99999,
-                  minWidth: '220px',
-                  maxWidth: '260px',
+                  width: 'min(260px, calc(100vw - 16px))',
+                  minWidth: 'min(220px, calc(100vw - 16px))',
+                  maxWidth: 'calc(100vw - 16px)',
                   maxHeight: 'min(320px, 70vh)',
                   overflowY: 'auto'
                 }}
