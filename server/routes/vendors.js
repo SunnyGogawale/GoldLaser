@@ -569,64 +569,6 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
     await Vendor.findByIdAndDelete(vendor._id);
 
-    const existingVendorIds = (await Vendor.find({}, { _id: 1 }).lean()).map((c) => c._id);
-    const [orphanInvoiceResult, orphanPaymentResult, orphanSaleInvoiceResult, orphanSalePaymentResult] = await Promise.all([
-      PurchaseInvoice.deleteMany({
-        $or: [
-          { vendorId: { $exists: false } },
-          { vendorId: null },
-          { vendorId: { $nin: existingVendorIds } },
-          { 
-            $and: [
-              { clientType: 'Vendor' },
-              { $or: [
-                { clientId: { $exists: false } },
-                { clientId: null },
-                { clientId: { $nin: existingVendorIds } }
-              ]}
-            ]
-          }
-        ]
-      }),
-      PurchasePayment.deleteMany({
-        $or: [
-          { vendorId: { $exists: false } },
-          { vendorId: null },
-          { vendorId: { $nin: existingVendorIds } },
-          { 
-            $and: [
-              { clientType: 'Vendor' },
-              { $or: [
-                { clientId: { $exists: false } },
-                { clientId: null },
-                { clientId: { $nin: existingVendorIds } }
-              ]}
-            ]
-          }
-        ]
-      }),
-      SaleInvoice.deleteMany({
-        $and: [
-          { clientType: 'Vendor' },
-          { $or: [
-            { clientId: { $exists: false } },
-            { clientId: null },
-            { clientId: { $nin: existingVendorIds } }
-          ]}
-        ]
-      }),
-      SalePayment.deleteMany({
-        $and: [
-          { clientType: 'Vendor' },
-          { $or: [
-            { clientId: { $exists: false } },
-            { clientId: null },
-            { clientId: { $nin: existingVendorIds } }
-          ]}
-        ]
-      })
-    ]);
-
     res.json({
       message: 'Vendor deleted',
       deleted: {
@@ -635,10 +577,10 @@ router.delete('/:id', requireAdmin, async (req, res) => {
         purchasePayments: paymentResult?.deletedCount || 0,
         saleInvoices: saleInvoiceResult?.deletedCount || 0,
         salePayments: salePaymentResult?.deletedCount || 0,
-        orphanPurchaseInvoices: orphanInvoiceResult?.deletedCount || 0,
-        orphanPurchasePayments: orphanPaymentResult?.deletedCount || 0,
-        orphanSaleInvoices: orphanSaleInvoiceResult?.deletedCount || 0,
-        orphanSalePayments: orphanSalePaymentResult?.deletedCount || 0
+        orphanPurchaseInvoices: 0,
+        orphanPurchasePayments: 0,
+        orphanSaleInvoices: 0,
+        orphanSalePayments: 0
       }
     });
   } catch (err) {

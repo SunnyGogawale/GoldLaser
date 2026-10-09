@@ -576,64 +576,6 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
     await Customer.findByIdAndDelete(customer._id);
 
-    const existingCustomerIds = (await Customer.find({}, { _id: 1 }).lean()).map((c) => c._id);
-    const [orphanInvoiceResult, orphanPaymentResult, orphanPurchaseInvoiceResult, orphanPurchasePaymentResult] = await Promise.all([
-      SaleInvoice.deleteMany({
-        $or: [
-          { customerId: { $exists: false } },
-          { customerId: null },
-          { customerId: { $nin: existingCustomerIds } },
-          { 
-            $and: [
-              { clientType: 'Customer' },
-              { $or: [
-                { clientId: { $exists: false } },
-                { clientId: null },
-                { clientId: { $nin: existingCustomerIds } }
-              ]}
-            ]
-          }
-        ]
-      }),
-      SalePayment.deleteMany({
-        $or: [
-          { customerId: { $exists: false } },
-          { customerId: null },
-          { customerId: { $nin: existingCustomerIds } },
-          { 
-            $and: [
-              { clientType: 'Customer' },
-              { $or: [
-                { clientId: { $exists: false } },
-                { clientId: null },
-                { clientId: { $nin: existingCustomerIds } }
-              ]}
-            ]
-          }
-        ]
-      }),
-      PurchaseInvoice.deleteMany({
-        $and: [
-          { clientType: 'Customer' },
-          { $or: [
-            { clientId: { $exists: false } },
-            { clientId: null },
-            { clientId: { $nin: existingCustomerIds } }
-          ]}
-        ]
-      }),
-      PurchasePayment.deleteMany({
-        $and: [
-          { clientType: 'Customer' },
-          { $or: [
-            { clientId: { $exists: false } },
-            { clientId: null },
-            { clientId: { $nin: existingCustomerIds } }
-          ]}
-        ]
-      })
-    ]);
-
     res.json({
       message: 'Customer deleted',
       deleted: {
@@ -642,10 +584,10 @@ router.delete('/:id', requireAdmin, async (req, res) => {
         salePayments: paymentResult?.deletedCount || 0,
         purchaseInvoices: purchaseInvoiceResult?.deletedCount || 0,
         purchasePayments: purchasePaymentResult?.deletedCount || 0,
-        orphanSaleInvoices: orphanInvoiceResult?.deletedCount || 0,
-        orphanSalePayments: orphanPaymentResult?.deletedCount || 0,
-        orphanPurchaseInvoices: orphanPurchaseInvoiceResult?.deletedCount || 0,
-        orphanPurchasePayments: orphanPurchasePaymentResult?.deletedCount || 0
+        orphanSaleInvoices: 0,
+        orphanSalePayments: 0,
+        orphanPurchaseInvoices: 0,
+        orphanPurchasePayments: 0
       }
     });
   } catch (err) {

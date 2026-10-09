@@ -678,108 +678,108 @@ function Dashboard() {
   return (
     <div className="dashboard-content">
       <LoadingSkeleton loading={summaryLoading} name="dashboard-summary" fallback={<SkeletonMetricGrid cards={isAdmin ? 12 : 8} />}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem', marginBottom: '1rem' }}>
         {/* Row 1 */}
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '0.9rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Total Customers</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Total Customers</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 {summaryLoading ? '...' : totalCustomers || 0}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Active accounts</div>
+              <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Active accounts</div>
             </div>
             <Users size={18} color="rgb(59, 130, 246)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
 
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '0.9rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Total Vendors</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Total Vendors</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 {summaryLoading ? '...' : totalVendors || 0}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Active vendors</div>
+              <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Active vendors</div>
             </div>
             <Briefcase size={18} color="rgb(34, 197, 94)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
 
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '0.9rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Invoices</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Invoices</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 {summaryLoading ? '...' : `$${formatMoney(monthlySalesInvoices, 0)}`}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total value</div>
+              <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total value</div>
             </div>
             <FileText size={18} color="rgb(34, 197, 94)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
 
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '0.9rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Payments</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Payments</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 {summaryLoading ? '...' : `$${formatMoney(monthlySalesPayments, 0)}`}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total received</div>
+              <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total received</div>
             </div>
             <HandCoins size={18} color="rgb(168, 85, 247)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
 
         {/* Row 2 */}
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '0.9rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Outstanding</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Sales Outstanding</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 {summaryLoading ? '...' : `$${formatMoney(salesOutstanding, 0)}`}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Pending receivables</div>
+              <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Pending receivables</div>
             </div>
             <AlertCircle size={18} color="rgb(249, 115, 22)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
 
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '0.9rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Invoices</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Invoices</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 {summaryLoading ? '...' : `$${formatMoney(monthlyPurchaseInvoices, 0)}`}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total value</div>
+              <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total value</div>
             </div>
             <FileText size={18} color="rgb(59, 130, 246)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
 
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '0.9rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Payments</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Payments</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 {summaryLoading ? '...' : `$${formatMoney(monthlyPurchasePayments, 0)}`}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total paid</div>
+              <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total paid</div>
             </div>
             <HandCoins size={18} color="rgb(239, 68, 68)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
         </div>
 
-        <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="card" style={{ padding: '0.9rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Outstanding</div>
-              <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>Last 30 Days Purchase Outstanding</div>
+              <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                 {summaryLoading ? '...' : `$${formatMoney(purchaseOutstanding, 0)}`}
               </div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Pending payables</div>
+              <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Pending payables</div>
             </div>
             <AlertCircle size={18} color="rgb(239, 68, 68)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
           </div>
@@ -791,14 +791,14 @@ function Dashboard() {
           ['Total Purchase Invoice Rows', totalPurchaseInvoiceRows],
           ['Total Purchase Payment Rows', totalPurchasePaymentRows]
         ].map(([label, value]) => (
-          <div key={label} className="card" style={{ padding: '1.5rem' }}>
+          <div key={label} className="card" style={{ padding: '0.9rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-muted)' }}>{label}</div>
-                <div style={{ marginTop: '0.5rem', fontSize: '2rem', fontWeight: 900, color: 'var(--text-header)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>{label}</div>
+                <div style={{ marginTop: '0.35rem', fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-header)' }}>
                   {summaryLoading ? '...' : value}
                 </div>
-                <div style={{ marginTop: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>All records</div>
+                <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>All records</div>
               </div>
               <FileText size={18} color="rgb(59, 130, 246)" style={{ marginLeft: '0.5rem', flexShrink: 0 }} />
             </div>
@@ -807,7 +807,7 @@ function Dashboard() {
       </div>
       </LoadingSkeleton>
 
-      <div className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+      <div className="card" style={{ marginBottom: '1rem', padding: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
