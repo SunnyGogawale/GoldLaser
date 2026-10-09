@@ -26,11 +26,13 @@ async function getVendorOutstanding(vendorId) {
       $or: [
         { clientId: vendorId, clientType: 'Vendor' },
         { vendorId }
-      ]
+      ],
+      excludeFromOutstanding: { $ne: true }
     }
     const salePaymentMatch = {
       clientId: vendorId,
-      clientType: 'Vendor'
+      clientType: 'Vendor',
+      excludeFromOutstanding: { $ne: true }
     }
 
     const [purchaseInvoiceAgg, saleInvoiceAgg, purchasePaymentAgg, salePaymentAgg] = await Promise.all([
@@ -325,7 +327,8 @@ router.get('/:id/statement', async (req, res) => {
         $or: [
           { clientId: vendor._id, clientType: 'Vendor' },
           { vendorId: vendor._id }
-        ]
+        ],
+        excludeFromOutstanding: { $ne: true }
       }).sort({ paymentDate: 1, createdAt: 1 })
     ]);
 

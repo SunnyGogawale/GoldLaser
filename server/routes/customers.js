@@ -26,11 +26,14 @@ async function getCustomerOutstanding(customerId) {
       $or: [
         { clientId: customerId, clientType: 'Customer' },
         { customerId }
-      ]
+      ],
+      paymentNumber: { $not: /NAP/i },
+      excludeFromOutstanding: { $ne: true }
     }
     const purchasePaymentMatch = {
       clientId: customerId,
-      clientType: 'Customer'
+      clientType: 'Customer',
+      excludeFromOutstanding: { $ne: true }
     }
 
     const [saleInvoiceAgg, purchaseInvoiceAgg, salePaymentAgg, purchasePaymentAgg] = await Promise.all([
@@ -57,13 +60,10 @@ async function getCustomerOutstanding(customerId) {
     const totalReceivedAmount = Number(salePaymentAgg?.[0]?.totalPaymentAmount || 0)
     const totalPaidAmount = Number(purchasePaymentAgg?.[0]?.totalPaymentAmount || 0)
 
-    // Customer ledger perspective:
-    // receivableAmount: what customer owes us (sales side).
-    // payableAmount: what we owe customer (purchase/return side).
-    // outstanding/netOutstanding: receivable minus payable.
+    // Customer Outstanding tracks the sales receivable; purchase-side payable is reported separately.
     const receivableAmount = totalSaleInvoiceAmount - totalReceivedAmount
     const payableAmount = totalPurchaseInvoiceAmount - totalPaidAmount
-    const outstanding = receivableAmount - payableAmount
+    const outstanding = receivableAmount
 
     const totalInvoices = totalSaleInvoiceAmount + totalPurchaseInvoiceAmount
     const totalPayments = totalReceivedAmount + totalPaidAmount
@@ -346,7 +346,10 @@ router.get('/:id/statement', async (req, res) => {
         transactionType: 'Sales Payment',
         description: String(payment.description || '').trim() || 'Payment Received',
         debit: 0,
-        credit: Number(payment.amount) || 0
+        credit: Number(payment.amount) || 0,
+        balanceCredit: payment.excludeFromOutstanding || /NAP/i.test(String(payment.paymentNumber || ''))
+          ? 0
+          : Number(payment.amount) || 0
       }))
     ]
       .sort((a, b) => {
@@ -362,7 +365,7 @@ router.get('/:id/statement', async (req, res) => {
 
     let runningBalance = 0;
     const transactions = statementRows.map((row) => {
-      runningBalance += row.debit - row.credit;
+      runningBalance += row.debit - (row.balanceCredit ?? row.credit);
       return {
         date: row.date,
         transactionNo: row.transactionNo,
@@ -375,7 +378,10 @@ router.get('/:id/statement', async (req, res) => {
     });
 
     const totalInvoice = invoices.reduce((sum, invoice) => sum + (Number(invoice.totalAmount) || 0), 0);
-    const totalPayment = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const totalPayment = payments.reduce((sum, payment) => {
+      if (payment.excludeFromOutstanding || /NAP/i.test(String(payment.paymentNumber || ''))) return sum;
+      return sum + (Number(payment.amount) || 0);
+    }, 0);
     const openingBalance = 0;
     const closingBalance = openingBalance + totalInvoice - totalPayment;
 

@@ -9,6 +9,7 @@ import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import CommonPDFViewer from '../../../components/CommonPDFViewer'
 import { refreshCompanySettings } from '../../../utils/api'
 import { generatePaymentPdfBlob } from '../../../utils/paymentPdf'
+import { prepareCsvPaymentRow } from '../../../utils/csvPaymentRow'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
@@ -128,6 +129,7 @@ function PurchasePayment() {
   const [csvImportOpen, setCsvImportOpen] = useState(false)
   const [csvImporting, setCsvImporting] = useState(false)
   const [csvImportError, setCsvImportError] = useState('')
+  const [csvImportResult, setCsvImportResult] = useState(null)
   const [csvImportFileName, setCsvImportFileName] = useState('')
   const [csvHeaders, setCsvHeaders] = useState([])
   const [csvDataRows, setCsvDataRows] = useState([])
@@ -1316,6 +1318,7 @@ function PurchasePayment() {
   const resetCsvImport = () => {
     setCsvImportOpen(false)
     setCsvImportError('')
+    setCsvImportResult(null)
     setCsvImportFileName('')
     setCsvHeaders([])
     setCsvDataRows([])
@@ -1337,6 +1340,7 @@ function PurchasePayment() {
     try {
       setCsvImporting(true)
       setCsvImportError('')
+      setCsvImportResult(null)
       const text = await file.text()
       const parsedRows = parseCsvText(text).filter((row) => row.some((value) => String(value).trim() !== ''))
       if (parsedRows.length === 0) throw new Error('The selected file does not contain any usable rows.')
@@ -1367,27 +1371,50 @@ function PurchasePayment() {
       setCsvImportError('')
       const token = getAuthToken()
       const indexOf = (field) => csvHeaders.indexOf(csvFieldMapping[field])
-      for (const row of csvDataRows) {
-        const dateValue = String(row[indexOf('paymentDate')] ?? '').trim()
-        const amount = Number.parseFloat(String(row[indexOf('amount')] ?? '').replace(/[^0-9.-]/g, ''))
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({
-            paymentNumber: String(row[indexOf('paymentNumber')] ?? '').trim() || undefined,
-            clientId: csvSelectedClientId,
-            clientType: 'Vendor',
-            paymentDate: dateValue ? toIsoDateString(normalizeCsvDateValue(dateValue)).split('T')[0] : new Date().toISOString().split('T')[0],
-            amount: Number.isFinite(amount) ? amount : 0,
-            description: String(row[indexOf('description')] ?? '').trim() || 'Imported from CSV',
-            allocations: [],
-            attachments: []
+      const result = { totalRows: csvDataRows.length, imported: 0, failedRows: [] }
+      for (let rowIndex = 0; rowIndex < csvDataRows.length; rowIndex += 1) {
+        const row = csvDataRows[rowIndex]
+        const paymentNumberIndex = indexOf('paymentNumber')
+
+        try {
+          const paymentDateIndex = indexOf('paymentDate')
+          const amountIndex = indexOf('amount')
+          const descriptionIndex = indexOf('description')
+          const csvPayment = prepareCsvPaymentRow({
+            paymentNumberValue: paymentNumberIndex >= 0 ? row[paymentNumberIndex] : undefined,
+            paymentNumberMapped: paymentNumberIndex >= 0,
+            paymentDateValue: paymentDateIndex >= 0 ? row[paymentDateIndex] : undefined,
+            paymentDateMapped: paymentDateIndex >= 0,
+            amountValue: amountIndex >= 0 ? row[amountIndex] : undefined,
+            amountMapped: amountIndex >= 0,
+            descriptionValue: descriptionIndex >= 0 ? row[descriptionIndex] : undefined,
+            descriptionMapped: descriptionIndex >= 0
           })
-        })
-        await readJsonResponse(response, 'Error importing CSV payment')
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({
+              paymentNumber: csvPayment.paymentNumber,
+              ...(csvPayment.blankCsvPaymentNumber ? { blankCsvPaymentNumber: true, autoAllocateOnSubmit: false } : {}),
+              clientId: csvSelectedClientId,
+              clientType: 'Vendor',
+              paymentDate: csvPayment.paymentDate,
+              amount: csvPayment.amount,
+              description: csvPayment.description,
+              allocations: [],
+              attachments: []
+            })
+          })
+          await readJsonResponse(response, 'Error importing CSV payment')
+          result.imported += 1
+        } catch (error) {
+          result.failedRows.push({ rowNumber: rowIndex + 2, reason: error.message || 'Unable to import this row.' })
+        }
       }
-      showSuccessToast(`Imported ${csvDataRows.length} payment(s) from CSV.`)
-      resetCsvImport()
+      setCsvImportResult(result)
+      const summary = `CSV rows: ${result.totalRows}; imported: ${result.imported}; failed: ${result.failedRows.length}.`
+      if (result.failedRows.length > 0) showErrorToast(summary)
+      else showSuccessToast(summary)
       await fetchPayments(1, searchQuery, sortColumn, sortOrder)
     } catch (error) {
       setCsvImportError(error.message || 'Unable to import the CSV file.')
@@ -1433,7 +1460,17 @@ function PurchasePayment() {
                 {csvSelectedClientName && <div style={{ color: 'var(--primary)', fontWeight: 700 }}>Selected vendor: {csvSelectedClientName}</div>}
                 {csvHeaders.length > 0 && ['paymentNumber', 'paymentDate', 'amount', 'description'].map((field) => <label key={field} style={{ display: 'grid', gap: '0.25rem', fontWeight: 700 }}>{field}<select value={csvFieldMapping[field]} onChange={(event) => setCsvFieldMapping((prev) => ({ ...prev, [field]: event.target.value }))}><option value="">Select CSV column</option>{csvHeaders.map((header) => <option key={header} value={header}>{header}</option>)}</select></label>)}
                 {csvImportError && <div style={{ color: 'var(--danger)' }}>{csvImportError}</div>}
-                <MotionButton type="button" onClick={handleCsvImportSubmit} disabled={csvImporting || !csvDataRows.length} style={{ padding: '0.65rem 1rem', background: 'var(--primary)', color: '#fff', border: 0, borderRadius: 8 }}>{csvImporting ? 'Importing...' : `Import ${csvDataRows.length || ''} payment(s)`}</MotionButton>
+                {csvImportResult && (
+                  <div role="status" style={{ padding: '0.7rem', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.82rem' }}>
+                    <div>Total CSV rows: {csvImportResult.totalRows} · Successfully imported: {csvImportResult.imported} · Failed: {csvImportResult.failedRows.length}</div>
+                    {csvImportResult.failedRows.length > 0 && (
+                      <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem', color: 'var(--danger)' }}>
+                        {csvImportResult.failedRows.map(({ rowNumber, reason }) => <li key={`${rowNumber}-${reason}`}>Row {rowNumber}: {reason}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                <MotionButton type="button" onClick={handleCsvImportSubmit} disabled={csvImporting || !csvDataRows.length || Boolean(csvImportResult)} style={{ padding: '0.65rem 1rem', background: 'var(--primary)', color: '#fff', border: 0, borderRadius: 8 }}>{csvImporting ? 'Importing...' : csvImportResult ? 'Import complete' : `Import ${csvDataRows.length || ''} payment(s)`}</MotionButton>
               </div>
             </div>
           </div>

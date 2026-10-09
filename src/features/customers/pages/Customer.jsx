@@ -809,7 +809,10 @@ function Customer() {
         transactionType: 'Sales Payment',
         description: String(payment.description || '').trim() || 'Payment Received',
         debit: 0,
-        credit: Number(payment.amount) || 0
+        credit: Number(payment.amount) || 0,
+        balanceCredit: payment.excludeFromOutstanding || String(payment.paymentNumber || '').toUpperCase().includes('NAP')
+          ? 0
+          : Number(payment.amount) || 0
       }))
     ].sort((a, b) => {
       const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -821,7 +824,7 @@ function Customer() {
 
     let runningBalance = 0
     const transactions = statementRows.map((row) => {
-      runningBalance += row.debit - row.credit
+      runningBalance += row.debit - (row.balanceCredit ?? row.credit)
       return {
         date: row.date,
         transactionNo: row.transactionNo,
@@ -834,7 +837,10 @@ function Customer() {
     })
 
     const totalInvoice = invoices.reduce((sum, invoice) => sum + (Number(invoice.totalAmount) || 0), 0)
-    const totalPayment = payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0)
+    const totalPayment = payments.reduce((sum, payment) => {
+      if (payment.excludeFromOutstanding || String(payment.paymentNumber || '').toUpperCase().includes('NAP')) return sum
+      return sum + (Number(payment.amount) || 0)
+    }, 0)
     const openingBalance = 0
     const closingBalance = openingBalance + totalInvoice - totalPayment
 

@@ -164,8 +164,10 @@ function Vendor() {
       const clientId = String(payment?.clientId?._id || payment?.clientId || '')
       const legacyVendorId = String(payment?.vendorId?._id || payment?.vendorId || '')
       return (
-        legacyVendorId === vendorId ||
-        (clientId === vendorId && String(payment?.clientType || 'Vendor') === 'Vendor')
+        !payment?.excludeFromOutstanding && (
+          legacyVendorId === vendorId ||
+          (clientId === vendorId && String(payment?.clientType || 'Vendor') === 'Vendor')
+        )
       )
     })
 

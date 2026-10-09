@@ -3,12 +3,14 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const Payment = require('../models/SalePayment');
+const PurchasePayment = require('../models/PurchasePayment');
 const Invoice = require('../models/SaleInvoice');
 const Customer = require('../models/Customer');
 const Vendor = require('../models/Vendor');
 const User = require('../models/User');
 const { buildPaymentMergeUpdateOps } = require('../utils/paymentDuplicateHandling');
 const { sendErrorResponse } = require('../utils/errorHandler');
+const { getNextCsvPaymentNumber, isUnallocatedCsvPayment } = require('../utils/csvPaymentNumber');
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -157,7 +159,10 @@ async function getNextPaymentNumber() {
 }
 
 async function getPaidAmountMapByInvoiceIds(invoiceIds, excludePaymentId) {
-  const match = { 'allocations.invoiceId': { $in: invoiceIds } };
+  const match = {
+    'allocations.invoiceId': { $in: invoiceIds },
+    excludeFromOutstanding: { $ne: true }
+  };
   if (excludePaymentId) {
     match._id = { $ne: new mongoose.Types.ObjectId(excludePaymentId) };
   }
@@ -181,7 +186,7 @@ async function getPaidAmountMapByInvoiceIds(invoiceIds, excludePaymentId) {
 }
 
 async function getClientCreditBalance(clientId, clientType, excludePaymentId) {
-  const query = { clientId, clientType };
+  const query = { clientId, clientType, excludeFromOutstanding: { $ne: true } };
   if (excludePaymentId) {
     query._id = { $ne: excludePaymentId };
   }
@@ -699,7 +704,10 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     let paymentNumber = req.body.paymentNumber;
-    if (!paymentNumber) {
+    const isUnallocatedCsvRow = isUnallocatedCsvPayment(req.body);
+    if (isUnallocatedCsvRow) {
+      paymentNumber = await getNextCsvPaymentNumber([Payment, PurchasePayment]);
+    } else if (!paymentNumber) {
       paymentNumber = await getNextPaymentNumber();
     }
 
@@ -708,9 +716,9 @@ router.post('/', async (req, res) => {
     const paymentDate = req.body.paymentDate;
     const amount = Number(req.body.amount) || 0;
     const description = req.body.description || '';
-    const autoAllocateOnSubmit = req.body.autoAllocateOnSubmit !== false;
+    const autoAllocateOnSubmit = !isUnallocatedCsvRow && req.body.autoAllocateOnSubmit !== false;
     const invoiceOrder = Array.isArray(req.body.invoiceOrder) ? req.body.invoiceOrder.map(String) : undefined;
-    const requestedAllocations = normalizeRequestedAllocations(req.body.allocations);
+    const requestedAllocations = isUnallocatedCsvRow ? [] : normalizeRequestedAllocations(req.body.allocations);
     const attachments = normalizePaymentValue('attachments', req.body.attachments);
 
     if (!clientId) return res.status(400).json({ message: 'Client is required' });
@@ -774,6 +782,7 @@ router.post('/', async (req, res) => {
       description,
       allocations,
       attachments,
+      excludeFromOutstanding: isUnallocatedCsvRow,
       createdBy: authUser?.id || null,
       createdByName: authUser?.fullName || '',
       createdByEmail: authUser?.email || '',

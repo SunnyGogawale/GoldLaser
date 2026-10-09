@@ -10,6 +10,7 @@ import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import CommonPDFViewer from '../../../components/CommonPDFViewer'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { generatePaymentPdfBlob } from '../../../utils/paymentPdf'
+import { prepareCsvPaymentRow } from '../../../utils/csvPaymentRow'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import {
@@ -114,6 +115,7 @@ function Payment() {
   const [csvImportOpen, setCsvImportOpen] = useState(false)
   const [csvImporting, setCsvImporting] = useState(false)
   const [csvImportError, setCsvImportError] = useState('')
+  const [csvImportResult, setCsvImportResult] = useState(null)
   const [csvImportFileName, setCsvImportFileName] = useState('')
   const [csvHeaders, setCsvHeaders] = useState([])
   const [csvDataRows, setCsvDataRows] = useState([])
@@ -1294,6 +1296,7 @@ function Payment() {
   const openCsvImportModal = () => {
     setCsvImportOpen(true)
     setCsvImportError('')
+    setCsvImportResult(null)
     setCsvImportFileName('')
     setCsvHeaders([])
     setCsvDataRows([])
@@ -1308,6 +1311,7 @@ function Payment() {
   const closeCsvImportModal = () => {
     setCsvImportOpen(false)
     setCsvImportError('')
+    setCsvImportResult(null)
     setCsvImportFileName('')
     setCsvHeaders([])
     setCsvDataRows([])
@@ -1354,6 +1358,7 @@ function Payment() {
     try {
       setCsvImporting(true)
       setCsvImportError('')
+      setCsvImportResult(null)
       const text = await selectedFile.text()
       const parsedRows = parseCsvText(text).filter((row) => row.some((value) => String(value).trim() !== ''))
 
@@ -1401,7 +1406,7 @@ function Payment() {
 
       const token = getAuthToken()
       const headers = csvHeaders
-      const createdPayments = []
+      const result = { totalRows: csvDataRows.length, imported: 0, failedRows: [] }
 
       for (let index = 0; index < csvDataRows.length; index += 1) {
         const row = csvDataRows[index]
@@ -1410,38 +1415,49 @@ function Payment() {
         const amountIndex = headers.indexOf(csvFieldMapping.amount)
         const descriptionIndex = headers.indexOf(csvFieldMapping.description)
 
-        const paymentNumber = String(row[paymentNumberIndex] ?? '').trim()
-        const paymentDateValue = String(row[paymentDateIndex] ?? '').trim()
-        const normalizedPaymentDateValue = paymentDateValue ? normalizeCsvDateValue(paymentDateValue) : ''
-        const amountValue = String(row[amountIndex] ?? '').trim()
-        const descriptionValue = String(row[descriptionIndex] ?? '').trim()
-        const parsedAmount = Number.parseFloat(String(amountValue).replace(/[^0-9.-]/g, ''))
+        try {
+          const csvPayment = prepareCsvPaymentRow({
+            paymentNumberValue: paymentNumberIndex >= 0 ? row[paymentNumberIndex] : undefined,
+            paymentNumberMapped: paymentNumberIndex >= 0,
+            paymentDateValue: paymentDateIndex >= 0 ? row[paymentDateIndex] : undefined,
+            paymentDateMapped: paymentDateIndex >= 0,
+            amountValue: amountIndex >= 0 ? row[amountIndex] : undefined,
+            amountMapped: amountIndex >= 0,
+            descriptionValue: descriptionIndex >= 0 ? row[descriptionIndex] : undefined,
+            descriptionMapped: descriptionIndex >= 0
+          })
 
-        const payload = {
-          paymentNumber: paymentNumber || undefined,
-          clientId: csvSelectedClientId,
-          clientType: 'Customer',
-          paymentDate: normalizedPaymentDateValue ? toIsoDateString(normalizedPaymentDateValue).split('T')[0] : new Date().toISOString().split('T')[0],
-          amount: Number.isFinite(parsedAmount) ? parsedAmount : 0,
-          description: descriptionValue || 'Imported from CSV',
-          allocations: [],
-          attachments: []
+          const payload = {
+            paymentNumber: csvPayment.paymentNumber,
+            ...(csvPayment.blankCsvPaymentNumber ? { blankCsvPaymentNumber: true, autoAllocateOnSubmit: false } : {}),
+            clientId: csvSelectedClientId,
+            clientType: 'Customer',
+            paymentDate: csvPayment.paymentDate,
+            amount: csvPayment.amount,
+            description: csvPayment.description,
+            allocations: [],
+            attachments: []
+          }
+
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify(payload)
+          })
+          await readJsonResponse(response, 'Error importing CSV payment')
+          result.imported += 1
+        } catch (error) {
+          result.failedRows.push({ rowNumber: index + 2, reason: error.message || 'Unable to import this row.' })
         }
-
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify(payload)
-        })
-        await readJsonResponse(response, 'Error importing CSV payment')
-        createdPayments.push(payload)
       }
 
-      showSuccessToast(`Imported ${createdPayments.length} payment(s) from CSV.`)
-      closeCsvImportModal()
+      setCsvImportResult(result)
+      const summary = `CSV rows: ${result.totalRows}; imported: ${result.imported}; failed: ${result.failedRows.length}.`
+      if (result.failedRows.length > 0) showErrorToast(summary)
+      else showSuccessToast(summary)
       await fetchPayments(1, searchQuery, sortColumn, sortOrder)
     } catch (err) {
       setCsvImportError(err.message || 'Unable to import the CSV file.')
@@ -1704,6 +1720,16 @@ function Payment() {
                       {csvImportError}
                     </div>
                   )}
+                  {csvImportResult && (
+                    <div role="status" style={{ marginTop: '0.6rem', padding: '0.7rem', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.82rem' }}>
+                      <div>Total CSV rows: {csvImportResult.totalRows} · Successfully imported: {csvImportResult.imported} · Failed: {csvImportResult.failedRows.length}</div>
+                      {csvImportResult.failedRows.length > 0 && (
+                        <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.2rem', color: 'var(--danger)' }}>
+                          {csvImportResult.failedRows.map(({ rowNumber, reason }) => <li key={`${rowNumber}-${reason}`}>Row {rowNumber}: {reason}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {csvPreviewRows.length > 0 && (
@@ -1749,7 +1775,7 @@ function Payment() {
                 <MotionButton
                   type="button"
                   onClick={handleCsvImportSubmit}
-                  disabled={csvImporting || !csvImportFileName}
+                  disabled={csvImporting || !csvImportFileName || Boolean(csvImportResult)}
                   style={{
                     padding: '0.55rem 1rem',
                     background: 'var(--primary)',
@@ -1757,11 +1783,11 @@ function Payment() {
                     border: 'none',
                     borderRadius: '8px',
                     fontWeight: 700,
-                    cursor: csvImporting || !csvImportFileName ? 'not-allowed' : 'pointer',
-                    opacity: csvImporting || !csvImportFileName ? 0.7 : 1
+                    cursor: csvImporting || !csvImportFileName || Boolean(csvImportResult) ? 'not-allowed' : 'pointer',
+                    opacity: csvImporting || !csvImportFileName || Boolean(csvImportResult) ? 0.7 : 1
                   }}
                 >
-                  {csvImporting ? 'Processing...' : 'Import CSV'}
+                  {csvImporting ? 'Processing...' : csvImportResult ? 'Import complete' : 'Import CSV'}
                 </MotionButton>
               </div>
             </div>

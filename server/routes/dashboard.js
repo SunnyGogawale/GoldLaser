@@ -15,7 +15,7 @@ function saleInvoicePaidLookupStage() {
       let: { invoiceId: '$_id' },
       pipeline: [
         { $unwind: '$allocations' },
-        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
+        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] }, paymentNumber: { $not: /NAP/i }, excludeFromOutstanding: { $ne: true } } },
         { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
       ],
       as: 'paidAgg'
@@ -30,7 +30,7 @@ function purchaseInvoicePaidLookupStage() {
       let: { invoiceId: '$_id' },
       pipeline: [
         { $unwind: '$allocations' },
-        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] } } },
+        { $match: { $expr: { $eq: ['$allocations.invoiceId', '$$invoiceId'] }, excludeFromOutstanding: { $ne: true } } },
         { $group: { _id: null, paidAmount: { $sum: '$allocations.amount' } } }
       ],
       as: 'paidAgg'
@@ -174,7 +174,9 @@ router.get('/customer-overview', async (req, res) => {
         $or: [
           { clientId: customer._id, clientType: 'Customer' },
           { customerId: customer._id }
-        ]
+        ],
+        paymentNumber: { $not: /NAP/i },
+        excludeFromOutstanding: { $ne: true }
       }
 
       const [saleInvoiceAgg, salePaymentAgg] = await Promise.all([

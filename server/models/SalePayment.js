@@ -46,6 +46,10 @@ const paymentAllocationSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  excludeFromOutstanding: {
+    type: Boolean,
+    default: false
+  },
   description: {
     type: String,
     default: ''
