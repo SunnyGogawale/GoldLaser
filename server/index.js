@@ -2,8 +2,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const { sanitizeErrorMessage, sendErrorResponse } = require('./utils/errorHandler');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+const { sanitizeErrorMessage, sendErrorResponse } = require('./utils/errorHandler');
+const { buildMongoConnectionOptions, getMongoReconnectDelay } = require('./config/mongoConnection');
+const { attachMongoMonitoring, stopMongoMonitoring } = require('./utils/mongoMonitoring');
 
 const app = express();
 const REQUEST_BODY_LIMIT = '200mb';
@@ -48,7 +50,12 @@ app.use('/api/purchase-payments', require('./routes/purchasePayments'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/admin/load-balancing', require('./routes/loadBalancing'));
 app.use('/api/backups', backupRoutes);
+app.get('/api/health', (req, res) => {
+  const connected = mongoose.connection.readyState === 1;
+  return res.status(connected ? 200 : 503).json({ status: connected ? 'ok' : 'unavailable' });
+});
 app.use('/api', (req, res) => {
   res.status(404).json({ message: `API route not found: ${req.method} ${req.originalUrl}` });
 });
@@ -68,22 +75,59 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/goldfl
 
 let cached = global._mongoose;
 if (!cached) {
-  cached = global._mongoose = { conn: null, promise: null };
+  cached = global._mongoose = { conn: null, promise: null, retryCount: 0, reconnectTimer: null };
 }
+cached.retryCount ??= 0;
+cached.reconnectTimer ??= null;
+
+const scheduleReconnect = () => {
+  if (require.main !== module || cached.reconnectTimer) return;
+  const delay = getMongoReconnectDelay(cached.retryCount++);
+  cached.reconnectTimer = setTimeout(() => {
+    cached.reconnectTimer = null;
+    connectToDatabase().catch((error) => {
+      console.error('MongoDB reconnect attempt failed', error.name, error.code || '');
+    });
+  }, delay);
+  cached.reconnectTimer.unref?.();
+};
 
 const connectToDatabase = async () => {
   if (cached.conn) return cached.conn;
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, {
-      autoIndex: process.env.NODE_ENV !== 'production'
-    }).then((m) => m);
+    cached.promise = mongoose.connect(MONGODB_URI, buildMongoConnectionOptions())
+      .then((connection) => {
+        cached.conn = connection;
+        cached.retryCount = 0;
+        attachMongoMonitoring(mongoose.connection, buildMongoConnectionOptions());
+        return connection;
+      })
+      .catch((error) => {
+        cached.promise = null;
+        cached.conn = null;
+        scheduleReconnect();
+        throw error;
+      });
   }
   cached.conn = await cached.promise;
   return cached.conn;
 };
 
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  const shutdown = async (signal) => {
+    console.log(`Received ${signal}; shutting down`);
+    if (cached.reconnectTimer) clearTimeout(cached.reconnectTimer);
+    cached.reconnectTimer = null;
+    await stopMongoMonitoring();
+    await new Promise((resolve) => server.close(resolve));
+    await mongoose.disconnect();
+  };
+  if (!global._goldFlowShutdownHandlersAttached) {
+    global._goldFlowShutdownHandlersAttached = true;
+    process.once('SIGTERM', () => shutdown('SIGTERM'));
+    process.once('SIGINT', () => shutdown('SIGINT'));
+  }
   connectToDatabase()
     .then(async () => {
       console.log('Connected to MongoDB');

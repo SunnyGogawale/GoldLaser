@@ -16,7 +16,8 @@ import {
   CreditCard,
   ClipboardCheck,
   Archive,
-  Package
+  Package,
+  Activity
 } from 'lucide-react'
 import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue, recordLogout } from '../utils/authStorage'
 import { modalMotionProps, overlayMotionProps } from './PageTransition'
@@ -121,7 +122,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
           items: [
             { id: '/user', icon: <User size={20} />, label: 'User' },
             { id: '/product', icon: <Package size={20} />, label: 'Products' },
-            { id: '/backup', icon: <Archive size={20} />, label: 'Backup' }
+            { id: '/backup', icon: <Archive size={20} />, label: 'Backup' },
+            { id: '/load-balancing', icon: <Activity size={20} />, label: 'Load Balancing' }
           ]
         }]
       : [])

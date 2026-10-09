@@ -13,10 +13,11 @@ import Reports from './features/reports/pages/Reports'
 import User from './features/admin/pages/User'
 import Backup from './features/admin/pages/Backup'
 import Product from './features/admin/pages/Product'
+import LoadBalancing from './features/admin/pages/LoadBalancing'
 import Vendor from './features/vendors/pages/Vendor'
 import PurchaseInvoice from './features/purchases/pages/PurchaseInvoice'
 import PurchasePayment from './features/purchases/pages/PurchasePayment'
-import { clearAuthSession, getAuthToken, getLastActivityAt, markSessionActivity, recordLogout } from './utils/authStorage'
+import { clearAuthSession, getAuthToken, getAuthValue, getLastActivityAt, markSessionActivity, recordLogout } from './utils/authStorage'
 import PageTransition from './components/PageTransition'
 import ToastProvider from './components/ToastProvider'
 import './App.css'
@@ -103,6 +104,7 @@ function App() {
   }, [])
 
   const withPageTransition = (element) => <PageTransition>{element}</PageTransition>
+  const isAdmin = getAuthValue('userRole').toLowerCase() === 'admin'
 
   return (
     <ToastProvider>
@@ -143,6 +145,7 @@ function App() {
           <Route path="/user" element={isLoggedIn ? <User /> : <Navigate to="/login" replace />} />
           <Route path="/backup" element={isLoggedIn ? <Backup /> : <Navigate to="/login" replace />} />
           <Route path="/product" element={isLoggedIn ? <Product /> : <Navigate to="/login" replace />} />
+          <Route path="/load-balancing" element={!isLoggedIn ? <Navigate to="/login" replace /> : isAdmin ? <LoadBalancing /> : <Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

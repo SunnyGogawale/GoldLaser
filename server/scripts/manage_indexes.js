@@ -16,7 +16,8 @@ const models = [
   require('../models/SaleInvoice'),
   require('../models/SalePayment'),
   require('../models/PurchaseInvoice'),
-  require('../models/PurchasePayment')
+  require('../models/PurchasePayment'),
+  require('../models/LoadBalancingActivity')
 ];
 
 const comparableOptions = ['unique', 'sparse', 'expireAfterSeconds', 'partialFilterExpression', 'collation'];

@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "db:indexes": "npm --prefix server run indexes:ensure",
     "db:indexes:explain": "npm --prefix server run indexes:explain",
+    "test:server": "npm --prefix server test",
     "preview": "vite preview"
   },
   "dependencies": {
