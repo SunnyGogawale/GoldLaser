@@ -14,6 +14,7 @@ import User from './features/admin/pages/User'
 import Backup from './features/admin/pages/Backup'
 import Product from './features/admin/pages/Product'
 import LoadBalancing from './features/admin/pages/LoadBalancing'
+import RateLimitActivities from './features/admin/pages/RateLimitActivities'
 import Vendor from './features/vendors/pages/Vendor'
 import PurchaseInvoice from './features/purchases/pages/PurchaseInvoice'
 import PurchasePayment from './features/purchases/pages/PurchasePayment'
@@ -146,6 +147,7 @@ function App() {
           <Route path="/backup" element={isLoggedIn ? <Backup /> : <Navigate to="/login" replace />} />
           <Route path="/product" element={isLoggedIn ? <Product /> : <Navigate to="/login" replace />} />
           <Route path="/load-balancing" element={!isLoggedIn ? <Navigate to="/login" replace /> : isAdmin ? <LoadBalancing /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/rate-limit-activities" element={!isLoggedIn ? <Navigate to="/login" replace /> : isAdmin ? <RateLimitActivities /> : <Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

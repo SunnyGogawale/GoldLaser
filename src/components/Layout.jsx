@@ -123,7 +123,8 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
             { id: '/user', icon: <User size={20} />, label: 'User' },
             { id: '/product', icon: <Package size={20} />, label: 'Products' },
             { id: '/backup', icon: <Archive size={20} />, label: 'Backup' },
-            { id: '/load-balancing', icon: <Activity size={20} />, label: 'Load Balancing' }
+            { id: '/load-balancing', icon: <Activity size={20} />, label: 'Load Balancing' },
+            { id: '/rate-limit-activities', icon: <Activity size={20} />, label: 'Rate Limit Activities' }
           ]
         }]
       : [])

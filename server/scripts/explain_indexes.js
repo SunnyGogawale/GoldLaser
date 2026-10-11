@@ -7,6 +7,8 @@ const SaleInvoice = require('../models/SaleInvoice');
 const SalePayment = require('../models/SalePayment');
 const PurchaseInvoice = require('../models/PurchaseInvoice');
 const PurchasePayment = require('../models/PurchasePayment');
+const RateLimitActivity = require('../models/RateLimitActivity');
+const RateLimitBucket = require('../models/RateLimitBucket');
 
 const clientId = mongoose.isValidObjectId(process.env.INDEX_EXPLAIN_CLIENT_ID)
   ? new mongoose.Types.ObjectId(process.env.INDEX_EXPLAIN_CLIENT_ID)
@@ -36,7 +38,14 @@ const checks = [
   ['vendor list order', require('../models/Vendor'), {}, { createdAt: -1 }],
   ['product active list order', require('../models/Product'), { isActive: true }, { productName: 1 }],
   ['user list order', require('../models/User'), {}, { createdAt: -1 }],
-  ['user email lookup', require('../models/User'), { email: 'missing-index-check@example.invalid' }, {}]
+  ['user email lookup', require('../models/User'), { email: 'missing-index-check@example.invalid' }, {}],
+  ['rate-limit user history', RateLimitActivity, { userId: clientId }, { createdAt: -1 }],
+  ['rate-limit activity type history', RateLimitActivity, { activityType: 'Temporarily Restricted' }, { createdAt: -1 }],
+  ['rate-limit endpoint analysis', RateLimitActivity, { endpoint: '/api/customers' }, { createdAt: -1 }],
+  ['rate-limit policy analysis', RateLimitActivity, { policyName: 'general' }, { createdAt: -1 }],
+  ['rate-limit IP filter', RateLimitActivity, { ipAddress: 'privacy-hash' }, { createdAt: -1 }],
+  ['active restricted windows', RateLimitBucket, { limitedRequests: { $gt: 0 }, windowEndsAt: { $gt: new Date() } }, {}],
+  ['rate-limit shared counter lookup', RateLimitBucket, { counterKey: 'explain-index-probe' }, {}]
 ];
 
 const summarizeStages = (plan, stages = []) => {

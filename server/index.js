@@ -6,14 +6,18 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { sanitizeErrorMessage, sendErrorResponse } = require('./utils/errorHandler');
 const { buildMongoConnectionOptions, getMongoReconnectDelay } = require('./config/mongoConnection');
 const { attachMongoMonitoring, stopMongoMonitoring } = require('./utils/mongoMonitoring');
+const { parseTrustProxySetting } = require('./config/trustProxy');
+const { ApiRegistry, instrumentApiRegistrations } = require('./utils/apiRegistry');
+const { startSharedActivityStream, stopSharedActivityStream } = require('./utils/rateLimitTelemetry');
 
 const app = express();
 const REQUEST_BODY_LIMIT = '200mb';
 const backupRoutes = require('./routes/backups');
+const { createRateLimitMiddleware } = require('./middleware/apiRateLimiter');
+const apiRegistry = new ApiRegistry();
+instrumentApiRegistrations(app, apiRegistry);
 
 // Middleware
-app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
-app.use(express.urlencoded({ extended: true, limit: REQUEST_BODY_LIMIT }));
 app.use(cors());
 
 app.use((req, res, next) => {
@@ -35,6 +39,12 @@ app.use((req, res, next) => {
   next();
 });
 
+const trustProxySetting = parseTrustProxySetting(process.env.TRUST_PROXY);
+if (trustProxySetting !== undefined) app.set('trust proxy', trustProxySetting);
+app.use('/api', createRateLimitMiddleware({ registry: apiRegistry }));
+app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: REQUEST_BODY_LIMIT }));
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/company-settings', require('./routes/companySettings'));
@@ -51,6 +61,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/admin/load-balancing', require('./routes/loadBalancing'));
+app.use('/api/admin', require('./routes/rateLimitActivities').createRateLimitActivitiesRouter({ registry: apiRegistry }));
 app.use('/api/backups', backupRoutes);
 app.get('/api/health', (req, res) => {
   const connected = mongoose.connection.readyState === 1;
@@ -100,6 +111,7 @@ const connectToDatabase = async () => {
         cached.conn = connection;
         cached.retryCount = 0;
         attachMongoMonitoring(mongoose.connection, buildMongoConnectionOptions());
+        startSharedActivityStream();
         return connection;
       })
       .catch((error) => {
@@ -120,6 +132,7 @@ if (require.main === module) {
     if (cached.reconnectTimer) clearTimeout(cached.reconnectTimer);
     cached.reconnectTimer = null;
     await stopMongoMonitoring();
+    await stopSharedActivityStream();
     await new Promise((resolve) => server.close(resolve));
     await mongoose.disconnect();
   };
@@ -145,4 +158,4 @@ if (require.main === module) {
     .catch(err => console.error('Could not connect to MongoDB', err));
 }
 
-module.exports = { app, connectToDatabase };
+module.exports = { app, apiRegistry, connectToDatabase, parseTrustProxySetting };
