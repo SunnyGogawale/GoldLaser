@@ -240,13 +240,17 @@ function Reports() {
   const getReportValue = (row, key) => {
     if (key === 'invoiceAmount') return row.invoiceAmount ?? row.debitInvoice ?? 0
     if (key === 'paidAmount') return row.paidAmount ?? row.creditPayment ?? row.paymentAmount ?? 0
+    if (key === 'tnxType') {
+      if (['Sale Invoice', 'Purchase Invoice'].includes(row[key])) return 'Invoice'
+      if (['Sale Payment', 'Purchase Payment'].includes(row[key])) return 'Payment'
+    }
     return row[key]
   }
   const formatReportCell = (row, column) => {
     const value = getReportValue(row, column.key)
     if (column.key === 'date') return formatDateMMDDYYYY(value)
     if (REPORT_AMOUNT_COLUMN_KEYS.has(column.key)) return `$${formatMoney(value)}`
-    if (column.key === 'description') return <span style={{ whiteSpace: 'pre-line' }}>{value || '-'}</span>
+    if (column.key === 'description') return value || '-'
     return value || '-'
   }
   const toggleColumnInfo = (event, key) => {
@@ -318,7 +322,7 @@ function Reports() {
                     })}
                   </tr>
                 </thead>
-                <tbody>{rows.map((row) => <tr key={row._id} style={{ borderBottom: '1px solid var(--border)' }}>{reportColumns.map((column) => <td key={column.key} style={{ padding: '0.7rem 0.45rem', textAlign: REPORT_AMOUNT_COLUMN_KEYS.has(column.key) ? 'right' : 'left', overflowWrap: column.key === 'description' || column.key === 'companyName' ? 'anywhere' : 'normal', ...(column.key === 'status' ? statusStyle(row.status) : {}) }}>{formatReportCell(row, column)}</td>)}</tr>)}</tbody>
+                <tbody>{rows.map((row) => <tr key={row._id} style={{ borderBottom: '1px solid var(--border)' }}>{reportColumns.map((column) => <td key={column.key} title={column.key === 'description' ? String(getReportValue(row, column.key) || '') : undefined} style={{ padding: '0.7rem 0.45rem', textAlign: REPORT_AMOUNT_COLUMN_KEYS.has(column.key) ? 'right' : 'left', ...(column.key === 'description' ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : { overflowWrap: column.key === 'companyName' ? 'anywhere' : 'normal' }), ...(column.key === 'status' ? statusStyle(row.status) : {}) }}>{formatReportCell(row, column)}</td>)}</tr>)}</tbody>
               </table>
             </div>
             {openColumnInfo && createPortal(

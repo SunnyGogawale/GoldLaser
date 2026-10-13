@@ -1,7 +1,7 @@
 export const REPORT_COLUMNS = [
 	{ key: 'companyName', label: 'Company Name' },
 	{ key: 'date', label: 'Date' },
-	{ key: 'tnxNo', label: 'Tnx No' },
+	{ key: 'tnxNo', label: 'INV No' },
 	{ key: 'tnxType', label: 'Tnx Type' },
 	{ key: 'description', label: 'Description' },
 	{ key: 'invoiceAmount', label: 'Amount' },
@@ -30,4 +30,3 @@ export const getReportPopoverPosition = (iconRect) => {
 
 	return { left, top }
 }
-

@@ -460,6 +460,14 @@ function Invoice() {
     return descriptions.map((description, index) => `${index + 1}. ${description}`).join('\n')
   }
 
+  const getInvoiceListDescription = (invoice) => {
+    const invoiceDescription = String(invoice?.transactionDescription || '').trim()
+    const itemDescription = getInvoiceItemDescription(invoice).replace(/\n/g, ' ')
+    if (!invoiceDescription && !itemDescription) return ''
+
+    return `${invoiceDescription || '-'}\n${itemDescription || '-'}`
+  }
+
   const formatDateDDMMMYYYY = (dateValue) => {
     return formatDateMMDDYYYY(dateValue)
   }
@@ -2589,11 +2597,13 @@ function Invoice() {
                               ${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           </div>
-                          {getInvoiceItemDescription(invoice) && (
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                          {getInvoiceListDescription(invoice) && (
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', minWidth: 0 }}>
                               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '64px' }}>Note:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'pre-line', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                                {getInvoiceItemDescription(invoice)}
+                              <div title={getInvoiceListDescription(invoice)} style={{ flex: 1, minWidth: 0, overflow: 'hidden', fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                                {getInvoiceListDescription(invoice).split('\n').map((line, index) => (
+                                  <div key={index} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line}</div>
+                                ))}
                               </div>
                             </div>
                           )}
@@ -2676,15 +2686,15 @@ function Invoice() {
                                 padding: '0.35rem 0.35rem',
                                 color: 'var(--text-main)',
                                 borderRight: isAdmin ? '1px solid var(--border)' : 'none',
-                                whiteSpace: 'pre-line',
-                                overflowWrap: 'anywhere',
-                                wordBreak: 'break-word',
-                                minWidth: '260px',
-                                maxWidth: '420px'
+                                overflow: 'hidden'
                               }}
-                              title={getInvoiceItemDescription(invoice)}
+                              title={getInvoiceListDescription(invoice)}
                             >
-                              {getInvoiceItemDescription(invoice) || '-'}
+                              {getInvoiceListDescription(invoice)
+                                ? getInvoiceListDescription(invoice).split('\n').map((line, index) => (
+                                  <div key={index} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line}</div>
+                                ))
+                                : '-'}
                             </td>
                             <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={`$${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
                               ${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

@@ -329,6 +329,16 @@ function PurchaseInvoice() {
     return descriptions.map((description, index) => `${index + 1}. ${description}`).join('\n')
   }
 
+  const getInvoiceListDescription = (invoice) => {
+    const rawInvoiceDescription = String(invoice?.transactionDescription || '').trim()
+    const rawItemDescription = getInvoiceItemDescription(invoice)
+    if (!rawInvoiceDescription && !rawItemDescription) return ''
+
+    const invoiceDescription = rawInvoiceDescription || '-'
+    const itemDescription = rawItemDescription.replace(/\n/g, ' ') || '-'
+    return `${invoiceDescription}\n${itemDescription}`
+  }
+
   const formatDateDDMMMYYYY = (dateValue) => {
     return formatDateMMDDYYYY(dateValue)
   }
@@ -1804,7 +1814,7 @@ function PurchaseInvoice() {
                     const label = invoice.vendorId?.id ? `${name} (${invoice.vendorId.id})` : name;
                     const dateLabel = formatDateDDMMMYYYY(invoice.invoiceDate);
                     const amountLabel = `$${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                    const descriptionLabel = getInvoiceItemDescription(invoice);
+                    const descriptionLabel = getInvoiceListDescription(invoice);
 
                     return (
                       <div
@@ -1901,9 +1911,13 @@ function PurchaseInvoice() {
                             <div style={{ fontSize: '0.875rem', color: 'var(--danger)', fontWeight: 800 }}>{amountLabel}</div>
                           </div>
                           {descriptionLabel && (
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', minWidth: 0 }}>
                               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Description:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600, whiteSpace: 'pre-line', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{descriptionLabel}</div>
+                              <div title={descriptionLabel} style={{ flex: 1, minWidth: 0, overflow: 'hidden', fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                                {descriptionLabel.split('\n').map((line, index) => (
+                                  <div key={index} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line}</div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1955,7 +1969,7 @@ function PurchaseInvoice() {
                         const label = getClientDisplayLabel(invoice.vendorId)
                         const dateLabel = formatDateDDMMMYYYY(invoice.invoiceDate)
                         const amountLabel = `$${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                        const descriptionLabel = getInvoiceItemDescription(invoice);
+                        const descriptionLabel = getInvoiceListDescription(invoice);
 
                         return (
                           <tr key={invoice._id} style={{ borderBottom: '1px solid var(--border)' }}>
@@ -1981,8 +1995,10 @@ function PurchaseInvoice() {
                             <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={dateLabel}>
                               {dateLabel}
                             </td>
-                            <td style={{ width: '30%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'pre-line', overflowWrap: 'anywhere', wordBreak: 'break-word', minWidth: '260px', maxWidth: '420px' }} title={descriptionLabel}>
-                              {descriptionLabel || '-'}
+                            <td style={{ width: '30%', textAlign: 'left', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', overflow: 'hidden' }} title={descriptionLabel}>
+                              {descriptionLabel ? descriptionLabel.split('\n').map((line, index) => (
+                                <div key={index} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line}</div>
+                              )) : '-'}
                             </td>
                             <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }} title={amountLabel}>
                               {amountLabel}
