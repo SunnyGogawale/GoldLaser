@@ -11,6 +11,7 @@ import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { generateStatementPdfBlob } from '../../../utils/commonPdf'
+import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/vendors`
@@ -78,8 +79,14 @@ function Vendor() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearchQuery = useDebouncedValue(searchQuery)
   const [sortColumn, setSortColumn] = useState('')
   const [sortOrder, setSortOrder] = useState('asc')
+  const vendorListQueryRef = useRef({ searchQuery, sortColumn, sortOrder })
+  useEffect(() => {
+    vendorListQueryRef.current = { searchQuery, sortColumn, sortOrder }
+  }, [searchQuery, sortColumn, sortOrder])
+  const startVendorListRequest = useLatestAbortController()
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
   const [infoOpen, setInfoOpen] = useState(false)
   const [infoVendor, setInfoVendor] = useState(null)
@@ -263,24 +270,31 @@ function Vendor() {
     }
   };
 
-  const fetchVendors = useCallback(async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
+  const fetchVendors = useCallback(async (page = 1, search, column, order) => {
+    const request = startVendorListRequest()
+    const query = vendorListQueryRef.current
+    const effectiveSearch = search ?? query.searchQuery
+    const effectiveColumn = column ?? query.sortColumn
+    const effectiveOrder = order ?? query.sortOrder
+    if (effectiveSearch !== debouncedSearchQuery) return
     setListLoading(true);
     try {
-      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
-      if (column) {
-        url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
+      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(effectiveSearch)}`;
+      if (effectiveColumn) {
+        url += `&sortColumn=${encodeURIComponent(effectiveColumn)}&sortOrder=${encodeURIComponent(effectiveOrder)}`;
       }
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: request.signal });
       const data = await readJsonResponse(response, 'Error fetching vendors');
+      if (request.signal.aborted) return
       setVendors(data.vendors || []);
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
     } catch (err) {
-      handleApiError(err, 'Error fetching vendors');
+      if (!request.signal.aborted) handleApiError(err, 'Error fetching vendors');
     } finally {
-      setListLoading(false);
+      if (!request.signal.aborted) setListLoading(false);
     }
-  }, [searchQuery, sortColumn, sortOrder]);
+  }, [debouncedSearchQuery, startVendorListRequest]);
 
   const fetchCustomFields = useCallback(async () => {
     try {
@@ -318,12 +332,16 @@ function Vendor() {
     }
   }, [formOpen, editingVendorId]);
 
-  // Fetch vendors and custom fields on component mount
+  // Fetch the vendor list after search input settles; sorting remains immediate.
   useEffect(() => {
-    fetchVendors(1, searchQuery, sortColumn, sortOrder);
+    if (searchQuery !== debouncedSearchQuery) return
+    fetchVendors(1, debouncedSearchQuery, sortColumn, sortOrder);
+  }, [searchQuery, debouncedSearchQuery, sortColumn, sortOrder, fetchVendors]);
+
+  useEffect(() => {
     fetchNextVendorId();
     fetchCustomFields();
-  }, [searchQuery, sortColumn, sortOrder, fetchVendors, fetchNextVendorId, fetchCustomFields]);
+  }, [fetchNextVendorId, fetchCustomFields]);
 
   // Validation function
   const validateForm = () => {

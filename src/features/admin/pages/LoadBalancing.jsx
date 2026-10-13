@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Database, RefreshCw, Search, Server, X } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
+import { useDebouncedValue } from '../../../utils/useApiRequest'
 import './LoadBalancing.css'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -62,6 +63,9 @@ function LoadBalancing() {
     operationType: '',
     search: ''
   })
+  const debouncedSearch = useDebouncedValue(filters.search)
+  const debouncedServerId = useDebouncedValue(filters.serverId)
+  const debouncedDatabaseNode = useDebouncedValue(filters.databaseNode)
   const limit = 25
   const refreshInterval = Number.isFinite(metrics?.refreshIntervalMs)
     ? Math.min(120000, Math.max(5000, metrics.refreshIntervalMs))
@@ -76,8 +80,41 @@ function LoadBalancing() {
     const controller = new AbortController()
     const token = getAuthToken()
     const headers = token ? { Authorization: `Bearer ${token}` } : {}
+    const loadMetrics = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/load-balancing/metrics`, { headers, signal: controller.signal })
+        const data = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(data?.message || 'Database metrics are unavailable')
+        if (!controller.signal.aborted) setMetrics(data)
+      } catch (requestError) {
+        if (requestError.name !== 'AbortError') setError(requestError.message || 'Database metrics are unavailable')
+      }
+    }
+    loadMetrics()
+    return () => controller.abort()
+  }, [refreshKey])
+
+  useEffect(() => {
+    if (
+      filters.search !== debouncedSearch ||
+      filters.serverId !== debouncedServerId ||
+      filters.databaseNode !== debouncedDatabaseNode
+    ) return
+    const controller = new AbortController()
+    const token = getAuthToken()
+    const headers = token ? { Authorization: `Bearer ${token}` } : {}
     const query = new URLSearchParams({ page: String(page), limit: String(limit) })
-    for (const [key, value] of Object.entries(filters)) {
+    const requestFilters = {
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      activityType: filters.activityType,
+      serverId: debouncedServerId,
+      databaseNode: debouncedDatabaseNode,
+      healthStatus: filters.healthStatus,
+      operationType: filters.operationType,
+      search: debouncedSearch
+    }
+    for (const [key, value] of Object.entries(requestFilters)) {
       if (value) query.set(key, value)
     }
 
@@ -85,17 +122,9 @@ function LoadBalancing() {
       setRefreshing(true)
       setError('')
       try {
-        const [metricResponse, activityResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/admin/load-balancing/metrics`, { headers, signal: controller.signal }),
-          fetch(`${API_BASE_URL}/api/admin/load-balancing/activities?${query}`, { headers, signal: controller.signal })
-        ])
-        const [metricData, activityData] = await Promise.all([
-          metricResponse.json().catch(() => null),
-          activityResponse.json().catch(() => null)
-        ])
-        if (!metricResponse.ok) throw new Error(metricData?.message || 'Database metrics are unavailable')
+        const activityResponse = await fetch(`${API_BASE_URL}/api/admin/load-balancing/activities?${query}`, { headers, signal: controller.signal })
+        const activityData = await activityResponse.json().catch(() => null)
         if (!activityResponse.ok) throw new Error(activityData?.message || 'Activity history is unavailable')
-        setMetrics(metricData)
         setActivities(Array.isArray(activityData?.activities) ? activityData.activities : [])
         setTotal(Number(activityData?.total) || 0)
       } catch (requestError) {
@@ -110,7 +139,7 @@ function LoadBalancing() {
 
     load()
     return () => controller.abort()
-  }, [filters, page, refreshKey])
+  }, [filters.search, filters.serverId, filters.databaseNode, filters.fromDate, filters.toDate, filters.activityType, filters.healthStatus, filters.operationType, debouncedSearch, debouncedServerId, debouncedDatabaseNode, page, refreshKey])
 
   const updateFilter = (key, value) => {
     setPage(1)

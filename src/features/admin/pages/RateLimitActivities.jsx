@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Download, Pause, Play, RefreshCw, Search, Shield, Users, X } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
+import { useDebouncedValue } from '../../../utils/useApiRequest'
 import './RateLimitActivities.css'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
@@ -52,34 +53,66 @@ function RateLimitActivities() {
     search: '', fromDate: '', toDate: '', method: '', activityType: '', userRole: '', policyName: '', ipAddress: ''
   })
   const [apiFilters, setApiFilters] = useState({ search: '', method: '', module: '', role: '', status: '' })
+  const debouncedSearch = useDebouncedValue(filters.search)
+  const debouncedIpAddress = useDebouncedValue(filters.ipAddress)
+  const debouncedApiSearch = useDebouncedValue(apiFilters.search)
+  const debouncedApiModule = useDebouncedValue(apiFilters.module)
 
   useEffect(() => {
     const controller = new AbortController()
-    const timer = window.setTimeout(async () => {
+    const query = new URLSearchParams()
+    if (filters.fromDate) query.set('fromDate', filters.fromDate)
+    if (filters.toDate) query.set('toDate', filters.toDate)
+    if (filters.policyName) query.set('policyName', filters.policyName)
+    const loadStats = async () => {
+      try {
+        const token = getAuthToken()
+        const response = await fetch(`${API_BASE_URL}/api/admin/rate-limit-activities/stats?${query}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: controller.signal
+        })
+        const data = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(data?.message || 'Rate-limit statistics are unavailable')
+        if (!controller.signal.aborted) {
+          setStats(data)
+          setLastUpdatedAt(new Date())
+        }
+      } catch (requestError) {
+        if (requestError.name !== 'AbortError') setError(requestError.message || 'Rate-limit statistics are unavailable')
+      }
+    }
+    loadStats()
+    return () => controller.abort()
+  }, [filters.fromDate, filters.toDate, filters.policyName, refreshKey])
+
+  useEffect(() => {
+    if (filters.search !== debouncedSearch || filters.ipAddress !== debouncedIpAddress) return
+    const controller = new AbortController()
+    const requestFilters = {
+      search: debouncedSearch,
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      method: filters.method,
+      activityType: filters.activityType,
+      userRole: filters.userRole,
+      policyName: filters.policyName,
+      ipAddress: debouncedIpAddress
+    }
+    const loadActivities = async () => {
       const token = getAuthToken()
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
       const listQuery = new URLSearchParams({ page: String(page), limit: String(pageSize) })
-      const statsQuery = new URLSearchParams()
-      for (const [key, value] of Object.entries(filters)) {
+      for (const [key, value] of Object.entries(requestFilters)) {
         if (!value) continue
         listQuery.set(key, value)
-        if (key !== 'search' && key !== 'ipAddress' && key !== 'userRole' && key !== 'method' && key !== 'activityType') statsQuery.set(key, value)
       }
 
       setRefreshing(true)
       setError('')
       try {
-        const [statsResponse, listResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/admin/rate-limit-activities/stats?${statsQuery}`, { headers, signal: controller.signal }),
-          fetch(`${API_BASE_URL}/api/admin/rate-limit-activities?${listQuery}`, { headers, signal: controller.signal })
-        ])
-        const [statsData, listData] = await Promise.all([
-          statsResponse.json().catch(() => null),
-          listResponse.json().catch(() => null)
-        ])
-        if (!statsResponse.ok) throw new Error(statsData?.message || 'Rate-limit statistics are unavailable')
+        const listResponse = await fetch(`${API_BASE_URL}/api/admin/rate-limit-activities?${listQuery}`, { headers, signal: controller.signal })
+        const listData = await listResponse.json().catch(() => null)
         if (!listResponse.ok) throw new Error(listData?.message || 'Rate-limit activities are unavailable')
-        setStats(statsData)
         setActivities(Array.isArray(listData?.activities) ? listData.activities : [])
         setTotal(Number(listData?.total) || 0)
         setLastUpdatedAt(new Date())
@@ -91,18 +124,24 @@ function RateLimitActivities() {
           setRefreshing(false)
         }
       }
-    }, filters.search ? 250 : 0)
-
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
     }
-  }, [filters, page, pageSize, refreshKey])
+
+    loadActivities()
+    return () => controller.abort()
+  }, [filters.search, filters.ipAddress, filters.fromDate, filters.toDate, filters.method, filters.activityType, filters.userRole, filters.policyName, debouncedSearch, debouncedIpAddress, page, pageSize, refreshKey])
 
   useEffect(() => {
+    if (apiFilters.search !== debouncedApiSearch || apiFilters.module !== debouncedApiModule) return
     const controller = new AbortController()
     const query = new URLSearchParams({ page: String(apiPage), limit: String(apiPageSize) })
-    for (const [key, value] of Object.entries(apiFilters)) if (value) query.set(key, value)
+    const requestFilters = {
+      search: debouncedApiSearch,
+      method: apiFilters.method,
+      module: debouncedApiModule,
+      role: apiFilters.role,
+      status: apiFilters.status
+    }
+    for (const [key, value] of Object.entries(requestFilters)) if (value) query.set(key, value)
     const loadApis = async () => {
       try {
         const token = getAuthToken()
@@ -121,7 +160,7 @@ function RateLimitActivities() {
     }
     loadApis()
     return () => controller.abort()
-  }, [apiFilters, apiPage, apiPageSize, refreshKey])
+  }, [apiFilters.search, apiFilters.module, apiFilters.method, apiFilters.role, apiFilters.status, debouncedApiSearch, debouncedApiModule, apiPage, apiPageSize, refreshKey])
 
   useEffect(() => {
     if (livePaused) {

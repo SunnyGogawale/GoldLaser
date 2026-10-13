@@ -11,6 +11,7 @@ import { generateInvoicePdfBlob } from '../../../utils/invoicePdf'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY, formatDateTimeMMDDYYYY } from '../../../utils/formatters'
+import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/invoices`;
@@ -300,6 +301,7 @@ function Invoice() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebouncedValue(searchQuery);
   const [sortColumn, setSortColumn] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
@@ -552,35 +554,39 @@ function Invoice() {
   };
 
   const invoiceListRequestSequence = useRef(0);
+  const startInvoiceListRequest = useLatestAbortController();
 
   // Fetch invoices on component mount
   const fetchInvoices = async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
+    if (search !== debouncedSearchQuery) return
     const requestSequence = ++invoiceListRequestSequence.current;
+    const request = startInvoiceListRequest();
     setListLoading(true);
     try {
       let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
       if (column) {
         url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
       }
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: request.signal });
       const data = await readJsonResponse(response, 'Error fetching invoices');
-      if (requestSequence !== invoiceListRequestSequence.current) return;
+      if (request.signal.aborted || requestSequence !== invoiceListRequestSequence.current) return;
       setInvoices(data.invoices || []);
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
     } catch (err) {
-      if (requestSequence === invoiceListRequestSequence.current) {
+      if (!request.signal.aborted && requestSequence === invoiceListRequestSequence.current) {
         handleApiError(err, 'Error fetching invoices');
       }
     } finally {
-      if (requestSequence === invoiceListRequestSequence.current) setListLoading(false);
+      if (!request.signal.aborted && requestSequence === invoiceListRequestSequence.current) setListLoading(false);
     }
   };
 
   useEffect(() => {
+    if (searchQuery !== debouncedSearchQuery) return;
     // Reset to page 1 when search query or sort changes
-    fetchInvoices(1, searchQuery, sortColumn, sortOrder);
-  }, [searchQuery, sortColumn, sortOrder]);
+    fetchInvoices(1, debouncedSearchQuery, sortColumn, sortOrder);
+  }, [searchQuery, debouncedSearchQuery, sortColumn, sortOrder]);
 
   useEffect(() => {
     fetchCustomersList();

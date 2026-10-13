@@ -11,6 +11,7 @@ import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { generateStatementPdfBlob } from '../../../utils/commonPdf'
+import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const API_URL = `${API_BASE_URL}/api/customers`
@@ -78,8 +79,14 @@ function Customer() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearchQuery = useDebouncedValue(searchQuery)
   const [sortColumn, setSortColumn] = useState('')
   const [sortOrder, setSortOrder] = useState('asc')
+  const customerListQueryRef = useRef({ searchQuery, sortColumn, sortOrder })
+  useEffect(() => {
+    customerListQueryRef.current = { searchQuery, sortColumn, sortOrder }
+  }, [searchQuery, sortColumn, sortOrder])
+  const startCustomerListRequest = useLatestAbortController()
   const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
   const [infoOpen, setInfoOpen] = useState(false)
   const [infoCustomer, setInfoCustomer] = useState(null)
@@ -161,24 +168,31 @@ function Customer() {
     }
   };
 
-  const fetchCustomers = useCallback(async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
+  const fetchCustomers = useCallback(async (page = 1, search, column, order) => {
+    const request = startCustomerListRequest()
+    const query = customerListQueryRef.current
+    const effectiveSearch = search ?? query.searchQuery
+    const effectiveColumn = column ?? query.sortColumn
+    const effectiveOrder = order ?? query.sortOrder
+    if (effectiveSearch !== debouncedSearchQuery) return
     setListLoading(true);
     try {
-      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
-      if (column) {
-        url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
+      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(effectiveSearch)}`;
+      if (effectiveColumn) {
+        url += `&sortColumn=${encodeURIComponent(effectiveColumn)}&sortOrder=${encodeURIComponent(effectiveOrder)}`;
       }
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: request.signal });
       const data = await readJsonResponse(response, 'Error fetching customers');
+      if (request.signal.aborted) return
       setCustomers(data.customers || []);
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
     } catch (err) {
-      handleApiError(err, 'Error fetching customers');
+      if (!request.signal.aborted) handleApiError(err, 'Error fetching customers');
     } finally {
-      setListLoading(false);
+      if (!request.signal.aborted) setListLoading(false);
     }
-  }, [searchQuery, sortColumn, sortOrder]);
+  }, [debouncedSearchQuery, startCustomerListRequest]);
 
   const fetchCustomFields = useCallback(async () => {
     try {
@@ -216,12 +230,16 @@ function Customer() {
     }
   }, [formOpen, editingCustomerId]);
 
-  // Fetch customers and custom fields on component mount
+  // Fetch the customer list after search input settles; sorting remains immediate.
   useEffect(() => {
-    fetchCustomers(1, searchQuery, sortColumn, sortOrder);
+    if (searchQuery !== debouncedSearchQuery) return
+    fetchCustomers(1, debouncedSearchQuery, sortColumn, sortOrder);
+  }, [searchQuery, debouncedSearchQuery, sortColumn, sortOrder, fetchCustomers]);
+
+  useEffect(() => {
     fetchNextCustomerId();
     fetchCustomFields();
-  }, [searchQuery, sortColumn, sortOrder, fetchCustomers, fetchNextCustomerId, fetchCustomFields]);
+  }, [fetchNextCustomerId, fetchCustomFields]);
 
   // Validation function
   const validateForm = () => {

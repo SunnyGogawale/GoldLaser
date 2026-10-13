@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 import { createPortal } from 'react-dom'
 import { 
   TrendingUp, 
@@ -240,6 +241,10 @@ function Dashboard() {
   const [totalPurchasePaymentRows, setTotalPurchasePaymentRows] = useState(0)
   const [customerOverviewSearch, setCustomerOverviewSearch] = useState('')
   const [vendorOverviewSearch, setVendorOverviewSearch] = useState('')
+  const debouncedCustomerOverviewSearch = useDebouncedValue(customerOverviewSearch)
+  const debouncedVendorOverviewSearch = useDebouncedValue(vendorOverviewSearch)
+  const startCustomerOverviewRequest = useLatestAbortController()
+  const startVendorOverviewRequest = useLatestAbortController()
   const [customerOverview, setCustomerOverview] = useState([])
   const [vendorOverview, setVendorOverview] = useState([])
   const [customerModalOpen, setCustomerModalOpen] = useState(false)
@@ -298,58 +303,58 @@ function Dashboard() {
   }, [])
 
   const fetchCustomerOverview = useCallback(async (search = '') => {
+    const request = startCustomerOverviewRequest()
     setCustomerOverviewLoading(true)
     try {
       const url = new URL(`${API_BASE_URL}/api/dashboard/customer-overview`, window.location.origin)
       url.searchParams.set('limit', '100')
       if (search.trim()) url.searchParams.set('search', search.trim())
-      const response = await fetch(url.toString())
+      const response = await fetch(url.toString(), { signal: request.signal })
       const data = await readJsonResponse(response, 'Error fetching customer overview')
+      if (request.signal.aborted) return
       setCustomerOverview(data.customers || [])
     } catch (err) {
-      handleApiError(err, 'Error fetching customer overview')
-      setCustomerOverview([])
+      if (!request.signal.aborted) {
+        handleApiError(err, 'Error fetching customer overview')
+        setCustomerOverview([])
+      }
     } finally {
-      setCustomerOverviewLoading(false)
+      if (!request.signal.aborted) setCustomerOverviewLoading(false)
     }
-  }, [])
+  }, [startCustomerOverviewRequest])
 
   const fetchVendorOverview = useCallback(async (search = '') => {
+    const request = startVendorOverviewRequest()
     setVendorOverviewLoading(true)
     try {
       const url = new URL(`${API_BASE_URL}/api/dashboard/vendor-overview`, window.location.origin)
       url.searchParams.set('limit', '100')
       if (search.trim()) url.searchParams.set('search', search.trim())
-      const response = await fetch(url.toString())
+      const response = await fetch(url.toString(), { signal: request.signal })
       const data = await readJsonResponse(response, 'Error fetching vendor overview')
+      if (request.signal.aborted) return
       setVendorOverview(data.vendors || [])
     } catch (err) {
-      handleApiError(err, 'Error fetching vendor overview')
-      setVendorOverview([])
+      if (!request.signal.aborted) {
+        handleApiError(err, 'Error fetching vendor overview')
+        setVendorOverview([])
+      }
     } finally {
-      setVendorOverviewLoading(false)
+      if (!request.signal.aborted) setVendorOverviewLoading(false)
     }
-  }, [])
+  }, [startVendorOverviewRequest])
 
   useEffect(() => {
     fetchDashboardSummary()
-    fetchCustomerOverview('')
-    fetchVendorOverview('')
-  }, [fetchDashboardSummary, fetchCustomerOverview, fetchVendorOverview])
+  }, [fetchDashboardSummary])
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      fetchCustomerOverview(customerOverviewSearch)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [customerOverviewSearch, fetchCustomerOverview])
+    fetchCustomerOverview(debouncedCustomerOverviewSearch)
+  }, [debouncedCustomerOverviewSearch, fetchCustomerOverview])
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      fetchVendorOverview(vendorOverviewSearch)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [vendorOverviewSearch, fetchVendorOverview])
+    fetchVendorOverview(debouncedVendorOverviewSearch)
+  }, [debouncedVendorOverviewSearch, fetchVendorOverview])
 
   const formatMoney = (value, fractionDigits = 2) =>
     Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })

@@ -13,6 +13,7 @@ import { generatePaymentPdfBlob } from '../../../utils/paymentPdf'
 import { prepareCsvPaymentRow } from '../../../utils/csvPaymentRow'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
+import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 import {
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,
@@ -155,6 +156,7 @@ function Payment() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearchQuery = useDebouncedValue(searchQuery)
   const [sortColumn, setSortColumn] = useState('')
   const [sortOrder, setSortOrder] = useState('asc')
 
@@ -614,31 +616,36 @@ function Payment() {
   }
 
   const paymentListRequestSequence = useRef(0)
+  const startPaymentListRequest = useLatestAbortController()
+  const startPendingInvoiceRequest = useLatestAbortController()
 
   const fetchPayments = async (page = 1, search = searchQuery, column = sortColumn, order = sortOrder) => {
+    if (search !== debouncedSearchQuery) return
     const requestSequence = ++paymentListRequestSequence.current
+    const request = startPaymentListRequest()
     setListLoading(true)
     try {
       let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`
       if (column) {
         url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`
       }
-      const response = await fetch(url)
+      const response = await fetch(url, { signal: request.signal })
       const data = await readJsonResponse(response, 'Error fetching payments')
-      if (requestSequence !== paymentListRequestSequence.current) return
+      if (request.signal.aborted || requestSequence !== paymentListRequestSequence.current) return
       setPayments(data.payments || [])
       setTotalPages(data.totalPages || 0)
       setCurrentPage(page)
     } catch (err) {
-      if (requestSequence === paymentListRequestSequence.current) {
+      if (!request.signal.aborted && requestSequence === paymentListRequestSequence.current) {
         console.error('Error fetching payments:', err)
       }
     } finally {
-      if (requestSequence === paymentListRequestSequence.current) setListLoading(false)
+      if (!request.signal.aborted && requestSequence === paymentListRequestSequence.current) setListLoading(false)
     }
   }
 
   const fetchPendingInvoices = async (clientId, clientType, excludePaymentId) => {
+    const request = startPendingInvoiceRequest()
     if (!clientId) {
       setPendingInvoices([])
       setTotalPending(0)
@@ -652,18 +659,20 @@ function Payment() {
       url.searchParams.set('clientId', clientId)
       url.searchParams.set('clientType', clientType)
       if (excludePaymentId) url.searchParams.set('excludePaymentId', excludePaymentId)
-      const response = await fetch(url.toString())
+      const response = await fetch(url.toString(), { signal: request.signal })
       const data = await readJsonResponse(response, 'Error fetching pending invoices')
+      if (request.signal.aborted) return
       setPendingInvoices(data.invoices || [])
       setTotalPending(Number(data.totalPending) || 0)
       setAvailableCredit(Math.max(0, Number(data.availableCredit) || 0))
     } catch (err) {
+      if (request.signal.aborted) return
       console.error('Error fetching pending invoices:', err)
       setPendingInvoices([])
       setTotalPending(0)
       setAvailableCredit(0)
     } finally {
-      setPendingInvoicesLoading(false)
+      if (!request.signal.aborted) setPendingInvoicesLoading(false)
     }
   }
 
@@ -689,8 +698,9 @@ function Payment() {
   }, [])
 
   useEffect(() => {
-    fetchPayments(1, searchQuery, sortColumn, sortOrder)
-  }, [searchQuery, sortColumn, sortOrder])
+    if (searchQuery !== debouncedSearchQuery) return
+    fetchPayments(1, debouncedSearchQuery, sortColumn, sortOrder)
+  }, [searchQuery, debouncedSearchQuery, sortColumn, sortOrder])
 
   useEffect(() => {
     if (!paymentForm.clientId) {
