@@ -72,6 +72,22 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
   return null
 }
 
+function UnauthorizedSessionHandler({ onUnauthorized }) {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      onUnauthorized()
+      navigate('/login', { replace: true })
+    }
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized)
+  }, [navigate, onUnauthorized])
+
+  return null
+}
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [theme, setTheme] = useState(() => {
@@ -103,6 +119,10 @@ function App() {
     clearAuthSession()
     setIsLoggedIn(false)
   }, [])
+  const handleUnauthorized = useCallback(() => {
+    clearAuthSession()
+    setIsLoggedIn(false)
+  }, [])
 
   const withPageTransition = (element) => <PageTransition>{element}</PageTransition>
   const isAdmin = getAuthValue('userRole').toLowerCase() === 'admin'
@@ -111,6 +131,7 @@ function App() {
     <ToastProvider>
       <BrowserRouter>
         <IdleSessionManager isLoggedIn={isLoggedIn} onLogout={logout} timeoutMs={120000} />
+        <UnauthorizedSessionHandler onUnauthorized={handleUnauthorized} />
         <Routes>
         {/* Auth Routes */}
         <Route

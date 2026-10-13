@@ -12,6 +12,7 @@ import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY, formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
+import { apiFetch as fetch } from '../../../utils/authStorage'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 const API_URL = `${API_BASE_URL}/api/invoices`;

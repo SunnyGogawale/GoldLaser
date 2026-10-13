@@ -9,6 +9,7 @@ const { attachMongoMonitoring, stopMongoMonitoring } = require('./utils/mongoMon
 const { parseTrustProxySetting } = require('./config/trustProxy');
 const { ApiRegistry, instrumentApiRegistrations } = require('./utils/apiRegistry');
 const { startSharedActivityStream, stopSharedActivityStream } = require('./utils/rateLimitTelemetry');
+const { requireApiAuth } = require('./middleware/auth');
 
 const app = express();
 const REQUEST_BODY_LIMIT = '200mb';
@@ -29,7 +30,7 @@ app.use((req, res, next) => {
       const safeMessage = sanitizeErrorMessage(body.message, 'Something went wrong. Please try again later.');
 
       if (shouldSanitize && body.message !== safeMessage) {
-        console.error(`[${req.method} ${req.originalUrl}]`, body.message);
+        console.error(`[${req.method} ${req.path}]`, body.message);
       }
 
       return originalJson({ ...body, message: shouldSanitize ? safeMessage : body.message });
@@ -47,6 +48,7 @@ app.use(express.urlencoded({ extended: true, limit: REQUEST_BODY_LIMIT }));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api', requireApiAuth);
 app.use('/api/company-settings', require('./routes/companySettings'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/customer-custom-fields', require('./routes/customerCustomFields'));
@@ -68,7 +70,7 @@ app.get('/api/health', (req, res) => {
   return res.status(connected ? 200 : 503).json({ status: connected ? 'ok' : 'unavailable' });
 });
 app.use('/api', (req, res) => {
-  res.status(404).json({ message: `API route not found: ${req.method} ${req.originalUrl}` });
+  res.status(404).json({ message: `API route not found: ${req.method} ${req.path}` });
 });
 
 app.use((err, req, res, next) => {

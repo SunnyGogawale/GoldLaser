@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Download, Pause, Play, RefreshCw, Search, Shield, Users, X } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
+import { apiFetch as fetch } from '../../../utils/authStorage'
 import { useDebouncedValue } from '../../../utils/useApiRequest'
 import './RateLimitActivities.css'
 

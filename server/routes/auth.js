@@ -5,35 +5,13 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const { sendErrorResponse } = require('../utils/errorHandler');
+const { requireAuth } = require('../middleware/auth');
 const LOGIN_HISTORY_MAX_RECORDS = 30;
-
-const getBearerToken = (req) => {
-  const header = req.headers.authorization || '';
-  const [type, token] = header.split(' ');
-  if (type !== 'Bearer' || !token) return null;
-  return token;
-};
-
-const requireAuth = async (req, res, next) => {
-  try {
-    const token = getBearerToken(req);
-    if (!token) return res.status(401).json({ message: 'Unauthorized' });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded?.user?.id;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-
-    req.auth = { userId: String(userId), sessionId: decoded?.user?.sessionId || '' };
-    return next();
-  } catch {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-};
 
 // Sign Up Route
 router.post('/signup', async (req, res) => {
   try {
-    const { fullName, email, password, roll } = req.body;
+    const { fullName, email, password } = req.body;
 
     // Check if user already exists
     let user = await User.findOne({ email });
@@ -46,28 +24,29 @@ router.post('/signup', async (req, res) => {
       fullName,
       email,
       password,
-      roll: roll || 'user'
+      roll: 'user'
     });
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
+    const sessionId = crypto.randomUUID();
+    user.loginHistory = [{ sessionId, loginTime: new Date(), logoutTime: null }];
 
-    console.log('Attempting to save user with roll:', user.roll);
     await user.save();
-    console.log('User saved successfully. Saved document:', user);
 
     // Create JWT
     const payload = {
       user: {
-        id: user.id
+        id: user.id,
+        sessionId
       }
     };
 
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: '1h' },
+      { expiresIn: '1h', algorithm: 'HS256' },
       (tokenErr, token) => {
         if (tokenErr) {
           return sendErrorResponse(res, tokenErr, 'Something went wrong. Please try again later.', 500, 'auth.signup');
@@ -82,7 +61,6 @@ router.post('/signup', async (req, res) => {
             roll: userObj.roll || userObj.role || 'user'
           } 
         };
-        console.log('DEBUG: Final responseData.user:', responseData.user);
         return res.json(responseData);
       }
     );
@@ -138,7 +116,7 @@ router.post('/signin', async (req, res) => {
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: '1h' },
+      { expiresIn: '1h', algorithm: 'HS256' },
       (tokenErr, token) => {
         if (tokenErr) {
           return sendErrorResponse(res, tokenErr, 'Something went wrong. Please try again later.', 500, 'auth.signin');
@@ -153,7 +131,6 @@ router.post('/signin', async (req, res) => {
             roll: userObj.roll || userObj.role || 'user'
           } 
         };
-        console.log('DEBUG: Final responseData.user:', responseData.user);
         return res.json(responseData);
       }
     );

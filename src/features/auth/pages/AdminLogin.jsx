@@ -38,7 +38,6 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
         requiredRole: 'admin' // Flag for Admin Login
       });
 
-      console.log('Admin login successful:', response.data);
       showSuccessToast('Admin login successful');
       
       setAuthSession({

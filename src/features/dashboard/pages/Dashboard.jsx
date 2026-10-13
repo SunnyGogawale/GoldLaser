@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
+import { apiFetch as fetch } from '../../../utils/authStorage'
 import { createPortal } from 'react-dom'
 import { 
   TrendingUp, 

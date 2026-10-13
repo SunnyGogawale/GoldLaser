@@ -2,33 +2,10 @@ const express = require('express');
 const router = express.Router();
 const CompanySettings = require('../models/CompanySettings');
 const User = require('../models/User');
+const { requireAuth } = require('../middleware/auth');
 
-const getBearerToken = (req) => {
-  const header = req.headers.authorization || '';
-  const [type, token] = header.split(' ');
-  if (type !== 'Bearer' || !token) return null;
-  return token;
-};
-
-const requireAuth = async (req, res, next) => {
-  try {
-    const token = getBearerToken(req);
-    if (!token) return res.status(401).json({ message: 'Unauthorized' });
-
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded?.user?.id;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-
-    req.auth = { userId: String(userId) };
-    return next();
-  } catch {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-};
-
-// Get company settings (public or authenticated)
-router.get('/', async (req, res) => {
+// Get company settings
+router.get('/', requireAuth, async (req, res) => {
   try {
     let settings = await CompanySettings.findOne();
     if (!settings) {

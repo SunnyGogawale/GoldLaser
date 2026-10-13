@@ -28,6 +28,33 @@ export const clearAuthSession = () => {
   }
 }
 
+export const apiFetch = async (input, init = {}) => {
+  const requestInput = input instanceof Request
+    ? input.url
+    : input instanceof URL
+      ? input.href
+      : input
+  const requestUrl = new URL(
+    requestInput,
+    window.location.origin
+  )
+  const configuredApiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
+  const apiOrigin = new URL(configuredApiUrl || window.location.origin, window.location.origin).origin
+  const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined))
+  const token = getAuthToken()
+
+  if (token && requestUrl.origin === apiOrigin && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  const response = await globalThis.fetch(input, { ...init, headers })
+  if (requestUrl.origin === apiOrigin && response.status === 401 && token) {
+    clearAuthSession()
+    window.dispatchEvent(new Event('auth:unauthorized'))
+  }
+  return response
+}
+
 export const markSessionActivity = () => {
   setAuthValue('lastActivityAt', Date.now())
 }

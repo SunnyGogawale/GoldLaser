@@ -39,7 +39,6 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
         requiredRole: 'user' // Flag for User Login
       });
 
-      console.log('Login successful:', response.data);
       showSuccessToast('Login successful');
       
       setAuthSession({

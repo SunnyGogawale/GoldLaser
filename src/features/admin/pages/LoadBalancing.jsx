@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Database, RefreshCw, Search, Server, X } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
+import { apiFetch as fetch } from '../../../utils/authStorage'
 import { useDebouncedValue } from '../../../utils/useApiRequest'
 import './LoadBalancing.css'
 

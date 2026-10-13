@@ -10,6 +10,7 @@ import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { REPORT_COLUMNS, REPORT_AMOUNT_COLUMN_KEYS, REPORT_COLUMN_INFO, getReportPopoverPosition } from '../reportColumns'
+import { apiFetch as fetch } from '../../../utils/authStorage'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORTS_API_URL = `${API_BASE_URL}/api/reports`

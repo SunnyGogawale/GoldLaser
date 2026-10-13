@@ -14,6 +14,7 @@ import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
+import { apiFetch as fetch } from '../../../utils/authStorage'
 import {
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,

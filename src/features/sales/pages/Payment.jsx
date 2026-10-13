@@ -14,6 +14,7 @@ import { prepareCsvPaymentRow } from '../../../utils/csvPaymentRow'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
+import { apiFetch as fetch } from '../../../utils/authStorage'
 import {
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,

@@ -1,4 +1,5 @@
 import { showErrorToast } from './toast'
+import { apiFetch as fetch } from './authStorage'
 
 export const sanitizeClientErrorMessage = (message, fallbackMessage = 'An error occurred') => {
   if (typeof message !== 'string') return fallbackMessage

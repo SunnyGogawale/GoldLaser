@@ -20,6 +20,7 @@ import {
   Activity
 } from 'lucide-react'
 import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue, recordLogout } from '../utils/authStorage'
+import { apiFetch as fetch } from '../utils/authStorage'
 import { modalMotionProps, overlayMotionProps } from './PageTransition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 import MotionButton from './MotionButton'

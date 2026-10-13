@@ -47,7 +47,6 @@ const SignUp = ({ theme, toggleTheme }) => {
         roll: 'user'
       });
       
-      console.log('Signup successful:', response.data);
       showSuccessToast('Account created successfully');
       navigate('/login');
     } catch (err) {
