@@ -11,6 +11,7 @@ const User = require('../models/User');
 const { buildPaymentMergeUpdateOps } = require('../utils/paymentDuplicateHandling');
 const { sendErrorResponse } = require('../utils/errorHandler');
 const { getNextCsvPaymentNumber, isUnallocatedCsvPayment } = require('../utils/csvPaymentNumber');
+const { getAvailableCreditContribution } = require('../utils/paymentCredit');
 
 const getBearerToken = (req) => {
   const header = req.headers.authorization || '';
@@ -191,15 +192,11 @@ async function getClientCreditBalance(clientId, clientType, excludePaymentId) {
     query._id = { $ne: excludePaymentId };
   }
 
-  const rows = await Payment.find(query).select('amount allocations');
+  const rows = await Payment.find(query).select('paymentNumber amount allocations');
   let balance = 0;
 
   for (const row of rows) {
-    const paymentAmount = Number(row?.amount) || 0;
-    const allocationTotal = Array.isArray(row?.allocations)
-      ? row.allocations.reduce((sum, allocation) => sum + (Number(allocation?.amount) || 0), 0)
-      : 0;
-    balance += paymentAmount - allocationTotal;
+    balance += getAvailableCreditContribution(row);
   }
 
   return Math.round((balance + Number.EPSILON) * 100) / 100;
@@ -407,10 +404,7 @@ router.get('/', async (req, res) => {
     const clientCreditBalances = new Map();
     const paymentCreditBalances = new Map();
     for (const payment of payments) {
-      const allocationTotal = Array.isArray(payment.allocations)
-        ? payment.allocations.reduce((sum, allocation) => sum + (Number(allocation?.amount) || 0), 0)
-        : 0;
-      const balance = (Number(payment.amount) || 0) - allocationTotal;
+      const balance = getAvailableCreditContribution(payment);
       const clientKey = `${payment.clientType}:${payment.clientId?.toString() || ''}`;
       clientCreditBalances.set(clientKey, (clientCreditBalances.get(clientKey) || 0) + balance);
       paymentCreditBalances.set(payment._id.toString(), balance);
