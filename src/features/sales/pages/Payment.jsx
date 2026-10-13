@@ -987,6 +987,7 @@ function Payment() {
   const openCreatePayment = async () => {
     if (loading) return
     setEditingPaymentId(null)
+    setAutoAllocateOnSelect(false)
     setPaymentForm({
       paymentNumber: '',
       clientId: '',
@@ -2078,7 +2079,15 @@ function Payment() {
                         <input
                           type="checkbox"
                           checked={autoAllocateOnSelect}
-                          onChange={(e) => setAutoAllocateOnSelect(e.target.checked)}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setAutoAllocateOnSelect(checked)
+                            if (!checked) {
+                              setSelectedInvoiceIds([])
+                              setInvoicePaymentAmounts({})
+                              setInvoiceDescriptions({})
+                            }
+                          }}
                           style={{ width: 16, height: 16, cursor: 'pointer' }}
                         />
                         <span style={{ fontWeight: 700 }}>Apply payment amount using FIFO</span>
