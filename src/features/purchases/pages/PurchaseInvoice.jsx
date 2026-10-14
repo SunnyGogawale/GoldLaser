@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical, Plus, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable } from '../../../components/SkeletonUI'
@@ -82,7 +82,7 @@ const getAttachmentMenuItems = (attachments = []) => {
 
 const readJsonResponse = async (response, fallbackMessage) => {
   const raw = await response.text();
-  let data = null;
+  let data;
   try {
     data = raw ? JSON.parse(raw) : null;
   } catch {

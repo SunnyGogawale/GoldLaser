@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Edit2, Trash2, X, MoreVertical, Search, Clock3 } from 'lucide-react'
-import EmptyDataCard from '../../../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { ROLES } from '../../../constants/roles'
 import { apiFetch as fetch } from '../../../utils/authStorage'

@@ -6,27 +6,16 @@ import { API_ENDPOINTS } from '../../../config/api-endpoints'
 import { ROLES } from '../../../constants/roles'
 import { createPortal } from 'react-dom'
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  ChevronRight, 
-  ChevronLeft, 
-  Calendar, 
-  RotateCcw, 
-  Edit2, 
-  Plus, 
   User,
   Users,
   FileText,
   Info,
   HandCoins,
   Search,
-  Eye,
-  Trash2,
   X,
   Briefcase,
   AlertCircle
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { 
   XAxis, 
   YAxis, 
@@ -221,9 +210,8 @@ const topDebtors = [
 ]
 
 function Dashboard() {
-  const navigate = useNavigate()
-  const [activeChartTab, setActiveChartTab] = useState('Cash Flow')
-  const [activeTimeRange, setActiveTimeRange] = useState('14D')
+  const [activeChartTab] = useState('Cash Flow')
+  const [activeTimeRange] = useState('14D')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [customerOverviewLoading, setCustomerOverviewLoading] = useState(true)

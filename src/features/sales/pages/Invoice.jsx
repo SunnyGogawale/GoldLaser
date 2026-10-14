@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, Plus, UploadCloud, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical, Plus, UploadCloud, FileText, Image as ImageIcon, MoreHorizontal, Download, Clock3 } from 'lucide-react';
 import EmptyDataCard from '../../../components/EmptyDataCard';
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable } from '../../../components/SkeletonUI'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage';
@@ -164,7 +164,7 @@ const parseCsvDateValue = (value) => {
     return new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
   }
 
-  const slashMatch = trimmed.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  const slashMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (slashMatch) {
     const first = Number(slashMatch[1]);
     const second = Number(slashMatch[2]);
@@ -1043,22 +1043,17 @@ function Invoice() {
   const handleEditInvoice = (invoice) => {
     const clientType = invoice.clientType || 'Customer';
     const clientId = invoice.clientId || invoice.vendorId?._id || invoice.vendorId;
-    let clientName = '';
-    let clientIdStr = '';
+    const clientIdStr = '';
     let displayName = '';
 
     if (clientType === 'Customer') {
       const customer = customers.find(c => String(c._id) === String(clientId));
       if (customer) {
-        clientName = customer.customerName;
-        // clientIdStr = customer.id;
         displayName = customer.companyName ? `${customer.customerName} - ${customer.companyName}` : customer.customerName;
       }
     } else {
       const client = invoice.vendorId;
-      clientName = client?.customerName || client?.vendorName || '';
-      // clientIdStr = client?.id || '';
-      displayName = clientName;
+      displayName = client?.customerName || client?.vendorName || '';
     }
 
     setInvoiceForm({

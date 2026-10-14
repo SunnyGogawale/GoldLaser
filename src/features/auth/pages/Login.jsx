@@ -7,7 +7,6 @@ import {
   Lock, 
   Eye, 
   EyeOff, 
-  X,
   Sun,
   Moon
 } from 'lucide-react';

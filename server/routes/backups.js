@@ -1,6 +1,5 @@
 const express = require('express')
 const fs = require('fs')
-const os = require('os')
 const path = require('path')
 const { execFile } = require('child_process')
 const jwt = require('jsonwebtoken')

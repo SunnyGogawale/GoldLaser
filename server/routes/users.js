@@ -147,7 +147,6 @@ router.get('/:id/login-history', requireAdmin, async (req, res) => {
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const targetId = String(req.params.id || '')
-    const requestorId = req.auth?.userId
     if (!targetId) return res.status(400).json({ message: 'Invalid user id' })
 
     const target = await User.findById(targetId)

@@ -9,7 +9,7 @@ import {
   Moon
 } from 'lucide-react';
 import MotionButton from '../../../components/MotionButton'
-import { handleApiError,showSuccessToast } from '../../../utils/toast'
+import { handleApiError } from '../../../utils/toast'
 import { ROUTES } from '../../../config/routes'
 
 const ForgotPassword = ({ theme, toggleTheme }) => {

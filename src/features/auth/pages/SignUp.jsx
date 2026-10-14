@@ -44,7 +44,7 @@ const SignUp = ({ theme, toggleTheme }) => {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.auth.signUp}`, {
+      await axios.post(`${API_BASE_URL}${API_ENDPOINTS.auth.signUp}`, {
         fullName,
         email,
         password,

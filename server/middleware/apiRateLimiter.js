@@ -2,7 +2,6 @@ const crypto = require('crypto');
 const os = require('os');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const User = require('../models/User');
 const RateLimitBucket = require('../models/RateLimitBucket');
 const { queueRequestCompletion } = require('../utils/rateLimitTelemetry');
 

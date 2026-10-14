@@ -13,7 +13,6 @@ import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import CommonPDFViewer from '../../../components/CommonPDFViewer'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils/toast'
-import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { generateStatementPdfBlob } from '../../../utils/commonPdf'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 import { ROLES } from '../../../constants/roles'
@@ -136,21 +135,8 @@ function Customer() {
     return `${diffDay} days ago`
   }
 
-  const truncateText = (value, max = 20) => {
-    const s = String(value ?? '')
-    if (s.length <= max) return s
-    return s.slice(0, max) + '...'
-  }
-
   const formatMoney = (value) =>
     Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-  // Use an ASCII-safe currency prefix so jsPDF's built-in font renders values consistently.
-  const formatPdfMoney = (value) => `${formatMoney(value)}`
-
-  const formatPdfDate = (value) => {
-    return formatDateMMDDYYYY(value)
-  }
 
   // Function to fetch next customer id
   const fetchNextCustomerId = useCallback(async () => {
@@ -671,37 +657,6 @@ function Customer() {
     }
   };
 
-  const handleCancelEdit = async () => {
-    setEditingCustomerId(null);
-    // Reset custom fields array with permanent field names
-    const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
-      key: fieldName,
-      value: ''
-    }))
-    setCustomFieldsArray(initialCustomFieldsArray);
-    // Reset customerForm
-    const initialCustomFields = {}
-    customFieldNames.forEach(fieldName => {
-      initialCustomFields[fieldName] = ''
-    })
-    setCustomerForm({
-      id: '',
-      customerName: '',
-      companyName: '',
-      contactNumber: '',
-      alternateNumber:'',
-      email:'',
-      address:'',
-      shippingAddress:'',
-      note: '',
-      customFields: initialCustomFields
-    });
-    await fetchNextCustomerId();
-    setErrors({});
-    setFormSubmitted(false);
-    setFormOpen(false)
-  };
-
   const closeCustomerForm = () => {
     if (loading) return
     setFormOpen(false)
@@ -747,34 +702,6 @@ function Customer() {
       setInfoCustomer(data || null)
     } catch (err) {
       handleApiError(err, 'Error fetching customer info')
-    } finally {
-      setInfoLoading(false)
-    }
-  }
-
-  const refreshInfo = async () => {
-    const id = infoCustomer?._id
-    if (!id) return
-    setInfoLoading(true)
-    setInfoNowMs(Date.now())
-    try {
-      // Refresh custom fields first to ensure we have the latest
-      await fetchCustomFields()
-      
-      const token = getAuthToken()
-      const response = await fetch(`${API_URL}/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
-      })
-      const data = await readJsonResponse(response, 'Error refreshing customer info')
-      
-      // Ensure customFields is always an object
-      if (data && !data.customFields) {
-        data.customFields = {}
-      }
-      
-      setInfoCustomer(data || null)
-    } catch (err) {
-      handleApiError(err, 'Error refreshing customer info')
     } finally {
       setInfoLoading(false)
     }
@@ -2291,7 +2218,7 @@ function Customer() {
                 <>
                   {customFieldNames.length > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                      {customFieldNames.map((fieldName, index) => {
+                      {customFieldNames.map((fieldName) => {
                         const value = infoCustomer.customFields?.[fieldName] || ''
                         if (!value) return null // Hide if no value
                         return (

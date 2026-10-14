@@ -1,9 +1,9 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react'
-import { Save, RotateCcw, Trash2, Edit2, X, Search, Info, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud, Clock3 } from 'lucide-react'
+import { Save, RotateCcw, Trash2, Edit2, X, Search, Eye, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, Download, UploadCloud, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonDetail, SkeletonOptionRows, SkeletonTable, SkeletonTableRows } from '../../../components/SkeletonUI'
 import { clearAuthSession, getAuthToken, getAuthValue } from '../../../utils/authStorage'
-import { parseCsvText, parseCsvData, getSuggestedCsvHeader, normalizeCsvDateValue, toIsoDateString } from '../../../utils/csvParser'
+import { parseCsvText, parseCsvData, getSuggestedCsvHeader } from '../../../utils/csvParser'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import CommonPDFViewer from '../../../components/CommonPDFViewer'
@@ -92,7 +92,7 @@ const getAttachmentMenuItems = (attachments = []) => {
 
 const readJsonResponse = async (response, fallbackMessage) => {
   const raw = await response.text()
-  let data = null
+  let data
   try {
     data = raw ? JSON.parse(raw) : null
   } catch {

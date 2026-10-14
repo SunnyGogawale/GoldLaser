@@ -81,7 +81,7 @@ export const parseCsvDateValue = (value) => {
     return new Date(Date.UTC(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3])));
   }
 
-  const slashMatch = trimmed.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  const slashMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (slashMatch) {
     const first = Number(slashMatch[1]);
     const second = Number(slashMatch[2]);

@@ -136,20 +136,8 @@ function Vendor() {
     return `${diffDay} days ago`
   }
 
-  const truncateText = (value, max = 20) => {
-    const s = String(value ?? '')
-    if (s.length <= max) return s
-    return s.slice(0, max) + '...'
-  }
-
   const formatMoney = (value) =>
     Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-  const formatPdfMoney = (value) => `${formatMoney(value)}`
-
-  const formatPdfDate = (value) => {
-    return formatDateMMDDYYYY(value)
-  }
 
   const fetchJsonWithAuth = async (url, fallbackMessage) => {
     const token = getAuthToken()
@@ -773,37 +761,6 @@ function Vendor() {
     }
   };
 
-  const handleCancelEdit = async () => {
-    setEditingVendorId(null);
-    // Reset custom fields array with permanent field names
-    const initialCustomFieldsArray = customFieldNames.map(fieldName => ({
-      key: fieldName,
-      value: ''
-    }))
-    setCustomFieldsArray(initialCustomFieldsArray);
-    // Reset vendorForm
-    const initialCustomFields = {}
-    customFieldNames.forEach(fieldName => {
-      initialCustomFields[fieldName] = ''
-    })
-    setVendorForm({
-      id: '',
-      vendorName: '',
-      companyName: '',
-      contactNumber: '',
-      alternateNumber: '',
-      email: '',
-      address: '',
-      shippingAddress: '',
-      note: '',
-      customFields: initialCustomFields
-    });
-    await fetchNextVendorId();
-    setErrors({});
-    setFormSubmitted(false);
-    setFormOpen(false)
-  };
-
   const closeVendorForm = () => {
     if (loading) return
     setFormOpen(false)
@@ -849,34 +806,6 @@ function Vendor() {
       setInfoVendor(data || null)
     } catch (err) {
       handleApiError(err, 'Error fetching vendor info')
-    } finally {
-      setInfoLoading(false)
-    }
-  }
-
-  const refreshInfo = async () => {
-    const id = infoVendor?._id
-    if (!id) return
-    setInfoLoading(true)
-    setInfoNowMs(Date.now())
-    try {
-      // Refresh custom fields first to ensure we have the latest
-      await fetchCustomFields()
-
-      const token = getAuthToken()
-      const response = await fetch(`${API_URL}/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined
-      })
-      const data = await readJsonResponse(response, 'Error refreshing vendor info')
-
-      // Ensure customFields is always an object
-      if (data && !data.customFields) {
-        data.customFields = {}
-      }
-
-      setInfoVendor(data || null)
-    } catch (err) {
-      handleApiError(err, 'Error refreshing vendor info')
     } finally {
       setInfoLoading(false)
     }
@@ -2264,7 +2193,7 @@ function Vendor() {
                   <>
                     {customFieldNames.length > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                        {customFieldNames.map((fieldName, index) => {
+                        {customFieldNames.map((fieldName) => {
                           const value = infoVendor.customFields?.[fieldName] || ''
                           if (!value) return null // Hide if no value
                           return (
