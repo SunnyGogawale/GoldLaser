@@ -14,11 +14,15 @@ import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest';
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
+import { PAGINATION } from '../../../config/dimensions'
+import { VALIDATION_MESSAGES } from '../../../config/validation-messages'
+import { ROLES } from '../../../constants/roles'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
-const API_URL = `${API_BASE_URL}/api/purchase-invoices`;
-const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`;
-const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`;
+const API_URL = `${API_BASE_URL}${API_ENDPOINTS.purchaseInvoices}`;
+const CUSTOMERS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.customers}`;
+const VENDORS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.vendors}`;
 const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024;
 const ATTACHMENT_ACCEPT = '.jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf';
 const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
@@ -153,7 +157,7 @@ function PurchaseInvoice() {
     }
   };
 
-  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin';
+  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === ROLES.admin;
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoInvoice, setInfoInvoice] = useState(null);
   const [infoLoading, setInfoLoading] = useState(false);
@@ -194,7 +198,7 @@ function PurchaseInvoice() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/company-settings`);
+        const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.companySettings}`);
         if (res.ok) {
           const data = await res.json();
           setCompanySettings(data.settings);
@@ -211,7 +215,7 @@ function PurchaseInvoice() {
       setProductOptionsLoading(true);
       try {
         const token = getAuthToken();
-        const response = await fetch(`${API_BASE_URL}/api/products?activeOnly=true&limit=1000`, {
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.products}?activeOnly=true&limit=1000`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
         const data = await readJsonResponse(response, 'Error fetching products');
@@ -417,7 +421,7 @@ function PurchaseInvoice() {
     const request = startInvoiceListRequest();
     setListLoading(true);
     try {
-      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`;
+      let url = `${API_URL}?page=${page}&limit=${PAGINATION.defaultPageSize}&search=${encodeURIComponent(search)}`;
       if (column) {
         url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`;
       }
@@ -463,7 +467,7 @@ function PurchaseInvoice() {
     const newErrors = {};
 
     if (!invoiceForm.clientId) {
-      newErrors.clientId = 'Please select a client';
+      newErrors.clientId = VALIDATION_MESSAGES.selectClient;
     }
 
     if (!invoiceForm.invoiceDate) {

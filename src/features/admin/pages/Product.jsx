@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Edit2, Plus, Power, Search, X } from 'lucide-react'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
+import { ROLES } from '../../../constants/roles'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
 import { SkeletonTableRows } from '../../../components/SkeletonUI'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 
 function Product() {
   const token = useMemo(() => getAuthToken(), [])
-  const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])
+  const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === ROLES.admin, [])
   const [products, setProducts] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -30,7 +32,7 @@ function Product() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.products}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await response.json().catch(() => null)
@@ -81,7 +83,7 @@ function Product() {
     setError('')
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/products${editingProduct?._id ? `/${editingProduct._id}` : ''}`,
+        `${API_BASE_URL}${API_ENDPOINTS.products}${editingProduct?._id ? `/${editingProduct._id}` : ''}`,
         {
           method: editingProduct?._id ? 'PUT' : 'POST',
           headers: {
@@ -107,7 +109,7 @@ function Product() {
     setSaving(true)
     setError('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/${product._id}`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.productById(product._id)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

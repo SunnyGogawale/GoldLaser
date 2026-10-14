@@ -4,6 +4,9 @@ import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonCardList, SkeletonShape, SkeletonTable } from '../../../components/SkeletonUI'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
+import { PAGINATION } from '../../../config/dimensions'
 import { readJsonResponse, refreshCompanySettings } from '../../../utils/api'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
@@ -13,11 +16,11 @@ import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { generateStatementPdfBlob } from '../../../utils/commonPdf'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
+import { ROLES } from '../../../constants/roles'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-const API_URL = `${API_BASE_URL}/api/customers`
+const API_URL = `${API_BASE_URL}${API_ENDPOINTS.customers}`
 
-const CUSTOM_FIELDS_API_URL = `${API_BASE_URL}/api/customer-custom-fields`
+const CUSTOM_FIELDS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.customerCustomFields}`
 
 function Customer() {
   // Responsive state
@@ -88,7 +91,7 @@ function Customer() {
     customerListQueryRef.current = { searchQuery, sortColumn, sortOrder }
   }, [searchQuery, sortColumn, sortOrder])
   const startCustomerListRequest = useLatestAbortController()
-  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
+  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === ROLES.admin
   const [infoOpen, setInfoOpen] = useState(false)
   const [infoCustomer, setInfoCustomer] = useState(null)
   const [infoLoading, setInfoLoading] = useState(false)
@@ -178,7 +181,7 @@ function Customer() {
     if (effectiveSearch !== debouncedSearchQuery) return
     setListLoading(true);
     try {
-      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(effectiveSearch)}`;
+      let url = `${API_URL}?page=${page}&limit=${PAGINATION.defaultPageSize}&search=${encodeURIComponent(effectiveSearch)}`
       if (effectiveColumn) {
         url += `&sortColumn=${encodeURIComponent(effectiveColumn)}&sortOrder=${encodeURIComponent(effectiveOrder)}`;
       }
@@ -878,8 +881,8 @@ function Customer() {
   const buildCustomerStatementFallback = async (customer) => {
     const [customerRecord, invoiceData, paymentData] = await Promise.all([
       fetchJsonWithAuth(`${API_URL}/${customer._id}`, 'Error fetching customer details'),
-      fetchJsonWithAuth(`${API_BASE_URL}/api/invoices?limit=1000`, 'Error fetching invoices'),
-      fetchJsonWithAuth(`${API_BASE_URL}/api/payments?limit=1000`, 'Error fetching payments')
+      fetchJsonWithAuth(`${API_BASE_URL}${API_ENDPOINTS.invoices}?limit=1000`, 'Error fetching invoices'),
+      fetchJsonWithAuth(`${API_BASE_URL}${API_ENDPOINTS.payments}?limit=1000`, 'Error fetching payments')
     ])
 
     return buildStatementPayload(
@@ -2351,7 +2354,7 @@ function Customer() {
                     key: `${a.action}-${new Date(a.at).getTime()}-${idx}`,
                     chip: isUpdate ? 'Update Customer' : 'Create Customer',
                     method: isUpdate ? 'PUT' : 'POST',
-                    path: isUpdate ? '/api/customers/:id' : '/api/customers',
+                    path: isUpdate ? API_ENDPOINTS.customerById(':id') : API_ENDPOINTS.customers,
                     at: a.at,
                     icon: isUpdate ? '✎' : '+',
                     iconBg: isUpdate ? '#dbeafe' : '#d1fae5',

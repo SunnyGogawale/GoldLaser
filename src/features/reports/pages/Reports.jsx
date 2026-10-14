@@ -11,11 +11,12 @@ import { handleApiError } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { REPORT_COLUMNS, REPORT_AMOUNT_COLUMN_KEYS, REPORT_COLUMN_INFO, getReportPopoverPosition } from '../reportColumns'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-const REPORTS_API_URL = `${API_BASE_URL}/api/reports`
-const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
-const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`
+const REPORTS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.reports}`
+const CUSTOMERS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.customers}`
+const VENDORS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.vendors}`
 const emptyTotals = { totalInvAmount: 0, totalInvAmountPaid: 0, totalInvBalance: 0 }
 function Reports() {
   const [activeTab, setActiveTab] = useState('sales')

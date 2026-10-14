@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Database, RefreshCw, Search, Server, X } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
 import { useDebouncedValue } from '../../../utils/useApiRequest'
 import './LoadBalancing.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const FALLBACK_REFRESH_MS = Number(import.meta.env.VITE_DB_MONITORING_REFRESH_INTERVAL_MS || 15000)
 const ACTIVITY_TYPES = [
   ['connection_pool_ready', 'Pool ready'],
@@ -83,7 +84,7 @@ function LoadBalancing() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {}
     const loadMetrics = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/load-balancing/metrics`, { headers, signal: controller.signal })
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.loadBalancing.metrics}`, { headers, signal: controller.signal })
         const data = await response.json().catch(() => null)
         if (!response.ok) throw new Error(data?.message || 'Database metrics are unavailable')
         if (!controller.signal.aborted) setMetrics(data)
@@ -123,7 +124,7 @@ function LoadBalancing() {
       setRefreshing(true)
       setError('')
       try {
-        const activityResponse = await fetch(`${API_BASE_URL}/api/admin/load-balancing/activities?${query}`, { headers, signal: controller.signal })
+        const activityResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.loadBalancing.activities}?${query}`, { headers, signal: controller.signal })
         const activityData = await activityResponse.json().catch(() => null)
         if (!activityResponse.ok) throw new Error(activityData?.message || 'Activity history is unavailable')
         setActivities(Array.isArray(activityData?.activities) ? activityData.activities : [])

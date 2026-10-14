@@ -8,7 +8,7 @@
 }
 
 .sidebar {
-  width: 240px;
+  width: var(--sidebar-width-expanded);
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
   display: flex;
@@ -19,11 +19,11 @@
   top: 0;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
-  z-index: 100;
+  z-index: var(--z-index-dropdown);
 }
 
 .sidebar.collapsed {
-  width: 72px;
+  width: var(--sidebar-width-collapsed);
 }
 
 .sidebar.collapsed .sidebar-header {
@@ -64,7 +64,7 @@
   gap: 0.75rem;
   padding: 0.9rem 0.9rem;
   border-bottom: 1px solid var(--border);
-  height: 64px;
+  height: var(--header-height);
   box-sizing: border-box;
 }
 
@@ -226,7 +226,7 @@
 
 /* Header Components */
 .header {
-  height: 64px;
+  height: var(--header-height);
   background: var(--bg-sidebar);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -1656,7 +1656,7 @@ input[type="date"].table-input::-webkit-calendar-picker-indicator {
   position: fixed;
   bottom: 0;
   right: 0;
-  left: 240px;
+  left: var(--sidebar-width-expanded);
   background: var(--bg-sidebar);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
@@ -1664,13 +1664,13 @@ input[type="date"].table-input::-webkit-calendar-picker-indicator {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 100;
+  z-index: var(--z-index-dropdown);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
 }
 
 .sidebar-collapsed .trans-actions-footer {
-  left: 72px;
+  left: var(--sidebar-width-collapsed);
 }
 
 .footer-btn {
@@ -1713,7 +1713,7 @@ input[type="date"].table-input::-webkit-calendar-picker-indicator {
 }
 
 .sidebar-collapsed .trans-actions-footer {
-  left: 72px;
+  left: var(--sidebar-width-collapsed);
 }
 
 @media (max-width: 1024px) {
@@ -1769,7 +1769,7 @@ input[type="date"].table-input::-webkit-calendar-picker-indicator {
     left: 0;
     top: 0;
     bottom: 0;
-    z-index: 1000;
+    z-index: var(--z-index-modal);
     height: 100vh;
     height: 100dvh;
     box-shadow: 10px 0 30px rgba(0, 0, 0, 0.16);

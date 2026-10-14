@@ -12,11 +12,14 @@ import {
   Moon
 } from 'lucide-react';
 import { setAuthSession } from '../../../utils/authStorage';
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
+import { ROUTES } from '../../../config/routes'
+import { ROLES } from '../../../constants/roles'
 import MotionButton from '../../../components/MotionButton'
 import { sanitizeClientErrorMessage } from '../../../utils/api'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
 const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -33,22 +36,22 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/signin`, {
+      const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.auth.signIn}`, {
         email,
         password,
-        requiredRole: 'user' // Flag for User Login
+        requiredRole: ROLES.user // Flag for User Login
       });
 
       showSuccessToast('Login successful');
       
       setAuthSession({
         token: response.data.token,
-        role: response.data?.user?.roll || response.data?.user?.role || 'user',
+        role: response.data?.user?.roll || response.data?.user?.role || ROLES.user,
         fullName: response.data?.user?.fullName || '',
         email: response.data?.user?.email || ''
       });
       setIsLoggedIn(true);
-      navigate('/dashboard', { replace: true });
+      navigate(ROUTES.dashboard, { replace: true });
     } catch (err) {
       const errorMessage = sanitizeClientErrorMessage(err.response?.data?.message || 'Invalid email or password', 'Invalid email or password');
       handleApiError(err, errorMessage);
@@ -127,7 +130,7 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
             </div>
 
             <div className="login-extra">
-              <Link to="/forgot-password" name="forgot-password" className="forgot-password">Forgot password?</Link>
+              <Link to={ROUTES.forgotPassword} name="forgot-password" className="forgot-password">Forgot password?</Link>
             </div>
 
             <MotionButton type="submit" className="login-submit-btn" disabled={loading}>
@@ -137,13 +140,13 @@ const Login = ({ setIsLoggedIn, theme, toggleTheme }) => {
             {showAdminLink && (
               <div className="login-footer">
                 <span>Are you an admin?</span>
-                <Link to="/admin" className="signup-link">Admin Login</Link>
+                <Link to={ROUTES.adminLogin} className="signup-link">Admin Login</Link>
               </div>
             )}
             
             <div className="login-footer">
               <span>Don't have an account?</span>
-              <Link to="/signup" className="signup-link">Sign Up</Link>
+              <Link to={ROUTES.signUp} className="signup-link">Sign Up</Link>
             </div>
           </form>
         </div>

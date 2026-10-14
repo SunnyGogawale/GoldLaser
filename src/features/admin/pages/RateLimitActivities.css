@@ -81,7 +81,7 @@
 .rla-live-warning svg { flex: 0 0 auto; }
 .rla-live-section .rla-table { min-width: 1280px; }
 .rla-api-filters { grid-template-columns: repeat(4, minmax(130px, 1fr)) auto; }
-.rla-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgba(10, 20, 28, 0.56); }
+.rla-backdrop { position: fixed; inset: 0; z-index: var(--z-index-modal); display: grid; place-items: center; padding: 1rem; background: rgba(10, 20, 28, 0.56); }
 .rla-modal { width: min(700px, 100%); max-height: min(82vh, 780px); overflow: auto; padding: 1.05rem; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); box-shadow: var(--shadow); }
 .rla-modal > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--border); }
 .rla-modal > header span { color: var(--text-muted); font-size: 0.71rem; }

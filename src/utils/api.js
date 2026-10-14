@@ -1,5 +1,6 @@
 import { showErrorToast } from './toast'
 import { apiFetch as fetch } from './authStorage'
+import { API_ENDPOINTS } from '../config/api-endpoints'
 
 export const sanitizeClientErrorMessage = (message, fallbackMessage = 'An error occurred') => {
   if (typeof message !== 'string') return fallbackMessage
@@ -61,7 +62,7 @@ const normalizePdfLogo = (settings = {}) => {
 
 export const refreshCompanySettings = async (apiBaseUrl, cachedSettings = {}) => {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/company-settings`)
+    const response = await fetch(`${apiBaseUrl}${API_ENDPOINTS.companySettings}`)
     const data = await readJsonResponse(response, 'Error fetching company settings')
     return normalizePdfLogo(data.settings || cachedSettings)
   } catch (error) {

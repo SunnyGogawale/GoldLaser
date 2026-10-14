@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Archive, DatabaseBackup, RotateCcw, Upload } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 import { LoadingSkeleton, SkeletonGridRows } from '../../../components/SkeletonUI'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const BACKUP_REFRESH_MS = Number(import.meta.env.VITE_BACKUP_REFRESH_MS || 15000)
 
 function Backup() {
@@ -67,7 +68,7 @@ function Backup() {
 
     setLoadingBackups(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/list`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.backups.list}`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
@@ -174,7 +175,7 @@ function Backup() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/download/${encodeURIComponent(fileName)}`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.backups.download}/${encodeURIComponent(fileName)}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -211,7 +212,7 @@ function Backup() {
 
     setRestoringBackup(fileName)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/restore`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.backups.base}/restore`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,7 +258,7 @@ function Backup() {
 
     setUploadingExternalBackup(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/restore-upload`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.backups.base}/restore-upload`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -297,7 +298,7 @@ function Backup() {
 
     setDeletingBackup(fileName)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/delete`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.backups.base}/delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -338,7 +339,7 @@ function Backup() {
 
     setSavingBackupConfig(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/config`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.backups.base}/config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -383,7 +384,7 @@ function Backup() {
 
     setSavingBackupSchedule(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/schedule`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.backups.base}/schedule`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -422,7 +423,7 @@ function Backup() {
 
     setCreatingBackup(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/backups/create`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.backups.base}/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

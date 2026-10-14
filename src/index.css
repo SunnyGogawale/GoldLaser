@@ -1,33 +1,6 @@
-:root {
-  --primary: #AA00FF;
-  --primary-light: #f3e5ff;
-  --bg-main: #f3f4f6;
-  --bg-sidebar: #ffffff;
-  --bg-card: #ffffff;
-  --text-main: #374151;
-  --text-muted: #6b7280;
-  --text-header: #111827;
-  --border: #e5e7eb;
-  --success: #10b981;
-  --danger: #ef4444;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  
-  --sans: 'Inter', system-ui, -apple-system, sans-serif;
-}
-
-[data-theme='dark'] {
-  --bg-main: #0f172a;
-  --bg-sidebar: #1e293b;
-  --bg-card: #1e293b;
-  --text-main: #94a3b8;
-  --text-muted: #64748b;
-  --text-header: #f8fafc;
-  --border: #334155;
-  --primary-light: rgba(170, 0, 255, 0.1);
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-}
+@import './config/colors.css';
+@import './config/typography.css';
+@import './config/layout.css';
 
 * {
   box-sizing: border-box;
@@ -36,7 +9,7 @@
 
 body {
   margin: 0;
-  font-family: var(--sans);
+  font-family: var(--font-family-sans);
   background-color: var(--bg-main);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
@@ -48,7 +21,7 @@ body {
 }
 
 div[role='tooltip'] {
-  z-index: 100001 !important;
+  z-index: var(--z-index-tooltip) !important;
 }
 
 h1, h2, h3, h4 {
@@ -70,7 +43,7 @@ a {
 
 /* Forms & Inputs */
 input, select, textarea {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-family-sans);
   color: var(--text-main);
 }
 

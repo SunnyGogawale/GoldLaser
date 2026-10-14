@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
+import { ROLES } from '../../../constants/roles'
 import { createPortal } from 'react-dom'
 import { 
   TrendingUp, 
@@ -42,7 +45,6 @@ import { handleApiError } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { REPORT_COLUMNS, REPORT_AMOUNT_COLUMN_KEYS, getReportPopoverPosition } from '../../reports/reportColumns'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const REPORT_COLUMN_INFO = {
   invoiceAmount: 'Total Invoice Amount',
   paidAmount: 'Total Invoice Paid Amount',
@@ -263,12 +265,12 @@ function Dashboard() {
   })
   const [customerModalSalesPage, setCustomerModalSalesPage] = useState(1)
   const [customerModalSalesTotalPages, setCustomerModalSalesTotalPages] = useState(1)
-  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
+  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === ROLES.admin
 
   const fetchDashboardSummary = useCallback(async () => {
     setSummaryLoading(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/dashboard/summary`)
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.dashboard.summary}`)
       const data = await readJsonResponse(response, 'Error fetching dashboard summary')
       setTotalCustomers(Number(data.totalCustomers) || 0)
       setTotalVendors(Number(data.totalVendors) || 0)
@@ -307,7 +309,7 @@ function Dashboard() {
     const request = startCustomerOverviewRequest()
     setCustomerOverviewLoading(true)
     try {
-      const url = new URL(`${API_BASE_URL}/api/dashboard/customer-overview`, window.location.origin)
+      const url = new URL(`${API_BASE_URL}${API_ENDPOINTS.dashboard.customerOverview}`, window.location.origin)
       url.searchParams.set('limit', '100')
       if (search.trim()) url.searchParams.set('search', search.trim())
       const response = await fetch(url.toString(), { signal: request.signal })
@@ -328,7 +330,7 @@ function Dashboard() {
     const request = startVendorOverviewRequest()
     setVendorOverviewLoading(true)
     try {
-      const url = new URL(`${API_BASE_URL}/api/dashboard/vendor-overview`, window.location.origin)
+      const url = new URL(`${API_BASE_URL}${API_ENDPOINTS.dashboard.vendorOverview}`, window.location.origin)
       url.searchParams.set('limit', '100')
       if (search.trim()) url.searchParams.set('search', search.trim())
       const response = await fetch(url.toString(), { signal: request.signal })
@@ -420,7 +422,7 @@ function Dashboard() {
   const fetchCustomerModalSales = async ({ customerId, page }) => {
     setCustomerModalSalesLoading(true)
     try {
-      const url = new URL(`${API_BASE_URL}/api/reports/sales`, window.location.origin)
+      const url = new URL(`${API_BASE_URL}${API_ENDPOINTS.reports}/sales`, window.location.origin)
       url.searchParams.set('customerId', customerId)
       url.searchParams.set('page', String(page))
       url.searchParams.set('limit', '25')
@@ -453,7 +455,7 @@ function Dashboard() {
     setCustomerModalSalesTotalPages(1)
     setCustomerModalLoading(true)
     try {
-      const url = new URL(`${API_BASE_URL}/api/customers`, window.location.origin)
+      const url = new URL(`${API_BASE_URL}${API_ENDPOINTS.customers}`, window.location.origin)
       url.searchParams.set('page', '1')
       url.searchParams.set('limit', '1')
       if (customerRow?.id) url.searchParams.set('search', customerRow.id)
@@ -488,7 +490,7 @@ function Dashboard() {
     if (!window.confirm('Are you sure you want to delete this customer?')) return
     try {
       const token = getAuthToken()
-      const response = await fetch(`${API_BASE_URL}/api/customers/${mongoId}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.customerById(mongoId)}`, { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined })
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)
         throw new Error(errorData?.message || 'Error deleting customer')

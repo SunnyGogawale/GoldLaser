@@ -12,11 +12,14 @@ import {
   Moon
 } from 'lucide-react';
 import { setAuthSession } from '../../../utils/authStorage';
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
+import { ROUTES } from '../../../config/routes'
+import { ROLES } from '../../../constants/roles'
 import MotionButton from '../../../components/MotionButton'
 import { sanitizeClientErrorMessage } from '../../../utils/api'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
 const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -32,22 +35,22 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/signin`, {
+      const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.auth.signIn}`, {
         email,
         password,
-        requiredRole: 'admin' // Flag for Admin Login
+        requiredRole: ROLES.admin // Flag for Admin Login
       });
 
       showSuccessToast('Admin login successful');
       
       setAuthSession({
         token: response.data.token,
-        role: response.data?.user?.roll || response.data?.user?.role || 'admin',
+        role: response.data?.user?.roll || response.data?.user?.role || ROLES.admin,
         fullName: response.data?.user?.fullName || '',
         email: response.data?.user?.email || ''
       });
       setIsLoggedIn(true);
-      navigate('/dashboard', { replace: true });
+      navigate(ROUTES.dashboard, { replace: true });
     } catch (err) {
       const errorMessage = sanitizeClientErrorMessage(err.response?.data?.message || 'Invalid admin credentials', 'Invalid admin credentials');
       handleApiError(err, errorMessage);
@@ -72,7 +75,7 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
 
       <div className="login-card-wrapper">
         <div className="login-card">
-          <Link to="/" className="login-close-btn"><X size={18} /></Link>
+          <Link to={ROUTES.home} className="login-close-btn"><X size={18} /></Link>
           
           <div className="login-header">
             <div className="login-logo">
@@ -129,7 +132,7 @@ const AdminLogin = ({ setIsLoggedIn, theme, toggleTheme }) => {
 
             <div className="login-footer">
               <span>Not an admin?</span>
-              <Link to="/login" className="signup-link">User Login</Link>
+              <Link to={ROUTES.login} className="signup-link">User Login</Link>
             </div>
           </form>
         </div>

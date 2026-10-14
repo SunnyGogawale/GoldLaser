@@ -140,7 +140,7 @@
 .lb-pagination > div { gap: 0.45rem; }
 .lb-pagination button { min-height: 32px; }
 
-.lb-modal-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgba(10, 20, 28, 0.56); }
+.lb-modal-backdrop { position: fixed; inset: 0; z-index: var(--z-index-modal); display: grid; place-items: center; padding: 1rem; background: rgba(10, 20, 28, 0.56); }
 .lb-detail-modal { width: min(620px, 100%); max-height: min(80vh, 760px); overflow: auto; padding: 1.1rem; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-card); box-shadow: var(--shadow); }
 .lb-detail-modal > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--border); }
 .lb-detail-modal > header span { color: var(--text-muted); font-size: 0.72rem; }

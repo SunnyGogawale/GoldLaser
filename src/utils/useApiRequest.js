@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { APP_CONFIG } from '../config/app-config'
 
-export const DEFAULT_API_DEBOUNCE_MS = 350
+export const DEFAULT_API_DEBOUNCE_MS = APP_CONFIG.apiDebounceMs
 
 export const useDebouncedValue = (value, delay = DEFAULT_API_DEBOUNCE_MS) => {
   const [debouncedValue, setDebouncedValue] = useState(value)

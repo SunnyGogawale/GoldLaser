@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Activity, AlertTriangle, CheckCircle2, Clock3, Download, Pause, Play, RefreshCw, Search, Shield, Users, X } from 'lucide-react'
 import { getAuthToken } from '../../../utils/authStorage'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
 import { useDebouncedValue } from '../../../utils/useApiRequest'
 import './RateLimitActivities.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const POLICIES = ['authentication', 'resource', 'monitoring', 'general']
 const PAGE_SIZES = [10, 25, 50, 100]
 const API_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'OTHER']
@@ -68,7 +69,7 @@ function RateLimitActivities() {
     const loadStats = async () => {
       try {
         const token = getAuthToken()
-        const response = await fetch(`${API_BASE_URL}/api/admin/rate-limit-activities/stats?${query}`, {
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.rateLimitActivities.stats}?${query}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           signal: controller.signal
         })
@@ -111,7 +112,7 @@ function RateLimitActivities() {
       setRefreshing(true)
       setError('')
       try {
-        const listResponse = await fetch(`${API_BASE_URL}/api/admin/rate-limit-activities?${listQuery}`, { headers, signal: controller.signal })
+        const listResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.rateLimitActivities.base}?${listQuery}`, { headers, signal: controller.signal })
         const listData = await listResponse.json().catch(() => null)
         if (!listResponse.ok) throw new Error(listData?.message || 'Rate-limit activities are unavailable')
         setActivities(Array.isArray(listData?.activities) ? listData.activities : [])
@@ -146,7 +147,7 @@ function RateLimitActivities() {
     const loadApis = async () => {
       try {
         const token = getAuthToken()
-        const response = await fetch(`${API_BASE_URL}/api/admin/rate-limit-activities/apis?${query}`, {
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.rateLimitActivities.apis}?${query}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           signal: controller.signal
         })
@@ -178,7 +179,7 @@ function RateLimitActivities() {
           const token = getAuthToken()
           const headers = token ? { Authorization: `Bearer ${token}` } : {}
           if (lastEventId.current) headers['Last-Event-ID'] = lastEventId.current
-          const response = await fetch(`${API_BASE_URL}/api/admin/rate-limit-activities/live`, {
+          const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.rateLimitActivities.live}`, {
             headers,
             signal: controller.signal
           })
@@ -313,7 +314,7 @@ function RateLimitActivities() {
     setDetailLoading(true)
     try {
       const token = getAuthToken()
-      const response = await fetch(`${API_BASE_URL}/api/admin/rate-limit-activities/${activity._id}`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.rateLimitActivities.base}/${activity._id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       })
       const data = await response.json().catch(() => null)
@@ -333,7 +334,7 @@ function RateLimitActivities() {
       const query = new URLSearchParams({ export: 'csv' })
       for (const [key, value] of Object.entries(filters)) if (value) query.set(key, value)
       const token = getAuthToken()
-      const response = await fetch(`${API_BASE_URL}/api/admin/rate-limit-activities?${query}`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.rateLimitActivities.base}?${query}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       })
       if (!response.ok) {

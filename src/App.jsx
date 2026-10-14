@@ -21,9 +21,12 @@ import PurchasePayment from './features/purchases/pages/PurchasePayment'
 import { clearAuthSession, getAuthToken, getAuthValue, getLastActivityAt, markSessionActivity, recordLogout } from './utils/authStorage'
 import PageTransition from './components/PageTransition'
 import ToastProvider from './components/ToastProvider'
+import { ROUTES } from './config/routes'
+import { APP_CONFIG } from './config/app-config'
+import { ROLES } from './constants/roles'
 import './App.css'
 
-function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
+function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = APP_CONFIG.idleSessionTimeoutMs }) {
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -49,14 +52,14 @@ function IdleSessionManager({ isLoggedIn, onLogout, timeoutMs = 120000 }) {
       const token = getAuthToken()
       if (!token) {
         onLogout()
-        navigate('/login', { replace: true })
+        navigate(ROUTES.login, { replace: true })
         return
       }
 
       const lastActivityAt = getLastActivityAt()
       if (lastActivityAt && Date.now() - lastActivityAt >= timeoutMs) {
         onLogout()
-        navigate('/login', { replace: true })
+        navigate(ROUTES.login, { replace: true })
       }
     }, 1000)
 
@@ -78,7 +81,7 @@ function UnauthorizedSessionHandler({ onUnauthorized }) {
   useEffect(() => {
     const handleUnauthorized = () => {
       onUnauthorized()
-      navigate('/login', { replace: true })
+      navigate(ROUTES.login, { replace: true })
     }
 
     window.addEventListener('auth:unauthorized', handleUnauthorized)
@@ -125,51 +128,51 @@ function App() {
   }, [])
 
   const withPageTransition = (element) => <PageTransition>{element}</PageTransition>
-  const isAdmin = getAuthValue('userRole').toLowerCase() === 'admin'
+  const isAdmin = getAuthValue('userRole').toLowerCase() === ROLES.admin
 
   return (
     <ToastProvider>
       <BrowserRouter>
-        <IdleSessionManager isLoggedIn={isLoggedIn} onLogout={logout} timeoutMs={120000} />
+        <IdleSessionManager isLoggedIn={isLoggedIn} onLogout={logout} />
         <UnauthorizedSessionHandler onUnauthorized={handleUnauthorized} />
         <Routes>
         {/* Auth Routes */}
         <Route
-          path="/login"
+          path={ROUTES.login}
           element={
             isLoggedIn
-              ? <Navigate to="/dashboard" replace />
+              ? <Navigate to={ROUTES.dashboard} replace />
               : withPageTransition(<Login setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />)
           }
         />
         <Route
-          path="/admin"
+          path={ROUTES.adminLogin}
           element={
             isLoggedIn
-              ? <Navigate to="/dashboard" replace />
+              ? <Navigate to={ROUTES.dashboard} replace />
               : withPageTransition(<AdminLogin setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />)
           }
         />
-        <Route path="/signup" element={withPageTransition(<SignUp theme={theme} toggleTheme={toggleTheme} />)} />
-        <Route path="/forgot-password" element={withPageTransition(<ForgotPassword theme={theme} toggleTheme={toggleTheme} />)} />
+        <Route path={ROUTES.signUp} element={withPageTransition(<SignUp theme={theme} toggleTheme={toggleTheme} />)} />
+        <Route path={ROUTES.forgotPassword} element={withPageTransition(<ForgotPassword theme={theme} toggleTheme={toggleTheme} />)} />
         
         {/* Protected Routes with Layout */}
         <Route element={<Layout setIsLoggedIn={setIsLoggedIn} theme={theme} toggleTheme={toggleTheme} />}>
-          <Route index element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
-          <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" replace />} />
-          <Route path="/customer" element={isLoggedIn ? <Customer /> : <Navigate to="/login" replace />} />
-          <Route path="/vendor" element={isLoggedIn ? <Vendor /> : <Navigate to="/login" replace />} />
-          <Route path="/invoice" element={isLoggedIn ? <Invoice /> : <Navigate to="/login" replace />} />
-          <Route path="/payment" element={isLoggedIn ? <Payment /> : <Navigate to="/login" replace />} />
-          <Route path="/purchase-invoice" element={isLoggedIn ? <PurchaseInvoice /> : <Navigate to="/login" replace />} />
-          <Route path="/purchase-payment" element={isLoggedIn ? <PurchasePayment /> : <Navigate to="/login" replace />} />
-          <Route path="/reports" element={isLoggedIn ? <Reports /> : <Navigate to="/login" replace />} />
-          <Route path="/user" element={isLoggedIn ? <User /> : <Navigate to="/login" replace />} />
-          <Route path="/backup" element={isLoggedIn ? <Backup /> : <Navigate to="/login" replace />} />
-          <Route path="/product" element={isLoggedIn ? <Product /> : <Navigate to="/login" replace />} />
-          <Route path="/load-balancing" element={!isLoggedIn ? <Navigate to="/login" replace /> : isAdmin ? <LoadBalancing /> : <Navigate to="/dashboard" replace />} />
-          <Route path="/rate-limit-activities" element={!isLoggedIn ? <Navigate to="/login" replace /> : isAdmin ? <RateLimitActivities /> : <Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route index element={isLoggedIn ? <Navigate to={ROUTES.dashboard} replace /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.dashboard} element={isLoggedIn ? <Dashboard /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.customers} element={isLoggedIn ? <Customer /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.vendors} element={isLoggedIn ? <Vendor /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.invoices} element={isLoggedIn ? <Invoice /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.payments} element={isLoggedIn ? <Payment /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.purchaseInvoices} element={isLoggedIn ? <PurchaseInvoice /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.purchasePayments} element={isLoggedIn ? <PurchasePayment /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.reports} element={isLoggedIn ? <Reports /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.users} element={isLoggedIn ? <User /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.backups} element={isLoggedIn ? <Backup /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.products} element={isLoggedIn ? <Product /> : <Navigate to={ROUTES.login} replace />} />
+          <Route path={ROUTES.loadBalancing} element={!isLoggedIn ? <Navigate to={ROUTES.login} replace /> : isAdmin ? <LoadBalancing /> : <Navigate to={ROUTES.dashboard} replace />} />
+          <Route path={ROUTES.rateLimitActivities} element={!isLoggedIn ? <Navigate to={ROUTES.login} replace /> : isAdmin ? <RateLimitActivities /> : <Navigate to={ROUTES.dashboard} replace />} />
+          <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

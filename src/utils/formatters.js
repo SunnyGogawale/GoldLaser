@@ -1,3 +1,5 @@
+import { DATE_FORMAT } from '../config/date-format'
+
 export const formatDateMMDDYYYY = (value, fallback = '-') => {
   if (!value) return fallback
 
@@ -16,10 +18,10 @@ export const formatDateMMDDYYYY = (value, fallback = '-') => {
 
   if (!date || Number.isNaN(date.getTime())) return fallback
 
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
+  const mm = String(date.getMonth() + 1).padStart(DATE_FORMAT.monthDigits, '0')
+  const dd = String(date.getDate()).padStart(DATE_FORMAT.dayDigits, '0')
   const yyyy = date.getFullYear()
-  return `${mm}-${dd}-${yyyy}`
+  return `${mm}${DATE_FORMAT.monthDaySeparator}${dd}${DATE_FORMAT.monthDaySeparator}${yyyy}`
 }
 
 export const formatDateTimeMMDDYYYY = (value, fallback = '-') => {
@@ -29,5 +31,5 @@ export const formatDateTimeMMDDYYYY = (value, fallback = '-') => {
   const date = new Date(value)
   if (!date || Number.isNaN(date.getTime())) return dateText
 
-  return `${dateText} ${date.toLocaleTimeString('en-US')}`
+  return `${dateText}${DATE_FORMAT.dateTimeSeparator}${date.toLocaleTimeString('en-US')}`
 }

@@ -15,8 +15,12 @@ import {
 import MotionButton from '../../../components/MotionButton'
 import { sanitizeClientErrorMessage } from '../../../utils/api'
 import { handleApiError, showSuccessToast } from '../../../utils/toast'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
+import { ROUTES } from '../../../config/routes'
+import { ROLES } from '../../../constants/roles'
+import { VALIDATION_MESSAGES } from '../../../config/validation-messages'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
 const SignUp = ({ theme, toggleTheme }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -34,21 +38,21 @@ const SignUp = ({ theme, toggleTheme }) => {
     setError('');
     
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(VALIDATION_MESSAGES.passwordsDoNotMatch);
       return;
     }
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/signup`, {
+      const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.auth.signUp}`, {
         fullName,
         email,
         password,
-        roll: 'user'
+        roll: ROLES.user
       });
       
       showSuccessToast('Account created successfully');
-      navigate('/login');
+      navigate(ROUTES.login);
     } catch (err) {
       const errorMessage = sanitizeClientErrorMessage(err.response?.data?.message || 'Something went wrong. Please try again.', 'Something went wrong. Please try again.');
       handleApiError(err, errorMessage);
@@ -74,7 +78,7 @@ const SignUp = ({ theme, toggleTheme }) => {
 
       <div className="login-card-wrapper">
         <div className="login-card">
-          <Link to="/login" className="login-close-btn"><X size={18} /></Link>
+          <Link to={ROUTES.login} className="login-close-btn"><X size={18} /></Link>
           
           <div className="login-header">
             <div className="login-logo">
@@ -157,7 +161,7 @@ const SignUp = ({ theme, toggleTheme }) => {
                 </MotionButton>
               </div>
               {confirmPassword && password !== confirmPassword && (
-                <span className="error-message">Passwords do not match</span>
+                <span className="error-message">{VALIDATION_MESSAGES.passwordsDoNotMatch}</span>
               )}
             </div>
 
@@ -171,7 +175,7 @@ const SignUp = ({ theme, toggleTheme }) => {
 
             <div className="login-footer">
               <span>Already have an account?</span>
-              <Link to="/login" className="signup-link">Sign In</Link>
+              <Link to={ROUTES.login} className="signup-link">Sign In</Link>
             </div>
           </form>
         </div>

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import MotionButton from '../../../components/MotionButton'
 import { handleApiError,showSuccessToast } from '../../../utils/toast'
+import { ROUTES } from '../../../config/routes'
 
 const ForgotPassword = ({ theme, toggleTheme }) => {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ const ForgotPassword = ({ theme, toggleTheme }) => {
     e.preventDefault();
     // Handle password reset logic here
     handleApiError('Kindly check with your admin for password reset.');
-    navigate('/login');
+    navigate(ROUTES.login);
   };
 
   return (
@@ -35,7 +36,7 @@ const ForgotPassword = ({ theme, toggleTheme }) => {
 
       <div className="login-card-wrapper">
         <div className="login-card">
-          <Link to="/login" className="login-close-btn"><X size={18} /></Link>
+          <Link to={ROUTES.login} className="login-close-btn"><X size={18} /></Link>
           
           <div className="login-header">
             <div className="login-logo">
@@ -59,7 +60,7 @@ const ForgotPassword = ({ theme, toggleTheme }) => {
             </MotionButton>
 
             <div className="login-footer">
-              <Link to="/login" className="signup-link" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <Link to={ROUTES.login} className="signup-link" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                 <ChevronLeft size={16} />
                 Back to Sign In
               </Link>

@@ -1,3 +1,6 @@
+import { API_BASE_URL } from '../config/urls'
+import { API_ENDPOINTS } from '../config/api-endpoints'
+
 const AUTH_KEYS = ['token', 'userRole', 'userFullName', 'userEmail', 'lastActivityAt']
 
 const storage = () => window.sessionStorage
@@ -38,8 +41,7 @@ export const apiFetch = async (input, init = {}) => {
     requestInput,
     window.location.origin
   )
-  const configuredApiUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-  const apiOrigin = new URL(configuredApiUrl || window.location.origin, window.location.origin).origin
+  const apiOrigin = new URL(API_BASE_URL || window.location.origin, window.location.origin).origin
   const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined))
   const token = getAuthToken()
 
@@ -65,8 +67,7 @@ export const recordLogout = () => {
   const token = getAuthToken()
   if (!token) return
 
-  const apiBaseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-  fetch(`${apiBaseUrl}/api/auth/logout`, {
+  fetch(`${API_BASE_URL}${API_ENDPOINTS.auth.logout}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     keepalive: true

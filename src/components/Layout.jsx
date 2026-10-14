@@ -21,12 +21,17 @@ import {
 } from 'lucide-react'
 import { clearAuthSession, getAuthToken, getAuthValue, setAuthValue, recordLogout } from '../utils/authStorage'
 import { apiFetch as fetch } from '../utils/authStorage'
+import { API_BASE_URL } from '../config/urls'
+import { ROUTES } from '../config/routes'
+import { NAVIGATION_LABELS } from '../config/text'
+import { API_ENDPOINTS } from '../config/api-endpoints'
+import { VALIDATION_MESSAGES } from '../config/validation-messages'
+import { ROLES } from '../constants/roles'
 import { modalMotionProps, overlayMotionProps } from './PageTransition'
 import { handleApiError, showSuccessToast, showErrorToast } from '../utils/toast'
 import MotionButton from './MotionButton'
 import { LoadingSkeleton, SkeletonFormGrid } from './SkeletonUI'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const MAX_COMPANY_LOGO_SIZE = 5 * 1024 * 1024
 
 function Layout({ setIsLoggedIn, theme, toggleTheme }) {
@@ -58,7 +63,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
   })
   const [companySaving, setCompanySaving] = useState(false);
 
-  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin';
+  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === ROLES.admin;
   const userFullName = (getAuthValue('userFullName') || '').trim()
   const userEmail = (getAuthValue('userEmail') || '').trim()
   const userRoleLabel = isAdmin ? 'Admin' : 'User'
@@ -92,40 +97,40 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     {
       label: null,
       items: [
-        { id: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' }
+        { id: ROUTES.dashboard, icon: <LayoutDashboard size={20} />, label: NAVIGATION_LABELS.dashboard }
       ]
     },
     {
       label: 'Masters',
       items: [
-        { id: '/customer', icon: <Users size={20} />, label: 'Customer Masters' },
-        { id: '/vendor', icon: <Truck size={20} />, label: 'Vender Masters' }
+        { id: ROUTES.customers, icon: <Users size={20} />, label: NAVIGATION_LABELS.customers },
+        { id: ROUTES.vendors, icon: <Truck size={20} />, label: NAVIGATION_LABELS.vendors }
       ]
     },
     {
       label: 'Transactions',
       items: [
-        { id: '/invoice', icon: <FileText size={20} />, label: 'Sales Invoice' },
-        { id: '/payment', icon: <CreditCard size={20} />, label: 'Sales Payment' },
-        { id: '/purchase-invoice', icon: <FileText size={20} />, label: 'Purchase Invoice' },
-        { id: '/purchase-payment', icon: <CreditCard size={20} />, label: 'Purchase Payment' }
+        { id: ROUTES.invoices, icon: <FileText size={20} />, label: NAVIGATION_LABELS.invoices },
+        { id: ROUTES.payments, icon: <CreditCard size={20} />, label: NAVIGATION_LABELS.payments },
+        { id: ROUTES.purchaseInvoices, icon: <FileText size={20} />, label: NAVIGATION_LABELS.purchaseInvoices },
+        { id: ROUTES.purchasePayments, icon: <CreditCard size={20} />, label: NAVIGATION_LABELS.purchasePayments }
       ]
     },
     {
       label: 'Reports',
       items: [
-        { id: '/reports', icon: <ClipboardCheck size={20} />, label: 'Reports' }
+        { id: ROUTES.reports, icon: <ClipboardCheck size={20} />, label: NAVIGATION_LABELS.reports }
       ]
     },
     ...(isAdmin
       ? [{
           label: 'Admin',
           items: [
-            { id: '/user', icon: <User size={20} />, label: 'User' },
-            { id: '/product', icon: <Package size={20} />, label: 'Products' },
-            { id: '/backup', icon: <Archive size={20} />, label: 'Backup' },
-            { id: '/load-balancing', icon: <Activity size={20} />, label: 'Load Balancing' },
-            { id: '/rate-limit-activities', icon: <Activity size={20} />, label: 'Rate Limit Activities' }
+            { id: ROUTES.users, icon: <User size={20} />, label: NAVIGATION_LABELS.users },
+            { id: ROUTES.products, icon: <Package size={20} />, label: NAVIGATION_LABELS.products },
+            { id: ROUTES.backups, icon: <Archive size={20} />, label: NAVIGATION_LABELS.backups },
+            { id: ROUTES.loadBalancing, icon: <Activity size={20} />, label: NAVIGATION_LABELS.loadBalancing },
+            { id: ROUTES.rateLimitActivities, icon: <Activity size={20} />, label: NAVIGATION_LABELS.rateLimitActivities }
           ]
         }]
       : [])
@@ -179,11 +184,11 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     try {
       // Fetch user profile
       if (token) {
-        let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        let response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.auth.me}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (response.status === 404) {
-          response = await fetch(`${API_BASE_URL}/api/users/me`, {
+          response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}/me`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         }
@@ -191,7 +196,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
           if (response.status === 401) {
             clearAuthSession()
             setIsLoggedIn(false)
-            navigate('/login', { replace: true })
+            navigate(ROUTES.login, { replace: true })
             return
           }
           const data = await response.json().catch(() => null)
@@ -207,7 +212,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
       }
       
       // Fetch company settings
-      const settingsRes = await fetch(`${API_BASE_URL}/api/company-settings`)
+      const settingsRes = await fetch(`${API_BASE_URL}${API_ENDPOINTS.companySettings}`)
       if (settingsRes.ok) {
         const settingsData = await settingsRes.json()
         setCompanyForm({
@@ -263,13 +268,13 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
       showErrorToast('Please login again.')
       clearAuthSession()
       setIsLoggedIn(false)
-      navigate('/login', { replace: true })
+      navigate(ROUTES.login, { replace: true })
       return
     }
 
     setCompanySaving(true)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/company-settings`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.companySettings}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -324,21 +329,21 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     const fullName = String(profileForm.fullName || '').trim()
     const email = String(profileForm.email || '').trim()
 
-    if (!fullName) return showErrorToast('Full name is required')
-    if (!email || !email.includes('@')) return showErrorToast('Valid email is required')
+    if (!fullName) return showErrorToast(VALIDATION_MESSAGES.fullNameRequired)
+    if (!email || !email.includes('@')) return showErrorToast(VALIDATION_MESSAGES.validEmailRequired)
 
     const token = getAuthToken()
     if (!token) {
       alert('Please login again.')
           clearAuthSession()
       setIsLoggedIn(false)
-      navigate('/login', { replace: true })
+      navigate(ROUTES.login, { replace: true })
       return
     }
 
     setProfileSaving(true)
     try {
-      let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      let response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.auth.me}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -347,7 +352,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         body: JSON.stringify({ fullName, email })
       })
       if (response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/api/users/me`, {
+        response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}/me`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -359,7 +364,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
       if (response.status === 401) {
           clearAuthSession()
         setIsLoggedIn(false)
-        navigate('/login', { replace: true })
+        navigate(ROUTES.login, { replace: true })
         return
       }
 
@@ -397,7 +402,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
     const newPassword = passwordForm.newPassword || ''
     const confirmPassword = passwordForm.confirmPassword || ''
 
-    if (!currentPassword) return showErrorToast('Current password is required')
+    if (!currentPassword) return showErrorToast(VALIDATION_MESSAGES.currentPasswordRequired)
     if (!newPassword || newPassword.length < 6) return showErrorToast('New password must be at least 6 characters')
     if (newPassword !== confirmPassword) return showErrorToast('New password and confirm password must match')
 
@@ -406,13 +411,13 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
       alert('Please login again.')
           clearAuthSession()
       setIsLoggedIn(false)
-      navigate('/login', { replace: true })
+      navigate(ROUTES.login, { replace: true })
       return
     }
 
     setPasswordSaving(true)
     try {
-      let response = await fetch(`${API_BASE_URL}/api/auth/me/password`, {
+      let response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.auth.password}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -421,7 +426,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
         body: JSON.stringify({ currentPassword, newPassword })
       })
       if (response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/api/users/me/password`, {
+        response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}/me/password`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -433,7 +438,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
       if (response.status === 401) {
           clearAuthSession()
         setIsLoggedIn(false)
-        navigate('/login', { replace: true })
+        navigate(ROUTES.login, { replace: true })
         return
       }
 
@@ -512,7 +517,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
               recordLogout()
               clearAuthSession()
               setIsLoggedIn(false)
-              navigate('/login', { replace: true })
+              navigate(ROUTES.login, { replace: true })
             }}
             title="Logout"
           >
@@ -659,7 +664,7 @@ function Layout({ setIsLoggedIn, theme, toggleTheme }) {
                       clearAuthSession()
                       setIsLoggedIn(false)
                       setIsProfileMenuOpen(false)
-                      navigate('/login', { replace: true })
+                      navigate(ROUTES.login, { replace: true })
                     }}
                     style={{
                       width: '100%',

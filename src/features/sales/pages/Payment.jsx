@@ -15,6 +15,12 @@ import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
+import { ROUTES } from '../../../config/routes'
+import { PAGINATION } from '../../../config/dimensions'
+import { VALIDATION_MESSAGES } from '../../../config/validation-messages'
+import { ROLES } from '../../../constants/roles'
 import {
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,
@@ -23,10 +29,9 @@ import {
   calculatePaymentListAmount
 } from '../../../utils/creditCalculation'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
-const API_URL = `${API_BASE_URL}/api/payments`
-const CUSTOMERS_API_URL = `${API_BASE_URL}/api/customers`
-const VENDORS_API_URL = `${API_BASE_URL}/api/vendors`
+const API_URL = `${API_BASE_URL}${API_ENDPOINTS.payments}`
+const CUSTOMERS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.customers}`
+const VENDORS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.vendors}`
 const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024
 const ATTACHMENT_ACCEPT = '.jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf'
 const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
@@ -171,7 +176,7 @@ function Payment() {
   }
 
   
-  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === 'admin'
+  const isAdmin = (getAuthValue('userRole') || '').toLowerCase() === ROLES.admin
   const [infoOpen, setInfoOpen] = useState(false)
   const [infoPayment, setInfoPayment] = useState(null)
   const [infoLoading, setInfoLoading] = useState(false)
@@ -626,7 +631,7 @@ function Payment() {
     const request = startPaymentListRequest()
     setListLoading(true)
     try {
-      let url = `${API_URL}?page=${page}&limit=25&search=${encodeURIComponent(search)}`
+      let url = `${API_URL}?page=${page}&limit=${PAGINATION.defaultPageSize}&search=${encodeURIComponent(search)}`
       if (column) {
         url += `&sortColumn=${encodeURIComponent(column)}&sortOrder=${encodeURIComponent(order)}`
       }
@@ -680,7 +685,7 @@ function Payment() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/company-settings`)
+        const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.companySettings}`)
         if (res.ok) {
           const data = await res.json()
           setCompanySettings(data.settings)
@@ -744,8 +749,8 @@ function Payment() {
   const validateForm = () => {
     const newErrors = {}
 
-    if (!paymentForm.clientId) newErrors.clientId = 'Please select a client'
-    if (!paymentForm.paymentDate) newErrors.paymentDate = 'Payment date is required'
+    if (!paymentForm.clientId) newErrors.clientId = VALIDATION_MESSAGES.selectClient
+    if (!paymentForm.paymentDate) newErrors.paymentDate = VALIDATION_MESSAGES.paymentDateRequired
     const amount = Number(paymentForm.amount) || 0
     const roundedAmount = Math.round((amount + Number.EPSILON) * 100) / 100
     const pendingById = new Map(orderedPendingInvoices.map((inv) => [String(inv._id), inv]))
@@ -754,7 +759,7 @@ function Payment() {
       newErrors.amount = 'Selected invoice amount cannot exceed the available credit.'
     }
     if (roundedAmount <= 0 && selectedIds.length === 0) {
-      newErrors.amount = 'Please enter a payment amount or select at least one invoice to allocate payment'
+      newErrors.amount = VALIDATION_MESSAGES.paymentAmountOrInvoiceRequired
     }
     if (selectedIds.length > 0) {
       for (const invoiceId of selectedIds) {
@@ -1218,7 +1223,7 @@ function Payment() {
         if (response.status === 401) {
           clearAuthSession()
           showErrorToast('Session expired. Please login again.')
-          window.location.href = '/login'
+          window.location.href = ROUTES.login
           return
         }
         const errorData = await response.json().catch(() => null)
@@ -1250,7 +1255,7 @@ function Payment() {
         if (response.status === 401) {
           clearAuthSession()
           showErrorToast('Session expired. Please login again.')
-          window.location.href = '/login'
+          window.location.href = ROUTES.login
           return
         }
         let message = 'Error deleting payment!'

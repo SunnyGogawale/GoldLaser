@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Edit2, Trash2, X, MoreVertical, Search, Clock3 } from 'lucide-react'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { getAuthToken, getAuthValue } from '../../../utils/authStorage'
+import { ROLES } from '../../../constants/roles'
 import { apiFetch as fetch } from '../../../utils/authStorage'
+import { API_BASE_URL } from '../../../config/urls'
+import { API_ENDPOINTS } from '../../../config/api-endpoints'
 import MotionButton from '../../../components/MotionButton'
 import ActionMenuPortal from '../../../components/ActionMenuPortal'
 import { getActionDropdownPosition } from '../../../utils/dropdownPosition'
@@ -11,7 +14,6 @@ import { handleApiError, showSuccessToast } from '../../../utils/toast'
 import { formatDateTimeMMDDYYYY } from '../../../utils/formatters'
 import { LoadingSkeleton, SkeletonCardList, SkeletonTable } from '../../../components/SkeletonUI'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '')
 const LOGIN_HISTORY_PAGE_SIZE = 10
 
 function User() {
@@ -32,13 +34,13 @@ function User() {
   const [searchQuery, setSearchQuery] = useState('')
   const [saving, setSaving] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
-  const [editForm, setEditForm] = useState({ id: '', fullName: '', email: '', roll: 'user' })
+  const [editForm, setEditForm] = useState({ id: '', fullName: '', email: '', roll: ROLES.user })
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
   const token = useMemo(() => getAuthToken(), [])
-  const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === 'admin', [])
+  const isAdmin = useMemo(() => (getAuthValue('userRole') || '').toLowerCase() === ROLES.admin, [])
   const filteredUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     if (!query) return users
@@ -64,7 +66,7 @@ function User() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       if (!response.ok) {
@@ -90,7 +92,7 @@ function User() {
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${u._id}/login-history`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}/${u._id}/login-history`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
       const data = await response.json()
@@ -129,7 +131,7 @@ function User() {
       id: String(u?._id || ''),
       fullName: u?.fullName || '',
       email: u?.email || '',
-      roll: String(u?.roll || u?.role || 'user').toLowerCase() === 'admin' ? 'admin' : 'user'
+      roll: String(u?.roll || u?.role || ROLES.user).toLowerCase() === ROLES.admin ? ROLES.admin : ROLES.user
     })
     setEditOpen(true)
     setPasswordOpen(false)
@@ -140,7 +142,7 @@ function User() {
 
   const closeEdit = () => {
     setEditOpen(false)
-    setEditForm({ id: '', fullName: '', email: '', roll: 'user' })
+    setEditForm({ id: '', fullName: '', email: '', roll: ROLES.user })
     setPasswordOpen(false)
     setNewPassword('')
     setConfirmPassword('')
@@ -154,7 +156,7 @@ function User() {
       if (passwordOpen && (newPassword || confirmPassword)) {
         if (newPassword.length < 6) throw new Error('Password must be at least 6 characters')
         if (newPassword !== confirmPassword) throw new Error('Passwords do not match')
-        const passRes = await fetch(`${API_BASE_URL}/api/users/${editForm.id}/password`, {
+        const passRes = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}/${editForm.id}/password`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -168,7 +170,7 @@ function User() {
         }
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/users/${editForm.id}`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}/${editForm.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +203,7 @@ function User() {
     setSaving(true)
     setError('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}/${id}`, {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined
       })
@@ -224,7 +226,7 @@ function User() {
     setSaving(true)
     setError('')
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/${id}/status`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users}/${id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -369,7 +371,7 @@ function User() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Role:</div>
-                          <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{u.roll || u.role || 'user'}</div>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{u.roll || u.role || ROLES.user}</div>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Status:</div>
@@ -402,7 +404,7 @@ function User() {
                         <tr key={String(u._id)} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ width: '28%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-header)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.fullName || '-'}</td>
                           <td style={{ width: '28%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none', whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{u.email || '-'}</td>
-                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.roll || u.role || 'user'}</td>
+                          <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.roll || u.role || ROLES.user}</td>
                           <td style={{ width: '10%', textAlign: 'center', padding: '0.35rem 0.35rem', color: u.isActive === false ? 'var(--text-muted)' : 'var(--success, #16a34a)', fontWeight: 700, borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>{u.isActive === false ? 'Inactive' : 'Active'}</td>
                           <td style={{ width: '14%', textAlign: 'center', padding: '0.35rem 0.35rem', color: 'var(--text-main)', borderRight: isAdmin ? '1px solid var(--border)' : 'none' }}>
                             {formatDateTimeMMDDYYYY(u.createdAt)}
@@ -532,14 +534,14 @@ function User() {
                 <div style={{ display: 'flex', gap: '0.5rem', border: '1px solid var(--border)', borderRadius: 10, padding: '0.35rem', background: 'var(--bg-main)' }}>
                   <MotionButton
                     type="button"
-                    onClick={() => setEditForm((p) => ({ ...p, roll: 'user' }))}
+                    onClick={() => setEditForm((p) => ({ ...p, roll: ROLES.user }))}
                     disabled={saving}
                     style={{
                       flex: 1,
                       padding: '0.5rem 0.75rem',
                       borderRadius: 8,
-                      border: editForm.roll === 'user' ? '1px solid var(--primary)' : '1px solid transparent',
-                      background: editForm.roll === 'user' ? 'rgba(59,130,246,0.12)' : 'transparent',
+                      border: editForm.roll === ROLES.user ? '1px solid var(--primary)' : '1px solid transparent',
+                      background: editForm.roll === ROLES.user ? 'rgba(59,130,246,0.12)' : 'transparent',
                       color: 'var(--text-header)',
                       fontWeight: 700,
                       cursor: saving ? 'not-allowed' : 'pointer'
@@ -549,14 +551,14 @@ function User() {
                   </MotionButton>
                   <MotionButton
                     type="button"
-                    onClick={() => setEditForm((p) => ({ ...p, roll: 'admin' }))}
+                    onClick={() => setEditForm((p) => ({ ...p, roll: ROLES.admin }))}
                     disabled={saving}
                     style={{
                       flex: 1,
                       padding: '0.5rem 0.75rem',
                       borderRadius: 8,
-                      border: editForm.roll === 'admin' ? '1px solid var(--primary)' : '1px solid transparent',
-                      background: editForm.roll === 'admin' ? 'rgba(59,130,246,0.12)' : 'transparent',
+                      border: editForm.roll === ROLES.admin ? '1px solid var(--primary)' : '1px solid transparent',
+                      background: editForm.roll === ROLES.admin ? 'rgba(59,130,246,0.12)' : 'transparent',
                       color: 'var(--text-header)',
                       fontWeight: 700,
                       cursor: saving ? 'not-allowed' : 'pointer'
