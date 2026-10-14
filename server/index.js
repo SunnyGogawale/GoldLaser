@@ -10,6 +10,7 @@ const { parseTrustProxySetting } = require('./config/trustProxy');
 const { ApiRegistry, instrumentApiRegistrations } = require('./utils/apiRegistry');
 const { startSharedActivityStream, stopSharedActivityStream } = require('./utils/rateLimitTelemetry');
 const { requireApiAuth } = require('./middleware/auth');
+const { securityHeaders } = require('./middleware/securityHeaders');
 
 const app = express();
 const REQUEST_BODY_LIMIT = '200mb';
@@ -19,6 +20,8 @@ const apiRegistry = new ApiRegistry();
 instrumentApiRegistrations(app, apiRegistry);
 
 // Middleware
+app.disable('x-powered-by');
+app.use(securityHeaders);
 app.use(cors());
 
 app.use((req, res, next) => {
