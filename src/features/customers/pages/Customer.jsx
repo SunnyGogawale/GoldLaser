@@ -16,6 +16,7 @@ import { handleApiError, showSuccessToast, showErrorToast } from '../../../utils
 import { generateStatementPdfBlob } from '../../../utils/commonPdf'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 import { ROLES } from '../../../constants/roles'
+import CustomerMobile from '../../../../Mobile/src/pages/Customers/CustomerMobile'
 
 const API_URL = `${API_BASE_URL}${API_ENDPOINTS.customers}`
 
@@ -856,9 +857,28 @@ function Customer() {
     }
   }
 
+  const handleMobileCustomerActions = (customer, event) => {
+    event.stopPropagation()
+    if (openDropdownId === customer._id) {
+      setOpenDropdownId(null)
+      setDropdownCustomer(null)
+      return
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect()
+    const { top, left, shouldOpenUp } = getActionDropdownPosition({
+      rect,
+      dropdownHeight: isAdmin ? 160 : 120
+    })
+    setDropdownPosition({ top, left })
+    setDropdownUp(shouldOpenUp)
+    setDropdownCustomer(customer)
+    setOpenDropdownId(customer._id)
+  }
+
   return (
-    <div className="dashboard-content" style={{ padding: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
+    <div className="dashboard-content customer-page-content" style={{ padding: '1rem' }}>
+      <div className="customer-desktop-add" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
         <MotionButton
           type="button"
           onClick={openCreateCustomer}
@@ -879,6 +899,23 @@ function Customer() {
           Add Customer
         </MotionButton>
       </div>
+
+      {isMobile && (
+        <CustomerMobile
+          customers={customers}
+          customColumns={customColumns}
+          formatMoney={formatMoney}
+          loading={listLoading}
+          loadingDisabled={loading}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onAddCustomer={openCreateCustomer}
+          onActions={handleMobileCustomerActions}
+          onPageChange={(page) => fetchCustomers(page, searchQuery)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+        />
+      )}
 
       {formOpen && (
         <ActionMenuPortal>
@@ -1769,7 +1806,7 @@ function Customer() {
 
       {/* Customer List */}
       {(
-        <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
+        <div className="card customer-desktop-list" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Customer List</h2>
 
@@ -1809,124 +1846,7 @@ function Customer() {
             <EmptyDataCard />
           ) : (
             <div>
-              {/* Mobile/Tablet Card View */}
-              {isMobile ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {customers.map((customer) => {
-                    const customerName =
-                      customer.customerName ||
-                      `${customer.firstName || ''} ${customer.lastName || ''}`.replace(/\s+/g, ' ').trim()
-                    const companyName = customer.companyName || ''
-                    const mobile = customer.contactNumber || ''
-                    const email = customer.email || ''
-                    const outstandingAmount = customer.outstanding?.outstanding || 0
-                    const outstanding = formatMoney(Math.abs(Number(outstandingAmount) || 0))
-                    
-                    return (
-                      <div 
-                        key={customer._id} 
-                        style={{
-                          border: '1px solid var(--border)',
-                          borderRadius: '12px',
-                          padding: '1rem',
-                          background: 'var(--bg-card)'
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ 
-                              fontSize: '1rem', 
-                              fontWeight: 800, 
-                              color: 'var(--text-header)',
-                              marginBottom: '0.25rem'
-                            }}>
-                              {customerName || '-'}
-                            </div>
-                            {companyName && (
-                              <div style={{ 
-                                fontSize: '0.875rem', 
-                                color: 'var(--text-muted)',
-                                fontWeight: 600
-                              }}>
-                                {companyName}
-                              </div>
-                            )}
-                          </div>
-                          <div style={{ position: 'relative' }}>
-                            <MotionButton
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (openDropdownId === customer._id) {
-                                  setOpenDropdownId(null);
-                                  setDropdownCustomer(null);
-                                } else {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  const { top, left, shouldOpenUp } = getActionDropdownPosition({
-                                    rect,
-                                    dropdownHeight: isAdmin ? 160 : 120
-                                  });
-
-                                  setDropdownPosition({ top, left });
-                                  setDropdownUp(shouldOpenUp);
-                                  setDropdownCustomer(customer);
-                                  setOpenDropdownId(customer._id);
-                                }
-                              }}
-                              style={{
-                                padding: '0.25rem',
-                                background: 'transparent',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                color: 'var(--text-muted)',
-                                transition: 'all 0.2s'
-                              }}
-                              title="Actions"
-                            >
-                              <MoreVertical size={16} />
-                            </MotionButton>
-
-                          </div>
-                        </div>
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          {mobile && (
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Mobile:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{mobile}</div>
-                            </div>
-                          )}
-                          {email && (
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Email:</div>
-                              <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600, wordBreak: 'break-all' }}>{email}</div>
-                            </div>
-                          )}
-                          {outstanding && outstanding !== '0' && (
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>Outstanding:</div>
-                              <div style={{ fontSize: '0.875rem', color: outstandingAmount < 0 ? '#16a34a' : 'var(--danger)', fontWeight: 800 }}>${outstanding}</div>
-                            </div>
-                          )}
-                          {/* Custom columns */}
-                          {customColumns.map((columnName) => {
-                            const value = customer.customFields?.[columnName]
-                            if (!value) return null
-                            return (
-                              <div key={columnName} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, minWidth: '70px' }}>{columnName}:</div>
-                                <div style={{ fontSize: '0.875rem', color: 'var(--text-main)', fontWeight: 600 }}>{value}</div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                /* Desktop Table View */
-                <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
+              <div style={{ overflowX: 'auto', border: isAdmin ? '1px solid var(--border)' : 'none', borderRadius: '10px' }}>
                   <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.80rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
@@ -2048,7 +1968,6 @@ function Customer() {
                     </tbody>
                   </table>
                 </div>
-              )}
 
               {/* Pagination */}
               {totalPages > 1 && (

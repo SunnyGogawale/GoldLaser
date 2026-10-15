@@ -19,6 +19,7 @@ import { API_ENDPOINTS } from '../../../config/api-endpoints'
 import { PAGINATION } from '../../../config/dimensions'
 import { VALIDATION_MESSAGES } from '../../../config/validation-messages'
 import { ROLES } from '../../../constants/roles'
+import InvoiceMobile from '../../../../Mobile/src/pages/Sales/InvoiceMobile'
 
 const API_URL = `${API_BASE_URL}${API_ENDPOINTS.purchaseInvoices}`;
 const CUSTOMERS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.customers}`;
@@ -1116,8 +1117,8 @@ function PurchaseInvoice() {
   const paginatedHistoryRows = historyRows.slice((currentHistoryPage - 1) * historyPageSize, currentHistoryPage * historyPageSize);
 
   return (
-    <div className="dashboard-content" style={{ padding: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
+    <div className="dashboard-content invoice-page-content purchase-invoice-page-content" style={{ padding: '1rem' }}>
+      <div className="invoice-desktop-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
         <MotionButton
           type="button"
           onClick={openCreateInvoice}
@@ -1138,6 +1139,47 @@ function PurchaseInvoice() {
           Add Invoice
         </MotionButton>
       </div>
+
+      {isMobile && (
+        <InvoiceMobile
+          invoices={invoices}
+          loading={listLoading}
+          loadingDisabled={loading}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          isAdmin={isAdmin}
+          showCsvUpload={false}
+          onAddInvoice={openCreateInvoice}
+          onActions={(invoice, event) => {
+            event.stopPropagation()
+            if (openDropdownId === invoice._id) {
+              closeActionDropdown()
+              return
+            }
+            const rect = event.currentTarget.getBoundingClientRect()
+            dropdownAnchorRectRef.current = rect
+            const { top, left, shouldOpenUp } = getActionDropdownPosition({
+              rect,
+              dropdownWidth: 260,
+              dropdownHeight: 320
+            })
+            setDropdownPosition({ top, left })
+            setDropdownUp(shouldOpenUp)
+            setDropdownInvoice(invoice)
+            setOpenDropdownId(invoice._id)
+            setAttachmentsMenuOpen(false)
+          }}
+          onPageChange={(page) => fetchInvoices(page, searchQuery)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          getClientDisplayLabel={getClientDisplayLabel}
+          getInvoiceListDescription={getInvoiceListDescription}
+          formatDate={formatDateDDMMMYYYY}
+          title="Purchase Invoice"
+          clientLabel="Vendor Name"
+          searchPlaceholder="Search any invoice field..."
+        />
+      )}
 
       <AnimatePresence>
         {formOpen && (
@@ -1773,7 +1815,7 @@ function PurchaseInvoice() {
 
       {/* Invoice List */}
       {(
-        <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 700px' }}>
+        <div className="card invoice-desktop-list" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 700px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Invoice List</h2>
 

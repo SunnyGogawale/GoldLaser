@@ -17,6 +17,7 @@ import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { generateStatementPdfBlob } from '../../../utils/commonPdf'
 import { useDebouncedValue, useLatestAbortController } from '../../../utils/useApiRequest'
 import { ROLES } from '../../../constants/roles'
+import VendorMobile from '../../../../Mobile/src/pages/Vendors/VendorMobile'
 
 const API_URL = `${API_BASE_URL}${API_ENDPOINTS.vendors}`
 
@@ -854,8 +855,8 @@ function Vendor() {
   }
 
   return (
-    <div className="dashboard-content" style={{ padding: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
+    <div className="dashboard-content vendor-page-content" style={{ padding: '1rem' }}>
+      <div className="vendor-desktop-add" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0 }}>
         <MotionButton
           type="button"
           onClick={openCreateVendor}
@@ -876,6 +877,39 @@ function Vendor() {
           Add Vendor
         </MotionButton>
       </div>
+
+      {isMobile && (
+        <VendorMobile
+          vendors={vendors}
+          customColumns={customColumns}
+          formatMoney={formatMoney}
+          loading={listLoading}
+          loadingDisabled={loading}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onAddVendor={openCreateVendor}
+          onActions={(vendor, event) => {
+            event.stopPropagation()
+            if (openDropdownId === vendor._id) {
+              setOpenDropdownId(null)
+              setDropdownVendor(null)
+              return
+            }
+            const rect = event.currentTarget.getBoundingClientRect()
+            const { top, left, shouldOpenUp } = getActionDropdownPosition({
+              rect,
+              dropdownHeight: isAdmin ? 160 : 120
+            })
+            setDropdownPosition({ top, left })
+            setDropdownUp(shouldOpenUp)
+            setDropdownVendor(vendor)
+            setOpenDropdownId(vendor._id)
+          }}
+          onPageChange={(page) => fetchVendors(page, searchQuery)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+        />
+      )}
 
       {formOpen && (
         <ActionMenuPortal>
@@ -1744,7 +1778,7 @@ function Vendor() {
 
       {/* Vendor List */}
       {(
-        <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
+        <div className="card vendor-desktop-list" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Vendor List</h2>
 

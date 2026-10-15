@@ -1,0 +1,326 @@
+.payment-mobile-view {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .payment-page-content {
+    padding: 28px 20px calc(92px + env(safe-area-inset-bottom)) !important;
+    gap: 0;
+  }
+
+  .payment-desktop-actions,
+  .payment-desktop-list {
+    display: none !important;
+  }
+
+  .payment-mobile-view {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    gap: 26px;
+    color: var(--text-main);
+  }
+
+  .payment-mobile-view__header {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .payment-mobile-view__header h1 {
+    min-width: 0;
+    margin: 0;
+    color: var(--text-header);
+    font-size: clamp(28px, 7.2vw, 40px);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .payment-mobile-view__header-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .payment-mobile-view__add,
+  .payment-mobile-view__upload {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #fff;
+    touch-action: manipulation;
+  }
+
+  .payment-mobile-view__add {
+    width: 48px;
+    height: 48px;
+  }
+
+  .payment-mobile-view__upload {
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-header);
+  }
+
+  .payment-mobile-view__add:disabled,
+  .payment-mobile-view__upload:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .payment-mobile-view__add:focus-visible,
+  .payment-mobile-view__upload:focus-visible,
+  .payment-mobile-card__actions:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+  }
+
+  .payment-mobile-view__search {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-main);
+    color: var(--text-muted);
+  }
+
+  .payment-mobile-view__search.is-focused {
+    border-color: var(--primary);
+    outline: 2px solid color-mix(in srgb, var(--primary) 24%, transparent);
+  }
+
+  .payment-mobile-view__search input {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-header);
+    font-size: 16px !important;
+  }
+
+  .payment-mobile-view__search input::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+  }
+
+  .payment-mobile-view__list-title {
+    margin: -10px 0 -6px;
+    color: var(--text-header);
+    font-size: clamp(20px, 5.8vw, 24px);
+    font-weight: 750;
+    line-height: 1.25;
+  }
+
+  .payment-mobile-view__list {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .payment-mobile-card {
+    width: 100%;
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    background: var(--bg-card);
+  }
+
+  .payment-mobile-card__label {
+    display: block;
+    color: var(--text-muted);
+    font-size: clamp(12px, 3.4vw, 14px);
+    line-height: 1.35;
+  }
+
+  .payment-mobile-card__top {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding-right: 38px;
+  }
+
+  .payment-mobile-card__number {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .payment-mobile-card__number .payment-mobile-card__label {
+    flex: 0 0 auto;
+  }
+
+  .payment-mobile-card__number strong {
+    min-width: 0;
+    color: var(--primary);
+    font-size: clamp(19px, 5.8vw, 22px);
+    font-weight: 800;
+    overflow-wrap: anywhere;
+  }
+
+  .payment-mobile-card__date {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    color: var(--text-header);
+    font-size: clamp(13px, 3.8vw, 15px);
+    white-space: nowrap;
+  }
+
+  .payment-mobile-card__actions {
+    position: absolute;
+    top: 0;
+    right: -8px;
+    display: grid;
+    width: 36px;
+    height: 44px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    touch-action: manipulation;
+  }
+
+  .payment-mobile-card__customer {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 15px;
+  }
+
+  .payment-mobile-card__customer strong {
+    color: var(--text-header);
+    font-size: clamp(15px, 4.3vw, 17px);
+    font-weight: 700;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .payment-mobile-card__amount {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .payment-mobile-card__amount strong {
+    color: var(--text-header);
+    font-size: clamp(17px, 5vw, 22px);
+    font-weight: 800;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .payment-mobile-card__description {
+    min-width: 0;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .payment-mobile-card__description p {
+    display: -webkit-box;
+    margin: 7px 0 0;
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: clamp(14px, 4vw, 16px);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .payment-mobile-view__pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .payment-mobile-view__pagination button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg-card);
+    color: var(--text-header);
+    font-size: clamp(12px, 3.5vw, 13px);
+    font-weight: 650;
+    touch-action: manipulation;
+  }
+
+  .payment-mobile-view__pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .payment-mobile-view__pagination span {
+    color: var(--text-muted);
+    font-size: clamp(12px, 3.5vw, 13px);
+    text-align: center;
+  }
+
+  .payment-mobile-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .payment-page-content {
+    padding-right: 16px !important;
+    padding-left: 16px !important;
+  }
+
+  .payment-mobile-card {
+    padding: 16px 13px;
+  }
+
+  .payment-mobile-card__top {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .payment-mobile-card__date {
+    align-items: flex-start;
+  }
+}

@@ -21,6 +21,7 @@ import { ROUTES } from '../../../config/routes'
 import { PAGINATION } from '../../../config/dimensions'
 import { VALIDATION_MESSAGES } from '../../../config/validation-messages'
 import { ROLES } from '../../../constants/roles'
+import PaymentMobile from '../../../../Mobile/src/pages/Sales/PaymentMobile'
 import {
   calculateCashAmountAfterCredit,
   calculateCreditUsedOnSelections,
@@ -1521,8 +1522,8 @@ function Payment() {
     Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
-    <div className="dashboard-content" style={{ padding: '1rem' }} onScrollCapture={closeActionDropdown}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0, gap: '0.75rem', flexWrap: 'wrap' }}>
+    <div className="dashboard-content payment-page-content" style={{ padding: '1rem' }} onScrollCapture={closeActionDropdown}>
+      <div className="payment-desktop-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0, gap: '0.75rem', flexWrap: 'wrap' }}>
         {isAdmin && (
           <MotionButton
             type="button"
@@ -1568,6 +1569,52 @@ function Payment() {
           Add Payment
         </MotionButton>
       </div>
+
+      {isMobile && (
+        <PaymentMobile
+          payments={payments}
+          loading={listLoading}
+          loadingDisabled={loading}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          isAdmin={isAdmin}
+          onAddPayment={openCreatePayment}
+          onUploadCsv={openCsvImportModal}
+          onActions={(payment, event) => {
+            event.stopPropagation()
+            if (openDropdownId === payment._id) {
+              closeActionDropdown()
+              return
+            }
+            const rect = event.currentTarget.getBoundingClientRect()
+            dropdownAnchorRectRef.current = rect
+            const { top, left, shouldOpenUp } = getActionDropdownPosition({
+              rect,
+              dropdownWidth: 260,
+              dropdownHeight: 320
+            })
+            setDropdownPosition({ top, left })
+            setDropdownUp(shouldOpenUp)
+            setDropdownPayment(payment)
+            setOpenDropdownId(payment._id)
+            setAttachmentsMenuOpen(false)
+          }}
+          onPageChange={(page) => fetchPayments(page, searchQuery)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          getCustomerLabel={(payment) => {
+            const name =
+              payment.vendorId?.customerName ||
+              payment.vendorId?.vendorName ||
+              `${payment.vendorId?.firstName || ''} ${payment.vendorId?.lastName || ''}`.replace(/\s+/g, ' ').trim() ||
+              'Unknown'
+            const companyName = payment.vendorId?.companyName || ''
+            return companyName ? `${name} - ${companyName}` : name
+          }}
+          getAmountLabel={(payment) => `$${formatMoney(calculatePaymentListAmount(payment.amount, payment.allocations, payment.paymentListAvailableCredit))}`}
+          formatDate={formatDateDDMMMYYYY}
+        />
+      )}
 
       {csvImportOpen && (
         <ActionMenuPortal>
@@ -2726,7 +2773,7 @@ function Payment() {
         </ActionMenuPortal>
       )}
 
-      <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 700px' }}>
+      <div className="card payment-desktop-list" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 700px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Payment List</h2>
           <div style={{

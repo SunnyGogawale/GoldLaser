@@ -28,6 +28,7 @@ import {
   calculateRemainingAvailableCredit,
   calculatePaymentListAmount
 } from '../../../utils/creditCalculation'
+import PaymentMobile from '../../../../Mobile/src/pages/Sales/PaymentMobile'
 
 const API_URL = `${API_BASE_URL}${API_ENDPOINTS.purchasePayments}`
 const CUSTOMERS_API_URL = `${API_BASE_URL}${API_ENDPOINTS.customers}`
@@ -1475,8 +1476,8 @@ function PurchasePayment() {
   }
 
   return (
-    <div className="dashboard-content" style={{ padding: '1rem' }} onScrollCapture={closeActionDropdown}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0, gap: '0.75rem' }}>
+    <div className="dashboard-content payment-page-content purchase-payment-page-content" style={{ padding: '1rem' }} onScrollCapture={closeActionDropdown}>
+      <div className="payment-desktop-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 0, gap: '0.75rem' }}>
         {isAdmin && <MotionButton type="button" onClick={() => { resetCsvImport(); setCsvImportOpen(true) }} disabled={loading} style={{ padding: '0.5rem 1rem', background: 'var(--bg-main)', color: 'var(--text-header)', border: '1px solid var(--border)', borderRadius: '8px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}><UploadCloud size={16} />Upload CSV</MotionButton>}
         <MotionButton
           type="button"
@@ -1498,6 +1499,51 @@ function PurchasePayment() {
           Add Payment
         </MotionButton>
       </div>
+
+      {isMobile && (
+        <PaymentMobile
+          payments={payments}
+          loading={listLoading}
+          loadingDisabled={loading}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          isAdmin={isAdmin}
+          onAddPayment={openCreatePayment}
+          onUploadCsv={() => { resetCsvImport(); setCsvImportOpen(true) }}
+          onActions={(payment, event) => {
+            event.stopPropagation()
+            if (openDropdownId === payment._id) {
+              closeActionDropdown()
+              return
+            }
+            const rect = event.currentTarget.getBoundingClientRect()
+            dropdownAnchorRectRef.current = rect
+            const { top, left, shouldOpenUp } = getActionDropdownPosition({
+              rect,
+              dropdownWidth: 260,
+              dropdownHeight: 320
+            })
+            setDropdownPosition({ top, left })
+            setDropdownUp(shouldOpenUp)
+            setDropdownPurchasePayment(payment)
+            setOpenDropdownId(payment._id)
+            setAttachmentsMenuOpen(false)
+          }}
+          onPageChange={(page) => fetchPayments(page, searchQuery)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          getCustomerLabel={(payment) => {
+            const vendorName = payment.vendorId?.vendorName || ''
+            const companyName = payment.vendorId?.companyName || ''
+            return vendorName ? (companyName ? `${vendorName} - ${companyName}` : vendorName) : (companyName || '-')
+          }}
+          getAmountLabel={(payment) => `$${formatMoney(calculatePaymentListAmount(payment.amount, payment.allocations, payment.paymentListAvailableCredit))}`}
+          formatDate={formatDate}
+          title="Purchase Payment"
+          customerLabel="Vendor Name"
+          searchPlaceholder="Search any payment field..."
+        />
+      )}
 
       {csvImportOpen && (
         <ActionMenuPortal>
@@ -2401,7 +2447,7 @@ function PurchasePayment() {
         </ActionMenuPortal>
       )}
 
-      <div className="card" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 700px' }}>
+      <div className="card payment-desktop-list" style={{ margin: '0 auto 0', width: '100%', padding: '1.5rem', contentVisibility: 'auto', containIntrinsicSize: 'auto 700px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0, color: 'var(--text-header)', fontSize: '1.25rem' }}>Payment List</h2>
           <div style={{
