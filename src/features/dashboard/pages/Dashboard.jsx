@@ -33,6 +33,7 @@ import MotionButton from '../../../components/MotionButton'
 import { handleApiError } from '../../../utils/toast'
 import { formatDateMMDDYYYY } from '../../../utils/formatters'
 import { REPORT_COLUMNS, REPORT_AMOUNT_COLUMN_KEYS, getReportPopoverPosition } from '../../reports/reportColumns'
+import DashboardMobile from '../../../../Mobile/src/pages/Dashboard/DashboardMobile'
 
 const REPORT_COLUMN_INFO = {
   invoiceAmount: 'Total Invoice Amount',
@@ -672,7 +673,8 @@ function Dashboard() {
   )
 
   return (
-    <div className="dashboard-content">
+    <div className="dashboard-content dashboard-screen">
+      <div className="dashboard-desktop-content">
       <LoadingSkeleton loading={summaryLoading} name="dashboard-summary" fallback={<SkeletonMetricGrid cards={isAdmin ? 12 : 8} />}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem', marginBottom: '1rem' }}>
         {/* Row 1 */}
@@ -932,6 +934,36 @@ function Dashboard() {
           </table>
         </div>
       </div>
+      </div>
+
+      <DashboardMobile
+        isAdmin={isAdmin}
+        summaryLoading={summaryLoading}
+        totalCustomers={totalCustomers}
+        totalVendors={totalVendors}
+        monthlySalesInvoices={monthlySalesInvoices}
+        monthlySalesPayments={monthlySalesPayments}
+        salesOutstanding={salesOutstanding}
+        monthlyPurchaseInvoices={monthlyPurchaseInvoices}
+        monthlyPurchasePayments={monthlyPurchasePayments}
+        purchaseOutstanding={purchaseOutstanding}
+        totalSaleInvoiceRows={totalSaleInvoiceRows}
+        totalSalePaymentRows={totalSalePaymentRows}
+        totalPurchaseInvoiceRows={totalPurchaseInvoiceRows}
+        totalPurchasePaymentRows={totalPurchasePaymentRows}
+        formatMoney={formatMoney}
+        overviewViewType={overviewViewType}
+        setOverviewViewType={setOverviewViewType}
+        customerOverviewSearch={customerOverviewSearch}
+        setCustomerOverviewSearch={setCustomerOverviewSearch}
+        vendorOverviewSearch={vendorOverviewSearch}
+        setVendorOverviewSearch={setVendorOverviewSearch}
+        customerOverview={customerOverview}
+        vendorOverview={vendorOverview}
+        customerOverviewLoading={customerOverviewLoading}
+        vendorOverviewLoading={vendorOverviewLoading}
+        onCustomerOpen={openCustomerModal}
+      />
 
       {customerModalOpen && (
         <div
