@@ -176,7 +176,7 @@
   .invoice-mobile-card__number strong {
     min-width: 0;
     color: var(--primary);
-    font-size: clamp(19px, 5.8vw, 22px);
+    font-size: clamp(14px, 4vw, 16px);
     font-weight: 800;
     overflow-wrap: anywhere;
   }
