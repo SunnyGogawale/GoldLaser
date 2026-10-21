@@ -3017,6 +3017,9 @@ function PurchasePayment() {
         <ActionMenuPortal>
           {(() => {
             const attachmentMenuItems = getAttachmentMenuItems(dropdownPurchasePayment.attachments || [])
+            const hasInvoiceAllocations = Array.isArray(dropdownPurchasePayment.allocations) &&
+              dropdownPurchasePayment.allocations.some((allocation) => allocation?.invoiceId && Number(allocation.amount) > 0)
+            const canEditPayment = !(Number(dropdownPurchasePayment.amount) > 0 && !hasInvoiceAllocations)
 
             return (
               <div
@@ -3158,30 +3161,32 @@ function PurchasePayment() {
                     ))}
                   </div>
                 )}
-                <MotionButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditPayment(dropdownPurchasePayment);
-                    closeActionDropdown();
-                  }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '0.375rem 0.75rem',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-header)',
-                    fontSize: '0.875rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Edit2 size={14} />
-                  Edit
-                </MotionButton>
+                {canEditPayment && (
+                  <MotionButton
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditPayment(dropdownPurchasePayment);
+                      closeActionDropdown();
+                    }}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '0.375rem 0.75rem',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-header)',
+                      fontSize: '0.875rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Edit2 size={14} />
+                    Edit
+                  </MotionButton>
+                )}
                 <MotionButton
                   onClick={(e) => {
                     e.stopPropagation();
