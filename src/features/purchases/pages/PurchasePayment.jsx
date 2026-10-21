@@ -472,6 +472,7 @@ function PurchasePayment() {
   }, [availableCredit, creditUsedOnSelections])
 
   const billPaymentAmount = Math.round((selectedAllocationTotal + Number.EPSILON) * 100) / 100
+  const invoiceSelectionDisabled = !(Number(paymentForm.amount) > 0 || remainingAvailableCredit > 0)
 
   const allocatePaymentAmountFifo = (amount) => {
     const enteredAmount = Math.max(0, Number(amount) || 0)
@@ -2114,9 +2115,9 @@ function PurchasePayment() {
                                     type="checkbox"
                                     checked={isChecked}
                                     onChange={(e) => handleInvoiceSelectionToggle(inv._id, e.target.checked, inv.pendingAmount, inv.description)}
-                                    disabled={loading}
+                                    disabled={loading || invoiceSelectionDisabled}
                                     aria-label={`Select invoice ${inv.invoiceNumber}`}
-                                    style={{ width: 16, height: 16, cursor: loading ? 'not-allowed' : 'pointer' }}
+                                    style={{ width: 16, height: 16, cursor: loading || invoiceSelectionDisabled ? 'not-allowed' : 'pointer' }}
                                   />
                                 </td>
                                 <td style={{ padding: '0.75rem 0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inv.invoiceNumber}>
