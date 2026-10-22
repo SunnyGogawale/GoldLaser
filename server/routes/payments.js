@@ -695,7 +695,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post(['/', '/csv-import'], async (req, res) => {
   try {
     let paymentNumber = req.body.paymentNumber;
     const isUnallocatedCsvRow = isUnallocatedCsvPayment(req.body);

@@ -1443,7 +1443,7 @@ function PurchasePayment() {
             descriptionValue: descriptionIndex >= 0 ? row[descriptionIndex] : undefined,
             descriptionMapped: descriptionIndex >= 0
           })
-          const response = await fetch(API_URL, {
+          const response = await fetch(`${API_URL}/csv-import`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
             body: JSON.stringify({

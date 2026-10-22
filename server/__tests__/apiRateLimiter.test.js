@@ -121,3 +121,37 @@ test('rate limiter fails open when the shared store is unavailable', async () =>
   await middleware(request(), response(), () => { nextCalls += 1; });
   assert.equal(nextCalls, 1);
 });
+
+test('CSV import endpoints bypass rate limiting while regular create endpoints remain limited', async () => {
+  const { BucketModel } = createModels();
+  const middleware = createRateLimitMiddleware({
+    BucketModel,
+    policies: testPolicies,
+    isStoreReady: () => true
+  });
+  let nextCalls = 0;
+
+  for (const originalUrl of [
+    '/api/invoices/csv-import',
+    '/api/payments/csv-import',
+    '/api/purchase-payments/csv-import'
+  ]) {
+    const res = response();
+    await middleware(request({ method: 'POST', originalUrl }), res, () => { nextCalls += 1; });
+    assert.equal(res.statusCode, 200);
+  }
+
+  const regularCreate = request({ method: 'POST', originalUrl: '/api/payments' });
+  const firstResponse = response();
+  await middleware(regularCreate, firstResponse, () => { nextCalls += 1; });
+  assert.equal(firstResponse.statusCode, 200);
+
+  const secondResponse = response();
+  await middleware(regularCreate, secondResponse, () => { nextCalls += 1; });
+  assert.equal(secondResponse.statusCode, 200);
+
+  const thirdResponse = response();
+  await middleware(regularCreate, thirdResponse, () => { nextCalls += 1; });
+  assert.equal(thirdResponse.statusCode, 429);
+  assert.equal(nextCalls, 5);
+});

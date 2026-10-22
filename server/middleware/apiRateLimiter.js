@@ -41,6 +41,12 @@ const environment = ['development', 'staging', 'production'].includes(process.en
 
 const getRequestPath = (req) => String(req.originalUrl || req.url || '/').split('?')[0].slice(0, 2048);
 
+const CSV_IMPORT_ENDPOINTS = new Set([
+  '/api/invoices/csv-import',
+  '/api/payments/csv-import',
+  '/api/purchase-payments/csv-import'
+]);
+
 const normalizeEndpoint = (requestPath) => requestPath
   .replace(/\/[a-f\d]{24}(?=\/|$)/gi, '/:id')
   .replace(/\/\d+(?=\/|$)/g, '/:id')
@@ -82,7 +88,10 @@ const createRateLimitMiddleware = ({
   recordCompletion = queueRequestCompletion,
   now = () => Date.now()
 } = {}) => async (req, res, next) => {
-  if (!getRequestPath(req).startsWith('/api/')) return next();
+  const requestPath = getRequestPath(req);
+  if (!requestPath.startsWith('/api/')) return next();
+  if (req.method === 'POST' && CSV_IMPORT_ENDPOINTS.has(requestPath.replace(/\/$/, ''))) return next();
+
   const requestStartedAt = process.hrtime.bigint();
   if (!isStoreReady()) return next();
 
@@ -95,7 +104,6 @@ const createRateLimitMiddleware = ({
   const windowStart = Math.floor(timestamp / policy.windowMs) * policy.windowMs;
   const windowStartedAt = new Date(windowStart);
   const windowEndsAt = new Date(windowStart + policy.windowMs);
-  const requestPath = getRequestPath(req);
   const endpoint = normalizeEndpoint(requestPath);
   const method = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(req.method) ? req.method : 'OTHER';
   const registeredRoute = registry?.resolve(method, requestPath) || null;

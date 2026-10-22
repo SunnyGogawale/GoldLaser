@@ -8,6 +8,8 @@ MongoDB atomic `findOneAndUpdate` pipeline counters are the shared store across 
 
 The configured `TRUST_PROXY` value controls Express proxy trust. Leave it unset unless the service is behind a trusted proxy; otherwise configure the exact trusted proxy hop count or subnet. Never trust arbitrary client-supplied forwarding headers. In a multi-instance deployment, set `APP_INSTANCE_ID` uniquely for each instance if the default hostname/PID identifier is not unique.
 
+The dedicated `POST /api/invoices/csv-import`, `POST /api/payments/csv-import`, and `POST /api/purchase-payments/csv-import` routes bypass rate-limit enforcement for CSV imports. Their normal create-route validation and database behavior are retained. Other methods and routes, including the regular `POST` create routes, remain rate limited. Authentication and request-body size limits continue to apply.
+
 ## Default Policies
 
 | Policy | Scope | Default |

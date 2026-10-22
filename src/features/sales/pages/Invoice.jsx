@@ -1315,7 +1315,7 @@ function Invoice() {
           attachments: [],
         };
 
-        const response = await fetch(API_URL, {
+        const response = await fetch(`${API_URL}/csv-import`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

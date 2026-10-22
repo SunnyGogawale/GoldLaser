@@ -412,7 +412,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Add a new invoice
-router.post('/', async (req, res) => {
+router.post(['/', '/csv-import'], async (req, res) => {
   try {
     let generatedId = req.body.invoiceNumber;
     
