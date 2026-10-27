@@ -8,6 +8,7 @@ const SalePayment = require('../models/SalePayment');
 const PurchaseInvoice = require('../models/PurchaseInvoice');
 const PurchasePayment = require('../models/PurchasePayment');
 const User = require('../models/User');
+const { requireAdmin: requireActiveAdmin } = require('../middleware/adminAuth');
 const { sendErrorResponse } = require('../utils/errorHandler');
 
 async function getCustomerOutstanding(customerId) {
@@ -125,25 +126,6 @@ const getAuthUserInfo = async (req) => {
     };
   } catch {
     return null;
-  }
-};
-
-const requireAdmin = async (req, res, next) => {
-  try {
-    const token = getBearerToken(req);
-    if (!token) return res.status(401).json({ message: 'Unauthorized' });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded?.user?.id;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-
-    const user = await User.findById(userId);
-    const roll = String(user?.roll || user?.role || 'user').toLowerCase();
-    if (roll !== 'admin') return res.status(403).json({ message: 'Forbidden' });
-
-    return next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Unauthorized' });
   }
 };
 
@@ -561,38 +543,130 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete a customer
-router.delete('/:id', requireAdmin, async (req, res) => {
-  try {
-    const customer = await Customer.findById(req.params.id);
-    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+const isTransactionUnsupported = (error) => {
+  const unsupportedTransactionMessages = [
+    'transaction numbers are only allowed',
+    'transactions are not supported',
+    'transaction is not supported',
+    'does not support transactions'
+  ];
+  const message = String(error?.message || '').toLowerCase();
+  return error?.code === 20 && unsupportedTransactionMessages.some((text) => message.includes(text));
+};
 
-    const [invoiceResult, paymentResult, purchaseInvoiceResult, purchasePaymentResult] = await Promise.all([
-      SaleInvoice.deleteMany({ $or: [{ customerId: customer._id }, { clientId: customer._id, clientType: 'Customer' }] }),
-      SalePayment.deleteMany({ $or: [{ customerId: customer._id }, { clientId: customer._id, clientType: 'Customer' }] }),
-      PurchaseInvoice.deleteMany({ clientId: customer._id, clientType: 'Customer' }),
-      PurchasePayment.deleteMany({ clientId: customer._id, clientType: 'Customer' })
-    ]);
+async function deleteCustomerData(customerId, scope, session) {
+  const options = session ? { session } : undefined;
+  const deleteInvoices = scope === 'full' || scope === 'invoices';
+  const deletePayments = scope === 'full' || scope === 'payments';
+  const deleted = {
+    customers: 0,
+    saleInvoices: 0,
+    salePayments: 0,
+    purchaseInvoices: 0,
+    purchasePayments: 0,
+    orphanSaleInvoices: 0,
+    orphanSalePayments: 0,
+    orphanPurchaseInvoices: 0,
+    orphanPurchasePayments: 0
+  };
 
-    await Customer.findByIdAndDelete(customer._id);
-
-    res.json({
-      message: 'Customer deleted',
-      deleted: {
-        customers: 1,
-        saleInvoices: invoiceResult?.deletedCount || 0,
-        salePayments: paymentResult?.deletedCount || 0,
-        purchaseInvoices: purchaseInvoiceResult?.deletedCount || 0,
-        purchasePayments: purchasePaymentResult?.deletedCount || 0,
-        orphanSaleInvoices: 0,
-        orphanSalePayments: 0,
-        orphanPurchaseInvoices: 0,
-        orphanPurchasePayments: 0
-      }
-    });
-  } catch (err) {
-    sendErrorResponse(res, err, 'Something went wrong. Please try again later.', 500, 'customers.delete');
+  if (deleteInvoices) {
+    const saleInvoices = await SaleInvoice.deleteMany(
+      { $or: [{ customerId }, { clientId: customerId, clientType: 'Customer' }] },
+      options
+    );
+    const purchaseInvoices = await PurchaseInvoice.deleteMany(
+      { clientId: customerId, clientType: 'Customer' },
+      options
+    );
+    deleted.saleInvoices = saleInvoices.deletedCount || 0;
+    deleted.purchaseInvoices = purchaseInvoices.deletedCount || 0;
   }
+
+  if (deletePayments) {
+    const salePayments = await SalePayment.deleteMany(
+      { $or: [{ customerId }, { clientId: customerId, clientType: 'Customer' }] },
+      options
+    );
+    const purchasePayments = await PurchasePayment.deleteMany(
+      { clientId: customerId, clientType: 'Customer' },
+      options
+    );
+    deleted.salePayments = salePayments.deletedCount || 0;
+    deleted.purchasePayments = purchasePayments.deletedCount || 0;
+  }
+
+  if (scope === 'full') {
+    const customerResult = await Customer.deleteOne({ _id: customerId }, options);
+    deleted.customers = customerResult.deletedCount || 0;
+  }
+
+  return deleted;
+}
+
+async function executeCustomerDeletion(customerId, scope, session) {
+  const customerQuery = Customer.findById(customerId);
+  if (session) customerQuery.session(session);
+  const customer = await customerQuery;
+  if (!customer) {
+    const error = new Error('Customer not found');
+    error.status = 404;
+    throw error;
+  }
+
+  return deleteCustomerData(customer._id, scope, session);
+}
+
+async function deleteCustomerWithTransaction(customerId, scope) {
+  const session = await mongoose.startSession();
+  try {
+    let deleted;
+    try {
+      await session.withTransaction(async () => {
+        deleted = await executeCustomerDeletion(customerId, scope, session);
+      });
+    } catch (error) {
+      if (!isTransactionUnsupported(error)) throw error;
+      deleted = await executeCustomerDeletion(customerId, scope, null);
+    }
+    return deleted;
+  } finally {
+    await session.endSession();
+  }
+}
+
+async function handleCustomerDeletion(req, res, scope) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid customer ID' });
+    }
+
+    const deleted = await deleteCustomerWithTransaction(req.params.id, scope);
+    return res.json({
+      message: scope === 'full' ? 'Customer deleted' : 'Customer records deleted',
+      deleted
+    });
+  } catch (error) {
+    if (error.status === 404) return res.status(404).json({ message: error.message });
+    return sendErrorResponse(
+      res,
+      error,
+      'Something went wrong. Please try again later.',
+      500,
+      `customers.delete.${scope}`
+    );
+  }
+}
+
+router.delete('/:id/:scope', requireActiveAdmin, async (req, res) => {
+  const { scope } = req.params;
+  if (!['full', 'invoices', 'payments'].includes(scope)) {
+    return res.status(400).json({ message: 'Invalid customer deletion scope' });
+  }
+  return handleCustomerDeletion(req, res, scope);
 });
+
+// Keep the existing endpoint contract: deleting by customer ID removes all related records.
+router.delete('/:id', requireActiveAdmin, (req, res) => handleCustomerDeletion(req, res, 'full'));
 
 module.exports = router;

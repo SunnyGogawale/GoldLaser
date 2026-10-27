@@ -101,6 +101,8 @@ function Customer() {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [dropdownUp, setDropdownUp] = useState(false)
   const dropdownRef = useRef(null)
+  const [deleteCustomer, setDeleteCustomer] = useState(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
   const [pdfFileName, setPdfFileName] = useState('customer_statement.pdf')
@@ -178,6 +180,7 @@ function Customer() {
       setCustomers(data.customers || []);
       setTotalPages(data.totalPages || 0);
       setCurrentPage(page);
+      return data
     } catch (err) {
       if (!request.signal.aborted) handleApiError(err, 'Error fetching customers');
     } finally {
@@ -663,15 +666,25 @@ function Customer() {
     setFormOpen(false)
   }
 
-  const handleDeleteCustomer = async (id) => {
+  const handleDeleteCustomer = async (customer, scope) => {
     if (!isAdmin) {
       showErrorToast('Only admin can delete.')
       return
     }
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      try {
+    if (deleteLoading) return
+
+    const customerName = customer.customerName || customer.companyName || 'this customer'
+    const confirmationMessages = {
+      full: `Delete ${customerName} and all associated invoices, payments, and customer data? This cannot be undone.`,
+      invoices: `Delete all invoices for ${customerName}? Customer details and payment records will be retained.`,
+      payments: `Delete all payments for ${customerName}? Customer details and invoice records will be retained.`
+    }
+    if (!window.confirm(confirmationMessages[scope])) return
+
+    setDeleteLoading(true)
+    try {
         const token = getAuthToken()
-        const response = await fetch(`${API_URL}/${id}`, {
+        const response = await fetch(`${API_URL}/${customer._id}/${scope}`, {
           method: 'DELETE',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined
         });
@@ -679,12 +692,17 @@ function Customer() {
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.message || 'Error deleting customer');
         }
-        await fetchCustomers(currentPage);
-        showSuccessToast('Customer deleted successfully!');
+        const refreshedCustomers = await fetchCustomers(currentPage)
+        if (scope === 'full' && currentPage > 1 && refreshedCustomers?.customers?.length === 0) {
+          await fetchCustomers(currentPage - 1)
+        }
+        setDeleteCustomer(null)
+        showSuccessToast(scope === 'full' ? 'Customer deleted successfully!' : 'Customer records deleted successfully!')
       } catch (err) {
-        handleApiError(err, 'Error deleting customer');
+        handleApiError(err, 'Error deleting customer records')
+      } finally {
+        setDeleteLoading(false)
       }
-    }
   };
 
   const openInfo = async (customer) => {
@@ -2409,7 +2427,7 @@ function Customer() {
             <MotionButton
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteCustomer(dropdownCustomer._id);
+                setDeleteCustomer(dropdownCustomer);
                 setOpenDropdownId(null);
                 setDropdownCustomer(null);
               }}
@@ -2432,6 +2450,93 @@ function Customer() {
               Delete
             </MotionButton>
           )}
+          </div>
+        </ActionMenuPortal>
+      )}
+
+      {isAdmin && deleteCustomer && (
+        <ActionMenuPortal>
+          <div
+            role="presentation"
+            onClick={() => {
+              if (!deleteLoading) setDeleteCustomer(null)
+            }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 100000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+              background: 'rgba(0, 0, 0, 0.45)'
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="customer-delete-title"
+              onClick={(event) => event.stopPropagation()}
+              style={{
+                width: 'min(100%, 420px)',
+                padding: '1.25rem',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                background: 'var(--bg-card)',
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)'
+              }}
+            >
+              <h2 id="customer-delete-title" style={{ margin: '0 0 0.5rem', color: 'var(--text-header)', fontSize: '1.1rem' }}>
+                Delete customer data
+              </h2>
+              <p style={{ margin: '0 0 1rem', color: 'var(--text-muted)' }}>
+                Choose an action for {deleteCustomer.customerName || deleteCustomer.companyName || 'this customer'}.
+              </p>
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                {[
+                  { scope: 'full', label: 'Delete Full' },
+                  { scope: 'invoices', label: 'Only Invoice' },
+                  { scope: 'payments', label: 'Only Payment' }
+                ].map(({ scope, label }) => (
+                  <MotionButton
+                    key={scope}
+                    type="button"
+                    disabled={deleteLoading}
+                    onClick={() => handleDeleteCustomer(deleteCustomer, scope)}
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.75rem',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      color: scope === 'full' ? 'var(--danger)' : 'var(--text-header)',
+                      textAlign: 'left',
+                      cursor: deleteLoading ? 'not-allowed' : 'pointer',
+                      fontWeight: 700
+                    }}
+                  >
+                    {label}
+                  </MotionButton>
+                ))}
+              </div>
+              <MotionButton
+                type="button"
+                disabled={deleteLoading}
+                onClick={() => setDeleteCustomer(null)}
+                style={{
+                  width: '100%',
+                  marginTop: '0.75rem',
+                  padding: '0.6rem',
+                  border: 'none',
+                  borderRadius: '8px',
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                  cursor: deleteLoading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Cancel
+              </MotionButton>
+            </div>
           </div>
         </ActionMenuPortal>
       )}
