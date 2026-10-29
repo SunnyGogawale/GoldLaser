@@ -1,4 +1,4 @@
-import { DATE_FORMAT } from '../config/date-format'
+import { DATE_FORMAT } from '../config/date-format.js'
 
 export const formatDateMMDDYYYY = (value, fallback = '-') => {
   if (!value) return fallback

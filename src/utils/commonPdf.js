@@ -1,5 +1,3 @@
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 const formatMoney = (value) =>
   Number(value || 0).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
@@ -101,6 +99,10 @@ export const generateStatementPdfBlob = async ({
   transactions = [],
   companySettings = {}
 } = {}) => {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ])
   const meta = getStatementDocumentMeta(entityType)
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
   const pageWidth = doc.internal.pageSize.getWidth()

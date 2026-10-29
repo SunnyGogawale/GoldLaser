@@ -1,9 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, FileText, Info } from 'lucide-react'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-import * as XLSX from 'xlsx'
 import EmptyDataCard from '../../../components/EmptyDataCard'
 import { LoadingSkeleton, SkeletonTable } from '../../../components/SkeletonUI'
 import MotionButton from '../../../components/MotionButton'
@@ -157,6 +154,10 @@ function Reports() {
   const downloadPdf = async () => {
     try {
       const data = await fetchReport(1, { limit: 10000, download: true })
+      const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable')
+      ])
       const columns = REPORT_COLUMNS
       const document = new jsPDF({ orientation: 'landscape' })
       const title = activeTab === 'sales' ? 'Sale Report' : 'Purchase Report'
@@ -211,6 +212,7 @@ function Reports() {
   const downloadExcel = async () => {
     try {
       const data = await fetchReport(1, { limit: 10000, download: true })
+      const XLSX = await import('xlsx')
       const columns = REPORT_COLUMNS
       const headers = columns.map((column) => column.label)
       const exportRows = (data.rows || []).map((row) => Object.fromEntries(columns.map((column) => {

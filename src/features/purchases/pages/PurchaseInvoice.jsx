@@ -1008,7 +1008,7 @@ function PurchaseInvoice() {
       await new Promise((resolve) => setTimeout(resolve, 0));
       const pdfCompanySettings = await refreshCompanySettings(API_BASE_URL, companySettings);
       setCompanySettings(pdfCompanySettings);
-      const generatedPdf = generateInvoicePdfBlob({ invoiceType: 'purchase', invoice, companySettings: pdfCompanySettings });
+      const generatedPdf = await generateInvoicePdfBlob({ invoiceType: 'purchase', invoice, companySettings: pdfCompanySettings });
       const url = URL.createObjectURL(generatedPdf.blob);
       setPdfBlobUrl(url);
       setPdfFileName(generatedPdf.fileName);

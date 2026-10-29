@@ -1,5 +1,3 @@
-import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { drawPdfCompanyLogo } from './pdfLogo.js'
 
 const colors = {
@@ -81,7 +79,11 @@ export const buildPaymentPdfFileName = (paymentType = 'sale', payment = {}) => {
   return `${prefix}_${number}.pdf`
 }
 
-export const generatePaymentPdfBlob = ({ paymentType = 'sale', payment = {}, companySettings = {} } = {}) => {
+export const generatePaymentPdfBlob = async ({ paymentType = 'sale', payment = {}, companySettings = {} } = {}) => {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ])
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()

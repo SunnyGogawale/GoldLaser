@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import Login from './features/auth/pages/Login'
-import AdminLogin from './features/auth/pages/AdminLogin'
-import SignUp from './features/auth/pages/SignUp'
-import ForgotPassword from './features/auth/pages/ForgotPassword'
+const Login = lazy(() => import('./features/auth/pages/Login'))
+const AdminLogin = lazy(() => import('./features/auth/pages/AdminLogin'))
+const SignUp = lazy(() => import('./features/auth/pages/SignUp'))
+const ForgotPassword = lazy(() => import('./features/auth/pages/ForgotPassword'))
 import Layout from './components/Layout'
-import Dashboard from './features/dashboard/pages/Dashboard'
-import Customer from './features/customers/pages/Customer'
-import Invoice from './features/sales/pages/Invoice'
-import Payment from './features/sales/pages/Payment'
-import Reports from './features/reports/pages/Reports'
-import User from './features/admin/pages/User'
-import Backup from './features/admin/pages/Backup'
-import Product from './features/admin/pages/Product'
-import LoadBalancing from './features/admin/pages/LoadBalancing'
-import RateLimitActivities from './features/admin/pages/RateLimitActivities'
-import Vendor from './features/vendors/pages/Vendor'
-import PurchaseInvoice from './features/purchases/pages/PurchaseInvoice'
-import PurchasePayment from './features/purchases/pages/PurchasePayment'
+const Dashboard = lazy(() => import('./features/dashboard/pages/Dashboard'))
+const Customer = lazy(() => import('./features/customers/pages/Customer'))
+const Invoice = lazy(() => import('./features/sales/pages/Invoice'))
+const Payment = lazy(() => import('./features/sales/pages/Payment'))
+const Reports = lazy(() => import('./features/reports/pages/Reports'))
+const User = lazy(() => import('./features/admin/pages/User'))
+const Backup = lazy(() => import('./features/admin/pages/Backup'))
+const Product = lazy(() => import('./features/admin/pages/Product'))
+const LoadBalancing = lazy(() => import('./features/admin/pages/LoadBalancing'))
+const RateLimitActivities = lazy(() => import('./features/admin/pages/RateLimitActivities'))
+const Vendor = lazy(() => import('./features/vendors/pages/Vendor'))
+const PurchaseInvoice = lazy(() => import('./features/purchases/pages/PurchaseInvoice'))
+const PurchasePayment = lazy(() => import('./features/purchases/pages/PurchasePayment'))
 import { clearAuthSession, getAuthToken, getAuthValue, getLastActivityAt, markSessionActivity, recordLogout } from './utils/authStorage'
-import PageTransition from './components/PageTransition'
+const PageTransition = lazy(() => import('./components/PageTransition'))
 import ToastProvider from './components/ToastProvider'
 import { ROUTES } from './config/routes'
 import { APP_CONFIG } from './config/app-config'
@@ -135,6 +135,7 @@ function App() {
       <BrowserRouter>
         <IdleSessionManager isLoggedIn={isLoggedIn} onLogout={logout} />
         <UnauthorizedSessionHandler onUnauthorized={handleUnauthorized} />
+        <Suspense fallback={<div role="status" style={{ padding: '1.5rem' }}>Loading...</div>}>
         <Routes>
         {/* Auth Routes */}
         <Route
@@ -175,6 +176,7 @@ function App() {
           <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
         </Route>
       </Routes>
+        </Suspense>
     </BrowserRouter>
     </ToastProvider>
   )

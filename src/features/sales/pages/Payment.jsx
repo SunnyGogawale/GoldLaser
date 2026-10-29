@@ -1308,7 +1308,7 @@ function Payment() {
       }
       const pdfCompanySettings = await refreshCompanySettings(API_BASE_URL, companySettings)
       setCompanySettings(pdfCompanySettings)
-      const generatedPdf = generatePaymentPdfBlob({
+      const generatedPdf = await generatePaymentPdfBlob({
         paymentType: 'sale',
         payment: paymentForPdf,
         companySettings: pdfCompanySettings

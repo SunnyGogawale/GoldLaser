@@ -66,7 +66,7 @@ test('shared renderer creates Sale and Purchase Payment PDFs', async () => {
     ['sale', 'payment_PAY-2026-1008.pdf', 'PAYMENT'],
     ['purchase', 'purchase_payment_PAY-2026-1008.pdf', 'PURCHASE PAYMENT']
   ]) {
-    const generated = generatePaymentPdfBlob({ paymentType, payment: paymentData, companySettings })
+    const generated = await generatePaymentPdfBlob({ paymentType, payment: paymentData, companySettings })
     const pdf = await generated.blob.text()
     const pdfText = await extractPdfText(generated.blob)
 
@@ -86,7 +86,7 @@ test('shared renderer creates Sale and Purchase Payment PDFs', async () => {
 })
 
 test('shared renderer supports multipage payment allocation tables', async () => {
-  const generated = generatePaymentPdfBlob({
+  const generated = await generatePaymentPdfBlob({
     paymentType: 'purchase',
     payment: {
       ...paymentData,
@@ -108,7 +108,7 @@ test('shared renderer supports multipage payment allocation tables', async () =>
 
 test('payment PDF embeds the company logo when configured', async () => {
   for (const paymentType of ['sale', 'purchase']) {
-    const generated = generatePaymentPdfBlob({
+    const generated = await generatePaymentPdfBlob({
       paymentType,
       payment: paymentData,
       companySettings: { ...companySettings, companyLogo: sampleLogo }
@@ -119,7 +119,7 @@ test('payment PDF embeds the company logo when configured', async () => {
 })
 
 test('payment PDF omits the initials badge when no logo is configured', async () => {
-  const generated = generatePaymentPdfBlob({
+  const generated = await generatePaymentPdfBlob({
     paymentType: 'sale',
     payment: paymentData,
     companySettings: { companyName: 'Studio Point' }
@@ -137,7 +137,7 @@ test('payment bank details stay on one centered row at the page end', async () =
     ifscCode: 'GB29 NWBK 6016',
     branch: 'Westminster Central Branch'
   }
-  const generated = generatePaymentPdfBlob({
+  const generated = await generatePaymentPdfBlob({
     paymentType: 'sale',
     payment: paymentData,
     companySettings: { ...companySettings, bankDetails: longBankDetails }
@@ -149,7 +149,7 @@ test('payment bank details stay on one centered row at the page end', async () =
 })
 
 test('payment PDFs omit allocation invoice dates while retaining payment dates', async () => {
-  const generated = generatePaymentPdfBlob({
+  const generated = await generatePaymentPdfBlob({
     paymentType: 'sale',
     payment: {
       paymentNumber: 'PAY-DATE',

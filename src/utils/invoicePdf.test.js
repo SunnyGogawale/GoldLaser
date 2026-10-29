@@ -55,7 +55,7 @@ test('shared renderer produces sale and purchase invoice PDFs', async () => {
     ['sale', 'INVOICE', 'invoice_SI-1001.pdf'],
     ['purchase', 'PURCHASE INVOICE', 'purchase_invoice_PI-1002.pdf']
   ]) {
-    const generated = sampleInvoice(invoiceType)
+    const generated = await sampleInvoice(invoiceType)
     const pdf = await generated.blob.text()
     const pdfText = await extractPdfText(generated.blob)
 
@@ -70,7 +70,7 @@ test('shared renderer produces sale and purchase invoice PDFs', async () => {
 })
 
 test('shared renderer supports multipage invoice item tables', async () => {
-  const generated = generateInvoicePdfBlob({
+  const generated = await generateInvoicePdfBlob({
     invoiceType: 'purchase',
     invoice: {
       invoiceNumber: 'PI-LONG',
@@ -93,7 +93,7 @@ test('shared renderer supports multipage invoice item tables', async () => {
 
 test('invoice PDF embeds the company logo when configured', async () => {
   for (const invoiceType of ['sale', 'purchase']) {
-    const generated = generateInvoicePdfBlob({
+    const generated = await generateInvoicePdfBlob({
       invoiceType,
       invoice: { invoiceNumber: 'INV-LOGO', invoiceDate: '2026-10-05', totalAmount: 0 },
       companySettings: { companyName: 'Northline Studio Ltd', companyLogo: sampleLogo }
@@ -104,7 +104,7 @@ test('invoice PDF embeds the company logo when configured', async () => {
 })
 
 test('invoice PDF omits the initials badge when no logo is configured', async () => {
-  const generated = generateInvoicePdfBlob({
+  const generated = await generateInvoicePdfBlob({
     invoiceType: 'sale',
     invoice: { invoiceNumber: 'SI-NO-LOGO', invoiceDate: '2026-10-05', totalAmount: 0 },
     companySettings: { companyName: 'Studio Point' }
@@ -115,7 +115,7 @@ test('invoice PDF omits the initials badge when no logo is configured', async ()
 })
 
 test('invoice bank details render together on one footer row', async () => {
-  const generated = sampleInvoice('sale')
+  const generated = await sampleInvoice('sale')
   const pdfText = await extractPdfText(generated.blob)
 
   assert.ok(!pdfText.includes('(BANK DETAILS)'))
