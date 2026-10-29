@@ -208,6 +208,23 @@ const toIsoDateString = (value) => {
   return parsed.toISOString();
 };
 
+const toLocalDateInputValue = (value) => {
+  if (value === null || value === undefined || value === '') return '';
+
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
 function Invoice() {
   // Responsive state
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
@@ -278,7 +295,7 @@ function Invoice() {
     invoiceNumber: '',
     clientId: '',
     clientType: 'Customer',
-    invoiceDate: new Date().toISOString().split('T')[0],
+    invoiceDate: toLocalDateInputValue(new Date()),
     transactionDescription: '',
     items: [
       { product: '', description: '', amount: 0 }
@@ -968,7 +985,7 @@ function Invoice() {
         invoiceNumber: '',
         clientId: '',
         clientType: 'Customer',
-        invoiceDate: new Date().toISOString().split('T')[0],
+        invoiceDate: toLocalDateInputValue(new Date()),
         transactionDescription: '',
         items: [{ product: '', description: '', amount: 0 }],
         memos: [],
@@ -1061,7 +1078,7 @@ function Invoice() {
       invoiceNumber: invoice.invoiceNumber,
       clientId: clientId,
       clientType: clientType,
-      invoiceDate: new Date(invoice.invoiceDate).toISOString().split('T')[0],
+      invoiceDate: toLocalDateInputValue(invoice.invoiceDate),
       transactionDescription: invoice.transactionDescription || '',
       items: invoice.items.map(item => ({
         product: item.product,
@@ -1090,7 +1107,7 @@ function Invoice() {
       invoiceNumber: '',
       clientId: '',
       clientType: 'Customer',
-      invoiceDate: new Date().toISOString().split('T')[0],
+      invoiceDate: toLocalDateInputValue(new Date()),
       transactionDescription: '',
       items: [{ product: '', description: '', amount: 0 }],
       attachments: [],
@@ -1111,7 +1128,7 @@ function Invoice() {
       invoiceNumber: '',
       clientId: '',
       clientType: 'Customer',
-      invoiceDate: new Date().toISOString().split('T')[0],
+      invoiceDate: toLocalDateInputValue(new Date()),
       transactionDescription: '',
       items: [{ product: '', description: '', amount: 0 }],
       attachments: [],
@@ -1404,9 +1421,10 @@ function Invoice() {
         throw new Error(errorData?.message || 'Error deleting selected invoices');
       }
 
+      const selectedCount = selectedInvoiceIds.length;
       setSelectedInvoiceIds([]);
       await fetchInvoices(1, searchQuery, sortColumn, sortOrder);
-      showSuccessToast(`Deleted ${selectedInvoiceIds.length} invoice(s) successfully.`);
+      showSuccessToast(`Deleted ${selectedCount} invoice(s) successfully.`);
     } catch (err) {
       handleApiError(err, 'Error deleting selected invoices');
     }

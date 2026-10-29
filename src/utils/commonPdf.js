@@ -107,6 +107,7 @@ export const generateStatementPdfBlob = async ({
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 12
   const contentWidth = pageWidth - margin * 2
+  const isCustomerStatement = entityType !== 'vendor'
   const dark = [27, 62, 60]
   const teal = [10, 126, 116]
   const muted = [112, 135, 132]
@@ -115,7 +116,13 @@ export const generateStatementPdfBlob = async ({
   const light = [248, 251, 250]
   const recordName = entityType === 'vendor' ? record?.vendorName || '-' : record?.customerName || '-'
   const recordCode = record?.id || record?.customerId || record?.vendorId || '-'
-  const transactionsToPrint = Array.isArray(transactions) ? transactions : []
+  const sourceTransactions = Array.isArray(transactions) ? transactions : []
+  const transactionsToPrint = isCustomerStatement
+    ? [
+        ...sourceTransactions.filter((row) => !String(row?.transactionNo || '').toUpperCase().startsWith('NAP')),
+        ...sourceTransactions.filter((row) => String(row?.transactionNo || '').toUpperCase().startsWith('NAP'))
+      ]
+    : sourceTransactions
   const dates = transactionsToPrint
     .map((row) => ({ value: row.date, date: new Date(row.date) }))
     .filter((item) => item.value && !Number.isNaN(item.date.getTime()))
@@ -278,13 +285,21 @@ export const generateStatementPdfBlob = async ({
     startY: ledgerHeadingY + 4,
     margin: { left: margin, right: margin, bottom: 17 },
     tableWidth: contentWidth,
-    head: [['Date', 'Transaction No', 'Transaction Type', 'Description', 'Debit\n(Invoice)', 'Credit\n(Payment)', 'Balance']],
+    head: [[
+      'Date',
+      'Transaction No',
+      'Transaction Type',
+      isCustomerStatement ? 'Product' : 'Description',
+      'Debit\n(Invoice)',
+      'Credit\n(Payment)',
+      'Balance'
+    ]],
     body: transactionsToPrint.length > 0
       ? transactionsToPrint.map((row) => [
           formatLedgerDate(row.date) || '-',
           row.transactionNo || '-',
           row.transactionType || '-',
-          row.description || '-',
+          (isCustomerStatement ? row.product : row.description) || '-',
           row.debit ? formatPdfMoney(row.debit) : '-',
           row.credit ? formatPdfMoney(row.credit) : '-',
           formatPdfMoney(row.balance || 0)

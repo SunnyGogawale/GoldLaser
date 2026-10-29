@@ -96,6 +96,7 @@ test('customer and vendor statements omit the initials badge', async () => {
         companyContactNumber: '+1 555 0100'
       }
     })
+
     const pdfText = await extractPdfText(blob)
 
     assert.ok(!pdfText.includes('(KL) Tj'))
@@ -103,4 +104,47 @@ test('customer and vendor statements omit the initials badge', async () => {
     assert.ok(pdfText.includes('(88 Hope Road | accounts@northstar.example | +1 555 0100) Tj'))
     assert.ok(!pdfText.includes('(BUSINESS ACCOUNTS) Tj'))
   }
+})
+
+test('customer statement PDF lists invoice products while vendor statements keep descriptions', async () => {
+  const base = {
+    transactions: [{
+      date: '2026-10-01',
+      transactionNo: 'SI-1001',
+      transactionType: 'Sales Invoice',
+      product: 'Pendant, Ring, Chain',
+      description: 'Custom jewelry order',
+      debit: 100,
+      credit: 0,
+      balance: 100
+    }]
+  }
+
+  const customerPdf = await generateStatementPdfBlob({ ...base, entityType: 'customer' })
+  const customerText = await extractPdfText(customerPdf.blob)
+  assert.ok(customerText.includes('(Product) Tj'))
+  assert.ok(customerText.includes('(Pendant, Ring, Chain) Tj'))
+  assert.ok(!customerText.includes('(Custom jewelry order) Tj'))
+
+  const vendorPdf = await generateStatementPdfBlob({ ...base, entityType: 'vendor' })
+  const vendorText = await extractPdfText(vendorPdf.blob)
+  assert.ok(vendorText.includes('(Description) Tj'))
+  assert.ok(vendorText.includes('(Custom jewelry order) Tj'))
+})
+
+test('customer statement PDF groups NAP transactions at the end and preserves order within groups', async () => {
+  const transactions = [
+    { date: '2026-10-01', transactionNo: 'SI-1001', transactionType: 'Sales Invoice', product: 'Pendant', debit: 100, balance: 100 },
+    { date: '2026-10-02', transactionNo: 'NAP-12345', transactionType: 'Sales Payment', product: '', credit: 10, balance: 90 },
+    { date: '2026-10-03', transactionNo: 'SI-1002', transactionType: 'Sales Invoice', product: 'Ring', debit: 200, balance: 290 },
+    { date: '2026-10-04', transactionNo: 'nap-67890', transactionType: 'Sales Payment', product: '', credit: 20, balance: 270 }
+  ]
+
+  const { blob } = await generateStatementPdfBlob({ entityType: 'customer', transactions })
+  const pdfText = await extractPdfText(blob)
+  const transactionOrder = ['SI-1001', 'SI-1002', 'NAP-12345', 'nap-67890']
+    .map((transactionNo) => pdfText.indexOf(`(${transactionNo}) Tj`))
+
+  assert.ok(transactionOrder.every((position) => position >= 0))
+  assert.deepEqual(transactionOrder, [...transactionOrder].sort((a, b) => a - b))
 })
