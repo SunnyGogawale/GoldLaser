@@ -766,10 +766,6 @@ function Customer() {
         createdAt: invoice.createdAt || invoice.invoiceDate,
         transactionNo: invoice.invoiceNumber || '-',
         transactionType: 'Sales Invoice',
-        product: (Array.isArray(invoice.items) ? invoice.items : [])
-          .map((item) => String(item?.product || '').trim())
-          .filter(Boolean)
-          .join(', '),
         description: String(invoice.transactionDescription || '').trim() || 'Invoice',
         debit: Number(invoice.totalAmount) || 0,
         credit: 0
@@ -801,7 +797,6 @@ function Customer() {
         date: row.date,
         transactionNo: row.transactionNo,
         transactionType: row.transactionType,
-        product: row.product,
         description: row.description,
         debit: row.debit,
         credit: row.credit,
