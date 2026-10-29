@@ -96,6 +96,7 @@ test('customer and vendor statements omit the initials badge', async () => {
         companyContactNumber: '+1 555 0100'
       }
     })
+
     const pdfText = await extractPdfText(blob)
 
     assert.ok(!pdfText.includes('(KL) Tj'))
@@ -103,4 +104,22 @@ test('customer and vendor statements omit the initials badge', async () => {
     assert.ok(pdfText.includes('(88 Hope Road | accounts@northstar.example | +1 555 0100) Tj'))
     assert.ok(!pdfText.includes('(BUSINESS ACCOUNTS) Tj'))
   }
+})
+
+test('statement PDF displays a hyphen for missing or blank descriptions', async () => {
+  const { blob } = await generateStatementPdfBlob({
+    entityType: 'customer',
+    transactions: [
+      { date: '2026-10-01', transactionNo: 'SI-EMPTY', transactionType: 'Sales Invoice', description: '', debit: 100, balance: 100 },
+      { date: '2026-10-02', transactionNo: 'SI-WHITESPACE', transactionType: 'Sales Invoice', description: '   ', debit: 100, balance: 200 },
+      { date: '2026-10-03', transactionNo: 'SI-MISSING', transactionType: 'Sales Invoice', debit: 100, balance: 300 }
+    ]
+  })
+  const pdfText = await extractPdfText(blob)
+  const hyphenCells = [...pdfText.matchAll(/\(-\) Tj/g)]
+
+  assert.ok(pdfText.includes('(SI-EMPTY) Tj'))
+  assert.ok(pdfText.includes('(SI-WHITESPACE) Tj'))
+  assert.ok(pdfText.includes('(SI-MISSING) Tj'))
+  assert.ok(hyphenCells.length >= 3)
 })

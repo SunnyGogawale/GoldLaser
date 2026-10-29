@@ -1306,7 +1306,7 @@ function Invoice() {
 
         const payload = {
           invoiceNumber,
-          transactionDescription: descriptionValue || productValue,
+          transactionDescription: '',
           clientId: csvSelectedCustomerId,
           clientType: 'Customer',
           invoiceDate: normalizedInvoiceDateValue ? toIsoDateString(normalizedInvoiceDateValue) : new Date().toISOString(),

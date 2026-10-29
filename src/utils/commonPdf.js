@@ -286,7 +286,7 @@ export const generateStatementPdfBlob = async ({
           formatLedgerDate(row.date) || '-',
           row.transactionNo || '-',
           row.transactionType || '-',
-          row.description || '-',
+          String(row.description ?? '').trim() || '-',
           row.debit ? formatPdfMoney(row.debit) : '-',
           row.credit ? formatPdfMoney(row.credit) : '-',
           formatPdfMoney(row.balance || 0)

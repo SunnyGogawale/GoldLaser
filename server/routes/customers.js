@@ -317,7 +317,7 @@ router.get('/:id/statement', async (req, res) => {
         createdAt: invoice.createdAt || invoice.invoiceDate,
         transactionNo: invoice.invoiceNumber || '-',
         transactionType: 'Sales Invoice',
-        description: String(invoice.transactionDescription || '').trim() || 'Invoice',
+        description: String(invoice.transactionDescription || '').trim(),
         debit: Number(invoice.totalAmount) || 0,
         credit: 0
       })),
@@ -326,7 +326,7 @@ router.get('/:id/statement', async (req, res) => {
         createdAt: payment.createdAt || payment.paymentDate,
         transactionNo: payment.paymentNumber || '-',
         transactionType: 'Sales Payment',
-        description: String(payment.description || '').trim() || 'Payment Received',
+        description: String(payment.description || '').trim(),
         debit: 0,
         credit: Number(payment.amount) || 0,
         balanceCredit: payment.excludeFromOutstanding || /NAP/i.test(String(payment.paymentNumber || ''))
